@@ -15,6 +15,7 @@ concurrency:
 jobs:
   collect:
     runs-on: ubuntu-latest
+    timeout-minutes: 15       # 안전장치: 15분 넘으면 깃허브가 멈춤
     steps:
       - uses: actions/checkout@v4
 
@@ -22,8 +23,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      # 지난 경기 기록 캐시는 저장소에 커밋하지 않고 깃허브 캐시에 보관 (저장소가 불어나지 않게)
-      - uses: actions/cache@v4
+      # 지난 경기 기록 캐시: 불러오기
+      - uses: actions/cache/restore@v4
         with:
           path: cache
           key: lineup-cache-${{ github.run_id }}
@@ -33,6 +34,14 @@ jobs:
 
       - name: 수집 실행
         run: python collect.py
+
+      # 받은 기록은 실행이 실패하거나 멈춰도 저장 (다음 실행에서 이어받기)
+      - name: 캐시 저장
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: cache
+          key: lineup-cache-${{ github.run_id }}
 
       - name: 결과 커밋
         run: |
