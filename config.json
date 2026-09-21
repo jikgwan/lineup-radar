@@ -1,0 +1,293 @@
+{
+  "mlb_enabled": true,
+  "espn_leagues": [
+    {
+      "sport": "축구",
+      "slug": "kor.1",
+      "path": "soccer/kor.1",
+      "name": "K리그1"
+    },
+    {
+      "sport": "축구",
+      "slug": "kor.2",
+      "path": "soccer/kor.2",
+      "name": "K리그2"
+    },
+    {
+      "sport": "축구",
+      "slug": "fifa.worldq.afc",
+      "path": "soccer/fifa.worldq.afc",
+      "name": "월드컵 예선(아시아)",
+      "national": true
+    },
+    {
+      "sport": "축구",
+      "slug": "afc.asian.cup",
+      "path": "soccer/afc.asian.cup",
+      "name": "아시안컵",
+      "national": true
+    },
+    {
+      "sport": "축구",
+      "slug": "fifa.friendly",
+      "path": "soccer/fifa.friendly",
+      "name": "A매치 친선",
+      "national": true
+    },
+    {
+      "sport": "축구",
+      "slug": "fifa.olympics",
+      "path": "soccer/fifa.olympics",
+      "name": "올림픽 남자축구",
+      "national": true
+    },
+    {
+      "sport": "축구",
+      "slug": "fifa.world",
+      "path": "soccer/fifa.world",
+      "name": "월드컵",
+      "national": true
+    },
+    {
+      "sport": "축구",
+      "slug": "fifa.worldq.uefa",
+      "path": "soccer/fifa.worldq.uefa",
+      "name": "월드컵 예선(유럽)",
+      "national": true
+    },
+    {
+      "sport": "축구",
+      "slug": "fifa.worldq.conmebol",
+      "path": "soccer/fifa.worldq.conmebol",
+      "name": "월드컵 예선(남미)",
+      "national": true
+    },
+    {
+      "sport": "축구",
+      "slug": "fifa.worldq.concacaf",
+      "path": "soccer/fifa.worldq.concacaf",
+      "name": "월드컵 예선(북중미)",
+      "national": true
+    },
+    {
+      "sport": "축구",
+      "slug": "fifa.worldq.caf",
+      "path": "soccer/fifa.worldq.caf",
+      "name": "월드컵 예선(아프리카)",
+      "national": true
+    },
+    {
+      "sport": "축구",
+      "slug": "uefa.nations",
+      "path": "soccer/uefa.nations",
+      "name": "UEFA 네이션스리그",
+      "national": true
+    },
+    {
+      "sport": "축구",
+      "slug": "uefa.euro",
+      "path": "soccer/uefa.euro",
+      "name": "유로",
+      "national": true
+    },
+    {
+      "sport": "축구",
+      "slug": "uefa.euroq",
+      "path": "soccer/uefa.euroq",
+      "name": "유로 예선",
+      "national": true
+    },
+    {
+      "sport": "축구",
+      "slug": "conmebol.america",
+      "path": "soccer/conmebol.america",
+      "name": "코파 아메리카",
+      "national": true
+    },
+    {
+      "sport": "축구",
+      "slug": "concacaf.gold",
+      "path": "soccer/concacaf.gold",
+      "name": "골드컵",
+      "national": true
+    },
+    {
+      "sport": "축구",
+      "slug": "caf.nations",
+      "path": "soccer/caf.nations",
+      "name": "아프리카 네이션스컵",
+      "national": true
+    },
+    {
+      "sport": "축구",
+      "slug": "fifa.wwc",
+      "path": "soccer/fifa.wwc",
+      "name": "여자 월드컵",
+      "national": true
+    },
+    {
+      "sport": "축구",
+      "slug": "fifa.friendly.w",
+      "path": "soccer/fifa.friendly.w",
+      "name": "여자 A매치 친선",
+      "national": true
+    },
+    {
+      "sport": "축구",
+      "slug": "eng.1",
+      "path": "soccer/eng.1",
+      "name": "EPL"
+    },
+    {
+      "sport": "축구",
+      "slug": "esp.1",
+      "path": "soccer/esp.1",
+      "name": "라리가"
+    },
+    {
+      "sport": "축구",
+      "slug": "ita.1",
+      "path": "soccer/ita.1",
+      "name": "세리에A"
+    },
+    {
+      "sport": "축구",
+      "slug": "ger.1",
+      "path": "soccer/ger.1",
+      "name": "분데스리가"
+    },
+    {
+      "sport": "축구",
+      "slug": "fra.1",
+      "path": "soccer/fra.1",
+      "name": "리그1"
+    },
+    {
+      "sport": "축구",
+      "slug": "ned.1",
+      "path": "soccer/ned.1",
+      "name": "에레디비시"
+    },
+    {
+      "sport": "축구",
+      "slug": "por.1",
+      "path": "soccer/por.1",
+      "name": "포르투갈"
+    },
+    {
+      "sport": "축구",
+      "slug": "tur.1",
+      "path": "soccer/tur.1",
+      "name": "터키"
+    },
+    {
+      "sport": "축구",
+      "slug": "eng.2",
+      "path": "soccer/eng.2",
+      "name": "챔피언십"
+    },
+    {
+      "sport": "축구",
+      "slug": "esp.2",
+      "path": "soccer/esp.2",
+      "name": "라리가2"
+    },
+    {
+      "sport": "축구",
+      "slug": "uefa.champions",
+      "path": "soccer/uefa.champions",
+      "name": "챔피언스리그"
+    },
+    {
+      "sport": "축구",
+      "slug": "uefa.europa",
+      "path": "soccer/uefa.europa",
+      "name": "유로파리그"
+    },
+    {
+      "sport": "축구",
+      "slug": "uefa.europa.conf",
+      "path": "soccer/uefa.europa.conf",
+      "name": "컨퍼런스리그"
+    },
+    {
+      "sport": "축구",
+      "slug": "eng.league_cup",
+      "path": "soccer/eng.league_cup",
+      "name": "카라바오컵"
+    },
+    {
+      "sport": "축구",
+      "slug": "jpn.1",
+      "path": "soccer/jpn.1",
+      "name": "J리그"
+    },
+    {
+      "sport": "축구",
+      "slug": "usa.1",
+      "path": "soccer/usa.1",
+      "name": "MLS"
+    },
+    {
+      "sport": "축구",
+      "slug": "bra.1",
+      "path": "soccer/bra.1",
+      "name": "브라질"
+    },
+    {
+      "sport": "축구",
+      "slug": "arg.1",
+      "path": "soccer/arg.1",
+      "name": "아르헨티나"
+    },
+    {
+      "sport": "축구",
+      "slug": "afc.champions",
+      "path": "soccer/afc.champions",
+      "name": "ACL 엘리트"
+    },
+    {
+      "sport": "축구",
+      "slug": "afc.cup",
+      "path": "soccer/afc.cup",
+      "name": "ACL2"
+    },
+    {
+      "sport": "농구",
+      "slug": "nba",
+      "path": "basketball/nba",
+      "name": "NBA"
+    }
+  ],
+  "league_strength": {
+    "_설명": "리그가 다른 팀끼리 붙을 때(챔스 등)만 쓰는 리그 수준 보정값. 같은 리그 경기에는 적용되지 않음. 추정치라 자유롭게 고쳐도 됨.",
+    "eng.1": 1.0,
+    "esp.1": 0.96,
+    "ita.1": 0.94,
+    "ger.1": 0.93,
+    "fra.1": 0.88,
+    "por.1": 0.84,
+    "ned.1": 0.83,
+    "tur.1": 0.78,
+    "eng.2": 0.78,
+    "esp.2": 0.72,
+    "bra.1": 0.82,
+    "arg.1": 0.78,
+    "usa.1": 0.75,
+    "jpn.1": 0.72,
+    "kor.1": 0.7,
+    "kor.2": 0.55,
+    "default": 0.8
+  },
+  "home_advantage_slugs": [
+    "fifa.friendly",
+    "fifa.friendly.w",
+    "fifa.worldq.afc",
+    "fifa.worldq.uefa",
+    "fifa.worldq.conmebol",
+    "fifa.worldq.concacaf",
+    "fifa.worldq.caf",
+    "uefa.nations",
+    "uefa.euroq"
+  ]
+}

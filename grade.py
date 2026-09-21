@@ -1,0 +1,708 @@
+"""선발 라인업으로 '몇 군'을 판정하는 순수 로직 (네트워크 없음 = 테스트 가능)."""
+
+from __future__ import annotations
+
+
+def josa(word, with_final, without_final):
+    """받침 유무로 조사 선택: josa('레알', '은', '는') -> '레알은'."""
+    w = str(word or "")
+    ch = w[-1:] if w else ""
+    if ch and "가" <= ch <= "힣":
+        has = (ord(ch) - 0xAC00) % 28 != 0
+    else:
+        has = ch.lower() in set("lmnr0136789")   # 영문·숫자는 읽는 소리 기준 대략
+    return w + (with_final if has else without_final)
+
+
+def build_profiles(history):
+    """history: [{"starters": [pid...], "played": [pid...], "names": {pid: name}}, ...]
+    최근 경기부터 순서는 상관 없음.
+    반환: {pid: {"name": str, "starts": int, "apps": int}}
+    """
+    profiles = {}
+    for match in history:
+        names = match.get("names") or {}
+        played = set(match.get("played") or [])
+        starters = set(match.get("starters") or [])
+        played |= starters
+        for pid in played:
+            p = profiles.setdefault(pid, {"name": names.get(pid, ""), "starts": 0, "apps": 0})
+            if not p["name"] and names.get(pid):
+                p["name"] = names[pid]
+            p["apps"] += 1
+            if pid in starters:
+                p["starts"] += 1
+    return profiles
+
+
+def core_players(profiles, size):
+    """최근 선발 횟수 기준 '주전 후보' size명의 pid 목록."""
+    ranked = sorted(
+        profiles.items(),
+        key=lambda kv: (-kv[1]["starts"], -kv[1]["apps"], str(kv[0])),
+    )
+    return [pid for pid, _ in ranked[:size]]
+
+
+def role_of(pid, profiles, matches):
+    """주전 / 로테이션 / 백업 / 불명"""
+    if matches <= 0:
+        return "불명"
+    p = profiles.get(pid)
+    if not p:
+        return "신규·복귀"
+    ratio = p["starts"] / matches
+    if ratio >= 0.6:
+        return "주전"
+    if ratio >= 0.3:
+        return "로테이션"
+    return "백업"
+
+
+# 기준 인원별 (1군 최소 인원, 1.5군 최소 인원)
+GRADE_CUTS = {
+    11: (9, 6),  # 축구
+    9: (8, 6),   # 야구 타선
+    7: (6, 5),   # 배구
+    5: (5, 4),   # 농구
+}
+
+
+def grade_label(core_in, size):
+    """선발 중 주전 후보가 몇 명인지로 1군/1.5군/2군 판정."""
+    if size <= 0:
+        return "판단불가"
+    first, second = GRADE_CUTS.get(size, (-(-size * 8 // 10), -(-size * 55 // 100)))
+    if core_in >= first:
+        return "1군"
+    if core_in >= second:
+        return "1.5군"
+    return "2군"
+
+
+def analyze_lineup(lineup, history, size):
+    """lineup: [{"id": pid, "name": str, "pos": str}, ...] (오늘 선발)
+    history: build_profiles 입력과 동일
+    size: 기준 인원 (축구 11, 야구 9, 농구 5)
+    """
+    matches = len(history)
+    profiles = build_profiles(history)
+    core = core_players(profiles, size) if profiles else []
+    core_set = set(core)
+
+    players = []
+    lineup_ids = set()
+    for pl in lineup:
+        pid = pl.get("id")
+        lineup_ids.add(pid)
+        prof = profiles.get(pid, {"starts": 0, "apps": 0})
+        players.append(
+            {
+                "id": pid,
+                "name": pl.get("name") or prof.get("name") or "",
+                "pos": pl.get("pos") or "",
+                "starts": prof["starts"],
+                "apps": prof["apps"],
+                "role": role_of(pid, profiles, matches),
+                "core": pid in core_set,
+            }
+        )
+
+    core_in = sum(1 for p in players if p["core"])
+    missing = []
+    for pid in core:
+        if pid in lineup_ids:
+            continue
+        prof = profiles[pid]
+        missing.append(
+            {"id": pid, "name": prof["name"], "starts": prof["starts"], "apps": prof["apps"]}
+        )
+
+    return {
+        "matches": matches,
+        "size": size,
+        "core_in": core_in,
+        "grade": grade_label(core_in, size) if (matches >= 3 and lineup) else "판단불가",
+        "players": players,
+        "missing": missing,
+        "key_players": [
+            {"name": profiles[pid]["name"], "starts": profiles[pid]["starts"], "in_lineup": pid in lineup_ids}
+            for pid in core[: min(4, len(core))]
+        ],
+    }
+
+
+# ---------------------------------------------------------------- 화면용 부가 정보
+
+def parse_formation(text):
+    """'4-2-3-1' -> [4, 2, 3, 1]. 이상하면 []."""
+    parts = []
+    for chunk in str(text or "").replace(" ", "").split("-"):
+        if not chunk.isdigit():
+            return []
+        parts.append(int(chunk))
+    return parts if all(p > 0 for p in parts) else []
+
+
+def formation_rows(lineup, formation, shape):
+    """선발 명단을 경기장 줄 단위로 배치한다.
+    lineup: [{"pos", "place", ...}], shape: pos -> (깊이, 좌우)
+    반환: 골키퍼 줄부터 최전방 줄까지, 각 줄은 왼쪽->오른쪽 인덱스 목록.
+    """
+    if not lineup:
+        return []
+    info = []
+    for i, p in enumerate(lineup):
+        depth, side = shape(p.get("pos"))
+        place = p.get("place") if isinstance(p.get("place"), int) else 99
+        info.append({"i": i, "depth": depth, "side": side, "place": place})
+
+    gk = next((x for x in info if x["depth"] == 0), None)
+    if gk is None:
+        gk = next((x for x in info if x["place"] == 1), None)
+    if gk is None:
+        gk = min(info, key=lambda x: (x["depth"] if x["depth"] is not None else 9, x["place"]))
+    outfield = [x for x in info if x is not gk]
+    outfield.sort(key=lambda x: (x["depth"] if x["depth"] is not None else 3, x["place"]))
+
+    counts = parse_formation(formation)
+    rows = []
+    if counts and sum(counts) == len(outfield):
+        pos = 0
+        for c in counts:
+            rows.append(outfield[pos:pos + c])
+            pos += c
+    else:
+        groups = {}
+        for x in outfield:
+            groups.setdefault(x["depth"] if x["depth"] is not None else 3, []).append(x)
+        rows = [groups[k] for k in sorted(groups)]
+
+    out = [[gk["i"]]]
+    for row in rows:
+        row.sort(key=lambda x: (x["side"], x["place"]))
+        out.append([x["i"] for x in row])
+    return out
+
+
+def player_log(history, pid):
+    """최근 경기별 출전 기록(최신순)."""
+    log = []
+    for m in history:
+        starters = set(m.get("starters") or [])
+        played = set(m.get("played") or []) | starters
+        mins = (m.get("minutes") or {}).get(pid) if pid in played else 0
+        log.append(
+            {
+                "date": m.get("date", ""),
+                "opp": m.get("opp", ""),
+                "res": m.get("res", ""),
+                "started": pid in starters,
+                "played": pid in played,
+                "min": mins,
+                "g": int((m.get("goals") or {}).get(pid, 0) or 0),
+                "a": int((m.get("assists") or {}).get(pid, 0) or 0),
+            }
+        )
+    return log
+
+
+def minutes_total(log):
+    """(합계, 모든 경기의 분을 알았는지)"""
+    total, complete = 0, True
+    for row in log:
+        if not row["played"]:
+            continue
+        if row["min"] is None:
+            complete = False
+            continue
+        total += row["min"]
+    return total, complete
+
+
+def team_form(history, limit=5):
+    out = []
+    for m in history[:limit]:
+        if not m.get("res"):
+            continue
+        out.append({k: m.get(k) for k in ("date", "opp", "home", "gf", "ga", "res")})
+    return out
+
+
+def team_leaders(history, key, names=None, top=2):
+    """key='goals' 또는 'assists'. 동률이면 최대 top명."""
+    tally, label = {}, dict(names or {})
+    for m in history:
+        for pid, n in (m.get(key) or {}).items():
+            if n:
+                tally[pid] = tally.get(pid, 0) + int(n)
+        for pid, nm in (m.get("names") or {}).items():
+            label.setdefault(pid, nm)
+    if not tally:
+        return []
+    best = max(tally.values())
+    leaders = sorted([pid for pid, n in tally.items() if n == best], key=lambda p: label.get(p, ""))
+    return [{"name": label.get(pid, ""), "n": best} for pid in leaders[:top]]
+
+
+def enrich(result, lineup, history, season=None, formation="", shape=None):
+    """analyze_lineup 결과에 출전시간·최근경기·팀 기록 1위·포메이션 배치를 붙인다."""
+    season = season if season is not None else history
+    for p, src in zip(result["players"], lineup):
+        log = player_log(history, p["id"])
+        total, complete = minutes_total(log)
+        p["minutes"] = total
+        p["minutes_complete"] = complete
+        p["log"] = log
+        p["short"] = src.get("short") or ""
+        p["jersey"] = src.get("jersey") or ""
+        g = sum(int((m.get("goals") or {}).get(p["id"], 0) or 0) for m in season)
+        a = sum(int((m.get("assists") or {}).get(p["id"], 0) or 0) for m in season)
+        p["goals"], p["assists"] = g, a
+    for m in result["missing"]:
+        log = player_log(history, m["id"])
+        m["log"] = log
+        m["minutes"], m["minutes_complete"] = minutes_total(log)
+        m["goals"] = sum(int((s.get("goals") or {}).get(m["id"], 0) or 0) for s in season)
+        m["assists"] = sum(int((s.get("assists") or {}).get(m["id"], 0) or 0) for s in season)
+    result["form"] = team_form(history)
+    result["leaders"] = {
+        "goals": team_leaders(season, "goals"),
+        "assists": team_leaders(season, "assists"),
+        "matches": len(season),
+    }
+    result["rows"] = formation_rows(lineup, formation, shape) if shape else []
+    return result
+
+
+def _player_card(p, history, season):
+    log = player_log(history, p["id"])
+    total, complete = minutes_total(log)
+    p["minutes"], p["minutes_complete"], p["log"] = total, complete, log
+    p["goals"] = sum(int((m.get("goals") or {}).get(p["id"], 0) or 0) for m in season)
+    p["assists"] = sum(int((m.get("assists") or {}).get(p["id"], 0) or 0) for m in season)
+    return p
+
+
+def add_bench(result, bench, history, season=None):
+    """교체명단 기록을 붙이고, 빠진 주전이 벤치인지 명단 제외인지 표시한다.
+    bench가 비어 있으면(명단 미제공) 구분하지 않는다(None)."""
+    season = season if season is not None else history
+    matches = len(history)
+    profiles = build_profiles(history)
+    core_ids = {p["id"] for p in result["players"] if p.get("core")} | {m["id"] for m in result["missing"]}
+    cards = []
+    for b in bench or []:
+        prof = profiles.get(b["id"], {"starts": 0, "apps": 0})
+        card = {
+            "id": b["id"], "name": b.get("name") or prof.get("name", ""), "short": b.get("short") or "",
+            "pos": b.get("pos") or "", "jersey": b.get("jersey") or "",
+            "starts": prof["starts"], "apps": prof["apps"],
+            "role": role_of(b["id"], profiles, matches), "core": b["id"] in core_ids,
+        }
+        cards.append(_player_card(card, history, season))
+    cards.sort(key=lambda c: (not c["core"], -c["starts"], -c["apps"]))
+    result["bench"] = cards
+    bench_ids = {c["id"] for c in cards}
+    for m in result["missing"]:
+        m["status"] = None if not bench else ("벤치" if m["id"] in bench_ids else "명단 제외")
+    return result
+
+
+def strength(result, history, season=None):
+    """전력 지표.
+    retain: 오늘 선발 11명의 최근 출전시간 합 / 평소 주전 11명의 최근 출전시간 합
+    goal_share / assist_share: 오늘 선발이 팀 득점·도움에서 차지하는 비율
+    """
+    season = season if season is not None else history
+    core = [p for p in result["players"] if p.get("core")] + list(result["missing"])
+    core_min = 0
+    for c in core:
+        core_min += minutes_total(player_log(history, c["id"]))[0]
+    start_min = sum(minutes_total(player_log(history, p["id"]))[0] for p in result["players"])
+    team_goals = sum(sum(int(v or 0) for v in (m.get("goals") or {}).values()) for m in season)
+    team_ast = sum(sum(int(v or 0) for v in (m.get("assists") or {}).values()) for m in season)
+    ids = {p["id"] for p in result["players"]}
+    my_goals = sum(sum(int(v or 0) for k, v in (m.get("goals") or {}).items() if k in ids) for m in season)
+    my_ast = sum(sum(int(v or 0) for k, v in (m.get("assists") or {}).items() if k in ids) for m in season)
+    pct = lambda a, b: round(100 * a / b) if b else None
+    result["strength"] = {
+        "retain": min(100, pct(start_min, core_min)) if core_min else None,
+        "goal_share": pct(my_goals, team_goals),
+        "assist_share": pct(my_ast, team_ast),
+        "team_goals": team_goals,
+        "team_assists": team_ast,
+    }
+    return result
+
+
+# ---------------------------------------------------------------- 한 줄 요약·핵심 포인트
+
+GRADE_RANK = {"1군": 3, "1.5군": 2, "2군": 1}
+
+
+def _impact_order(missing):
+    return sorted(missing, key=lambda m: (-(int(m.get("goals") or 0) * 2 + int(m.get("assists") or 0)),
+                                          -int(m.get("starts") or 0), m.get("name", "")))
+
+
+def _form_text(form):
+    w = sum(1 for f in form[:5] if f.get("res") == "W")
+    d = sum(1 for f in form[:5] if f.get("res") == "D")
+    l = sum(1 for f in form[:5] if f.get("res") == "L")
+    parts = [f"{w}승" if w else "", f"{d}무" if d else "", f"{l}패" if l else ""]
+    return " ".join(p for p in parts if p)
+
+
+def summarize(home_name, away_name, teams, sport="축구"):
+    """라인업 판정 결과 -> 한 줄 요약(headline), 목록용 한 줄(insight), 핵심 포인트 3줄.
+    판정이 없는 팀은 건너뛴다. 데이터에 없는 말은 만들지 않는다."""
+    h, a = teams.get("home") or {}, teams.get("away") or {}
+    names = {"home": home_name, "away": away_name}
+    rh, ra = GRADE_RANK.get(h.get("grade"), 0), GRADE_RANK.get(a.get("grade"), 0)
+    if not rh or not ra:
+        return {"headline": "", "insight": "", "points": [], "focus": None}
+
+    focus = "home" if rh < ra else "away" if ra < rh else None
+    if focus is None:   # 등급이 같으면 주전이 더 많이 빠진 쪽
+        mh, ma = len(h.get("missing") or []), len(a.get("missing") or [])
+        focus = "home" if mh > ma else "away" if ma > mh else None
+    ft = teams[focus] if focus else h
+    other = "away" if focus == "home" else "home"
+    ot = teams[other] if focus else a
+    fname = names[focus] if focus else ""
+    oname = names[other] if focus else ""
+
+    missing = _impact_order(ft.get("missing") or [])
+    top = [m["name"] for m in missing[:2] if m.get("name")]
+    top_txt = "·".join(top)
+    grade = ft.get("grade")
+
+    if focus is None and not (h.get("missing") or a.get("missing")):
+        headline = "양 팀 모두 베스트 라인업"
+        insight = "양 팀 베스트"
+    elif grade == "2군":
+        headline = f"{fname}, {top_txt} 빼고 2군 가동" if top else f"{fname} 2군 가동"
+        insight = f"{fname} 주전 {len(missing)}명 빠짐"
+    elif grade == "1.5군":
+        headline = f"{fname} 1.5군, {top_txt} 제외" if top else f"{fname} 1.5군"
+        insight = f"{fname} 주전 {len(missing)}명 빠짐"
+    else:
+        headline = f"양 팀 사실상 베스트, {fname} {top_txt} 제외" if top else "양 팀 사실상 베스트"
+        insight = f"{fname} {top[0]} 제외" if top else "양 팀 베스트"
+    if missing and missing[0].get("status"):
+        insight += f" · {missing[0]['name']} {missing[0]['status']}"
+
+    points = []
+    if focus and missing:
+        size = ft.get("size") or 0
+        bench = sum(1 for m in missing if m.get("status") == "벤치")
+        out = sum(1 for m in missing if m.get("status") == "명단 제외")
+        sub = f"벤치 대기 {bench} · 명단 제외 {out}" if (bench or out) else ", ".join(m["name"] for m in missing[:4])
+        points.append([f"{fname} 주전 {size}명 중 {len(missing)}명이 선발에서 빠짐", sub])
+        if sport != "야구":
+            tg = int((ft.get("strength") or {}).get("team_goals") or 0)
+            mg = sum(int(m.get("goals") or 0) for m in missing)
+            if tg and mg:
+                scorers = " · ".join(f"{m['name']} {m['goals']}골" for m in missing if m.get("goals"))
+                points.append([f"팀 {tg}골 중 {mg}골({round(mg * 100 / tg)}%) 넣은 선수가 선발에 없음", scorers])
+    if focus:
+        om = len(ot.get("missing") or [])
+        line = f"{josa(oname, '은', '는')} 주전 {ot.get('core_in')}명 그대로" if om <= 1 else f"{oname}도 주전 {om}명 빠짐"
+        points.append([line, ("최근 5경기 " + _form_text(ot.get("form") or [])) if ot.get("form") else ""])
+    return {"headline": headline, "insight": insight, "points": points[:3], "focus": focus}
+
+
+
+# ---------------------------------------------------------------- 최근 폼 vs 시즌 전체
+
+def aggregate(history, pid):
+    """기간(history) 동안 한 선수의 선발·출전·시간·골·도움."""
+    log = player_log(history, pid)
+    total, complete = minutes_total(log)
+    return {
+        "matches": len(history),
+        "starts": sum(1 for r in log if r["started"]),
+        "apps": sum(1 for r in log if r["played"]),
+        "minutes": total,
+        "minutes_complete": complete,
+        "goals": sum(int((m.get("goals") or {}).get(pid, 0) or 0) for m in history),
+        "assists": sum(int((m.get("assists") or {}).get(pid, 0) or 0) for m in history),
+    }
+
+
+def form_trend(recent, season):
+    """시즌 선발 비율 대비 최근 선발 비율 변화: 'up' / 'down' / ''"""
+    if not recent["matches"] or season["matches"] <= recent["matches"]:
+        return ""
+    r = recent["starts"] / recent["matches"]
+    s = season["starts"] / season["matches"]
+    if r - s >= 0.25:
+        return "up"
+    if s - r >= 0.25:
+        return "down"
+    return ""
+
+
+def season_record(season):
+    w = sum(1 for m in season if m.get("res") == "W")
+    d = sum(1 for m in season if m.get("res") == "D")
+    l = sum(1 for m in season if m.get("res") == "L")
+    gf = sum(int(m.get("gf") or 0) for m in season if m.get("res"))
+    ga = sum(int(m.get("ga") or 0) for m in season if m.get("res"))
+    n = w + d + l
+    return {"matches": n, "w": w, "d": d, "l": l, "gf": gf, "ga": ga,
+            "ppg": round((3 * w + d) / n, 2) if n else None}
+
+
+def add_periods(result, history, season):
+    """선발·교체·빠진 선수 모두에 recent/season 집계와 폼 변화를 붙이고,
+    팀에는 시즌 성적과 '시즌 기준 주전 몇 명 선발'을 붙인다."""
+    for group in ("players", "bench", "missing"):
+        for p in result.get(group) or []:
+            rec, sea = aggregate(history, p["id"]), aggregate(season, p["id"])
+            p["recent"], p["season"], p["trend"] = rec, sea, form_trend(rec, sea)
+    result["season_record"] = season_record(season)
+    size = result.get("size") or 0
+    sprof = build_profiles(season)
+    score = {pid: v["starts"] for pid, v in sprof.items()}
+    core = sorted(score, key=lambda k: (-score[k], str(k)))[:size]
+    ids = {p["id"] for p in result.get("players") or []}
+    result["season_core_in"] = sum(1 for pid in core if pid in ids) if season else None
+    result["season_matches"] = len(season)
+    return result
+
+
+
+# ---------------------------------------------------------------- 에이스
+
+def _form_value(x):
+    """한 기간의 기여도: 경기당 (골 + 0.7×도움)×2 + 경기당 출전시간 비율."""
+    n = (x or {}).get("matches") or 0
+    if not n:
+        return 0.0
+    ap = ((x.get("goals") or 0) + 0.7 * (x.get("assists") or 0)) / n
+    mins = (x.get("minutes") or 0) / (90.0 * n)
+    return ap * 2 + mins
+
+
+def ace_score(p):
+    """시즌 50% + 최근 50%."""
+    return round(0.5 * _form_value(p.get("season")) + 0.5 * _form_value(p.get("recent")), 3)
+
+
+def pick_ace(result):
+    """선발·교체명단·빠진 선수 전체에서 팀 에이스 1명.
+    기록이 없으면 None. 동점이면 시즌 골, 시즌 출전시간 순."""
+    cands, seen = [], set()
+    for where, group in (("선발", result.get("players")), ("벤치", result.get("bench")), (None, result.get("missing"))):
+        for p in group or []:
+            if not p.get("season") or p.get("id") in seen:
+                continue
+            seen.add(p.get("id"))
+            status = where or (p.get("status") or "선발 제외")
+            cands.append((p, status))
+    cands = [c for c in cands if (c[0]["season"].get("apps") or 0) > 0]
+    if not cands:
+        return None
+    p, status = max(cands, key=lambda c: (ace_score(c[0]), c[0]["season"].get("goals") or 0,
+                                          c[0]["season"].get("minutes") or 0, c[0].get("name", "")))
+    s, r = p["season"], p.get("recent") or {}
+    return {
+        "id": p["id"], "name": p.get("name", ""), "pos": p.get("pos", ""), "jersey": p.get("jersey", ""),
+        "status": status, "score": ace_score(p), "season": s, "recent": r,
+        "trend": p.get("trend", ""), "log": p.get("log") or [],
+    }
+
+
+
+# ---------------------------------------------------------------- 오늘 라인업 절대 전력
+# 1군/2군은 "자기 팀 평소 대비"라 두 팀을 직접 비교하지 못한다.
+# 여기서는 오늘 선발 11명 자체와 팀 체급으로 두 팀을 같은 잣대에 올린다.
+
+LEAGUE_AVG_PPG = 1.37      # 유럽 1부 리그 평균 경기당 승점(대략)
+PRIOR_MATCHES = 4          # 경기 수가 적을 때 평균 쪽으로 당기는 강도
+ROTATION_DROP = 0.45       # 완전 2군(라인업 계수 0)일 때 체급에서 빠지는 비율
+
+
+def _pts(res):
+    return 3 if res == "W" else 1 if res == "D" else 0 if res == "L" else None
+
+
+def on_pitch(season, pid):
+    """그 선수가 선발로 나온 경기의 팀 성적."""
+    n = pts = ga = 0
+    for m in season:
+        if pid not in (m.get("starters") or []):
+            continue
+        p = _pts(m.get("res"))
+        if p is None:
+            continue
+        n += 1
+        pts += p
+        ga += int(m.get("ga") or 0)
+    return {"starts": n, "ppg": round(pts / n, 2) if n else None, "ga_pg": round(ga / n, 2) if n else None, "pts": pts}
+
+
+def line_of(pos, shape):
+    depth, _ = shape(pos) if shape else (None, 0)
+    if depth is None:
+        return "MF"
+    if depth == 0:
+        return "GK"
+    if depth <= 1.5:
+        return "DF"
+    if depth >= 5:
+        return "FW"
+    return "MF"
+
+
+def team_strength(record):
+    """리그 경기당 승점을 경기 수로 보정한 체급 (적은 경기는 리그 평균 쪽으로)."""
+    n = (record or {}).get("matches") or 0
+    ppg = (record or {}).get("ppg")
+    if not n or ppg is None:
+        return None
+    return round((ppg * n + LEAGUE_AVG_PPG * PRIOR_MATCHES) / (n + PRIOR_MATCHES), 3)
+
+
+def _top(players, key, limit=2):
+    vals = [(p, (p.get("season") or {}).get(key) or 0) for p in players]
+    best = max((v for _, v in vals), default=0)
+    if best <= 0:
+        return []
+    return [{"name": p.get("name", ""), "n": v} for p, v in vals if v == best][:limit]
+
+
+def lineup_power(result, season, shape=None):
+    """오늘 선발 11명의 시즌 합산·라인별 기록·선발 시 성적, 팀 체급과 오늘 전력."""
+    xi = result.get("players") or []
+    everyone = xi + (result.get("bench") or []) + [m for m in (result.get("missing") or [])
+                                                  if m.get("id") not in {b.get("id") for b in result.get("bench") or []}]
+    tot = {k: sum(int((p.get("season") or {}).get(k) or 0) for p in xi) for k in ("goals", "assists", "minutes", "starts")}
+
+    lines = {}
+    for p in xi:
+        ln = line_of(p.get("pos"), shape)
+        op = on_pitch(season, p["id"])
+        p["on_pitch"] = op
+        d = lines.setdefault(ln, {"n": 0, "goals": 0, "assists": 0, "minutes": 0, "ga_w": 0.0, "ga_n": 0})
+        s = p.get("season") or {}
+        d["n"] += 1
+        d["goals"] += int(s.get("goals") or 0)
+        d["assists"] += int(s.get("assists") or 0)
+        d["minutes"] += int(s.get("minutes") or 0)
+        if ln in ("DF", "GK") and op["starts"] >= 2:
+            d["ga_w"] += op["ga_pg"] * op["starts"]
+            d["ga_n"] += op["starts"]
+    for p in (result.get("bench") or []) + (result.get("missing") or []):
+        p["on_pitch"] = on_pitch(season, p["id"])
+    out_lines = {}
+    for ln, d in lines.items():
+        out_lines[ln] = {"n": d["n"], "goals": d["goals"], "assists": d["assists"], "minutes": d["minutes"],
+                         "ga_pg": round(d["ga_w"] / d["ga_n"], 2) if d["ga_n"] else None}
+    back = {"n": 0, "ga_w": 0.0, "ga_n": 0}
+    for ln in ("DF", "GK"):
+        if ln in lines:
+            back["ga_w"] += lines[ln]["ga_w"]
+            back["ga_n"] += lines[ln]["ga_n"]
+
+    # 선발 11명이 선발로 뛴 경기의 팀 경기당 승점.
+    # 선발 3경기 미만 선수는 표본이 작아 빼고(보정해서 채우면 로테이션 멤버가 주전만큼 좋아 보이는 착시가 생김),
+    # 몇 명 기준인지 함께 알려준다.
+    q_pts = q_starts = q_n = 0
+    for p in xi:
+        op = p["on_pitch"]
+        if op["starts"] >= 3:
+            q_pts += op["pts"]
+            q_starts += op["starts"]
+            q_n += 1
+    xi_ppg = round(q_pts / q_starts, 2) if q_starts else None
+
+    st = result.get("strength") or {}
+    retain = st.get("retain")
+    gs, ast = st.get("goal_share"), st.get("assist_share")
+    if retain is None:
+        q = None
+    else:
+        att = ((gs if gs is not None else retain) + (ast if ast is not None else retain)) / 200
+        q = round(0.6 * retain / 100 + 0.4 * att, 3)
+    T = team_strength(result.get("season_record"))
+
+    result["lineup_power"] = {
+        "totals": tot,
+        "top_scorer": _top(xi, "goals"),
+        "top_assist": _top(xi, "assists"),
+        "team_top_scorer": _top(everyone, "goals", 1),
+        "lines": out_lines,
+        "back_ga_pg": round(back["ga_w"] / back["ga_n"], 2) if back["ga_n"] else None,
+        "xi_ppg": xi_ppg,
+        "xi_ppg_n": q_n,
+        "team_strength": T,
+        "q": q,
+        "today": round(T * (1 - ROTATION_DROP * (1 - q)), 3) if (T is not None and q is not None) else None,
+    }
+    return result
+
+
+def compare_power(home, away, home_name, away_name, factor_home=1.0, factor_away=1.0):
+    """두 팀 '오늘 전력'을 100점 나눠 갖기로 비교. 결과 예측(승률)이 아님."""
+    lh, la = home.get("lineup_power") or {}, away.get("lineup_power") or {}
+    th, ta = lh.get("today"), la.get("today")
+    if th is None or ta is None:
+        return None
+    th, ta = th * factor_home, ta * factor_away
+    share = round(100 * th / (th + ta)) if (th + ta) else 50
+    gap = share - 50
+    if abs(gap) < 4:
+        verdict = "비슷한 전력"
+        fav = None
+    else:
+        fav = "home" if gap > 0 else "away"
+        verdict = f"{home_name if fav == 'home' else away_name} {'근소 ' if abs(gap) < 10 else ''}우위"
+    note = ""
+    gh, ga = home.get("grade"), away.get("grade")
+    rank = {"1군": 3, "1.5군": 2, "2군": 1}
+    if fav and rank.get(gh) and rank.get(ga):
+        fg, og = (gh, ga) if fav == "home" else (ga, gh)
+        fname, oname = (home_name, away_name) if fav == "home" else (away_name, home_name)
+        if rank[fg] < rank[og]:
+            note = f"{josa(fname, '은', '는')} {fg}이지만 팀 체급이 높아 {oname} {og}보다 앞섬"
+        elif rank[fg] > rank[og]:
+            note = f"{oname}의 로테이션이 전력 차로 이어짐"
+    elif fav is None and rank.get(gh) and rank.get(ga) and gh != ga:
+        low = home_name if rank[gh] < rank[ga] else away_name
+        note = f"{josa(low, '은', '는')} 로테이션을 했지만 체급 덕에 비슷한 수준"
+    return {"home": share, "away": 100 - share, "verdict": verdict, "fav": fav, "note": note,
+            "league_adjusted": factor_home != factor_away}
+
+
+
+# ---------------------------------------------------------------- A매치 (국가대표) 전력 비교: Elo 기반
+
+ELO_ROTATION = 200     # 완전 2군(라인업 계수 0)일 때 깎는 Elo 점수
+ELO_HOME = 100         # 홈 이점 (eloratings.net 방식)
+
+
+def compare_elo(home, away, home_name, away_name, elo_home, elo_away, home_adv=0):
+    """대표팀 Elo에 오늘 라인업 계수를 반영해 두 팀을 비교. 결과는 Elo 기대 성적(무승부는 절반) 기준 비율."""
+    if elo_home is None or elo_away is None:
+        return None
+    qh = (home.get("lineup_power") or {}).get("q")
+    qa = (away.get("lineup_power") or {}).get("q")
+    qh = 1.0 if qh is None else qh
+    qa = 1.0 if qa is None else qa
+    th = elo_home - ELO_ROTATION * (1 - qh)
+    ta = elo_away - ELO_ROTATION * (1 - qa)
+    dr = th + home_adv - ta
+    we = 1 / (10 ** (-dr / 400) + 1)
+    share = round(100 * we)
+    fake = {"grade": home.get("grade"), "lineup_power": {"today": share}}
+    fake_a = {"grade": away.get("grade"), "lineup_power": {"today": 100 - share}}
+    res = compare_power(fake, fake_a, home_name, away_name) or {}
+    for side, t, e in (("home", home, elo_home), ("away", away, elo_away)):
+        lp = t.setdefault("lineup_power", {})
+        lp["elo"] = e
+        lp["today_elo"] = round(th if side == "home" else ta)
+    res.update({"home": share, "away": 100 - share, "mode": "elo", "home_adv": home_adv, "league_adjusted": False})
+    return res
