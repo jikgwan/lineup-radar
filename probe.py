@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""3차 소스 점검: 네이버만으로 우리 기능에 필요한 정보가 전부 오는지.
+"""4차 소스 점검 (읽기만 함).
 
-A) 지난 경기 기록을 얼마나 멀리까지 받을 수 있는지 (시즌 기록·최근 6경기·체급 계산용)
-B) 끝난 경기에서 라인업·교체·선수 기록 항목 전체 (리그별: EPL·라리가·챔스·K리그·A매치)
-C) 경기 전 경기에서 라인업이 언제부터 나오는지 (예정 경기 확인)
-D) 'AG일반' 탭 찾기 (아시안게임 축구)
+1) 아시안게임: 'AG일반' 탭(upperCategoryId=general) 안의 종목 이름 찾기, 축구 경기·라인업 확인
+2) 유럽 리그(EPL·라리가·분데스·챔스): 라인업 원본 모양, 선수 기록·출전시간 유무
+3) A매치: 6~9월 대표팀 경기(월드컵·친선) 라인업·선수 기록 유무, 1000경기 제한을 피하는 기간
 로그를 그대로 복사해서 보내주면 된다.
 """
 
@@ -13,11 +12,10 @@ from __future__ import annotations
 import json
 import re
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import date, timedelta
 
 import requests
 
-KST = timezone(timedelta(hours=9))
 CHROME = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
           "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
 API = "https://api-gw.sports.naver.com"
@@ -50,68 +48,18 @@ def games(params):
     return (body.get("result") or {}).get("games") or [], st
 
 
-def one_line(obj, n=600):
+def dump(obj, n=900):
     return json.dumps(obj, ensure_ascii=False)[:n]
 
 
-# ---------------------------------------------------------------- A
-def history_depth():
+def section(t):
+    print()
     print("=" * 74)
-    print("A) 지난 경기를 얼마나 멀리까지 받을 수 있나 (EPL·K리그, 날짜 구간별)")
+    print(t)
     print("=" * 74)
-    today = datetime.now(KST).date()
-    for upper, cat in (("wfootball", "epl"), ("kfootball", "kleague")):
-        for days in (30, 90, 200):
-            frm = (today - timedelta(days=days)).isoformat()
-            gs, st = games({"upperCategoryId": upper, "fromDate": frm, "toDate": today.isoformat()})
-            if gs is None:
-                print(f"  X  {upper}/{cat} 지난 {days}일: HTTP {st}")
-                continue
-            mine = [g for g in gs if g.get("categoryId") == cat]
-            done = [g for g in mine if g.get("statusCode") == "RESULT"]
-            first = min((g.get("gameDate") for g in mine), default="-")
-            print(f"  O  {upper}/{cat} 지난 {days:3}일: 전체 {len(gs)}경기 중 {cat} {len(mine)}경기(끝남 {len(done)}) · 가장 이른 날짜 {first}")
-    # 팀으로 거르는 옵션이 있는지
-    gs, _ = games({"upperCategoryId": "wfootball", "fromDate": (today - timedelta(days=60)).isoformat(),
-                   "toDate": today.isoformat()})
-    sample = next((g for g in (gs or []) if g.get("categoryId") == "epl"), None)
-    if sample:
-        code = sample.get("homeTeamCode")
-        for key in ("teamCode", "teamId", "homeTeamCode"):
-            g2, st = games({"upperCategoryId": "wfootball", "fromDate": (today - timedelta(days=60)).isoformat(),
-                            "toDate": today.isoformat(), key: code})
-            n = len(g2) if g2 is not None else None
-            print(f"     팀 거르기 {key}={code}({sample.get('homeTeamName')}): HTTP {st} · {n}경기 (전체 {len(gs)})")
 
 
-# ---------------------------------------------------------------- B
-def pick_games():
-    today = datetime.now(KST).date()
-    want = {"epl": None, "primera": None, "champs": None, "kleague": None, "amatchfriendly": None, "amatch": None, "unl": None}
-    upcoming = {}
-    for upper in ("wfootball", "kfootball"):
-        gs, _ = games({"upperCategoryId": upper, "fromDate": (today - timedelta(days=40)).isoformat(),
-                       "toDate": (today + timedelta(days=5)).isoformat()})
-        for g in reversed(gs or []):
-            c = g.get("categoryId")
-            if c in want and want[c] is None and g.get("statusCode") == "RESULT":
-                want[c] = g
-            if c in want and g.get("statusCode") == "BEFORE" and c not in upcoming:
-                upcoming[c] = g
-    return want, upcoming
-
-
-def keys_of(rows):
-    ks = []
-    for r in rows or []:
-        if isinstance(r, dict):
-            for k in r:
-                if k not in ks:
-                    ks.append(k)
-    return ks
-
-
-def detail(g):
+def detail(g, raw=True):
     gid = g["gameId"]
     print(f"\n  ▶ {g.get('categoryId')} {g.get('homeTeamName')} {g.get('homeTeamScore')}:{g.get('awayTeamScore')} "
           f"{g.get('awayTeamName')} ({g.get('gameDate')}) gameId={gid}")
@@ -120,131 +68,140 @@ def detail(g):
     if not lu:
         print(f"     라인업: 없음 (HTTP {st})")
     else:
-        home = (lu.get("lineup") or {}).get("home") or {}
-        players = home.get("players") or []
-        print(f"     라인업: 홈 선발 {len(players)}명 · 포메이션 {home.get('formation')} · 줄(row) {str(home.get('row'))[:80]}")
-        print(f"       선수 항목: {keys_of(players)}")
-        if players:
-            print(f"       선수 예시: {one_line(players[0], 300)}")
-        sub = (lu.get("substitution") or {}).get("home") or []
-        chg = (lu.get("changedPlayer") or {}).get("home") or []
-        print(f"     교체명단(substitution): {len(sub)}명 · 항목 {keys_of(sub)}")
-        if sub:
-            print(f"       예시: {one_line(sub[0], 250)}")
-        print(f"     교체기록(changedPlayer): {len(chg)}건 · 항목 {keys_of(chg)}")
-        if chg:
-            print(f"       예시: {one_line(chg[0], 250)}")
+        home = (lu.get("lineup") or {}).get("home")
+        print(f"     라인업 키: {list(lu.keys())}")
+        print(f"     lineup.home 자료형: {type(home).__name__} · 키: {list(home.keys()) if isinstance(home, dict) else '-'}")
+        if raw:
+            print(f"     lineup.home 원본: {dump(home, 1200)}")
+        for k in ("substitution", "changedPlayer"):
+            v = (lu.get(k) or {}).get("home")
+            print(f"     {k}.home: {type(v).__name__} {len(v) if hasattr(v, '__len__') else ''} · {dump(v, 300)}")
     body, st = jget(f"{API}/schedule/games/{gid}/record")
     rec = ((body or {}).get("result") or {}).get("recordData") or {}
     ps = rec.get("homePlayerStats") or []
-    if not ps:
-        print(f"     선수 기록(record): 없음 (HTTP {st})")
+    if ps:
+        wt = [p.get("workTime") for p in ps if isinstance(p, dict)]
+        print(f"     선수 기록: 홈 {len(ps)}명 · 출전시간 예 {wt[:6]} · 항목 {list(ps[0].keys()) if isinstance(ps[0], dict) else '-'}")
     else:
-        print(f"     선수 기록: 홈 {len(ps)}명 · 항목 {keys_of(ps)}")
-        print(f"       예시: {one_line(ps[0], 350)}")
-        tl = rec.get("timeline") or []
-        types = sorted({t.get("eventType") for t in tl if isinstance(t, dict)})
-        print(f"     타임라인: {len(tl)}건 · 종류 {types}")
+        print(f"     선수 기록: 없음 (HTTP {st}, 키 {list(rec.keys())})")
     body, st = jget(f"{API}/schedule/games/{gid}/relay")
-    rel = ((body or {}).get("result") or {}).get("textRelayData") or {}
-    rows = rel.get("textRelays") or []
-    types = sorted({t.get("eventType") for t in rows if isinstance(t, dict)})
-    print(f"     문자중계(relay): {len(rows)}건 · 종류 {types}")
-    body, st = jget(f"{API}/schedule/games/{gid}/preview")
-    pv = ((body or {}).get("result") or {}).get("previewData") or {}
-    print(f"     프리뷰(preview): {'있음 ' + str(list(pv.keys())) if pv else '없음'}")
+    rows = ((((body or {}).get("result") or {}).get("textRelayData")) or {}).get("textRelays") or []
+    print(f"     문자중계: {len(rows)}건")
 
 
-def finished_check():
-    print()
-    print("=" * 74)
-    print("B) 끝난 경기에서 라인업·교체·선수 기록 (리그별)")
-    print("=" * 74)
-    want, upcoming = pick_games()
-    for c, g in want.items():
-        if g is None:
-            print(f"\n  - {c}: 최근 40일 안에 끝난 경기 없음")
-        else:
-            try:
-                detail(g)
-            except Exception as exc:
-                print(f"     ! 오류 {type(exc).__name__} {exc}")
-    return upcoming
-
-
-# ---------------------------------------------------------------- C
-def upcoming_check(upcoming):
-    print()
-    print("=" * 74)
-    print("C) 경기 전: 라인업이 벌써 있는지 (가장 가까운 예정 경기)")
-    print("=" * 74)
-    for c, g in upcoming.items():
-        body, _ = jget(f"{API}/schedule/games/{g['gameId']}/lineup")
-        lu = ((body or {}).get("result") or {}).get("lineUpData") or {}
-        n = len(((lu.get("lineup") or {}).get("home") or {}).get("players") or [])
-        print(f"  {c:15} {g.get('gameDateTime')} {g.get('homeTeamName')} vs {g.get('awayTeamName')} → 선발 {n}명")
-
-
-# ---------------------------------------------------------------- D
-def ag_search():
-    print()
-    print("=" * 74)
-    print("D) 'AG일반' 탭 찾기 (네이버 스포츠 메뉴에서)")
-    print("=" * 74)
+# ---------------------------------------------------------------- 1) 아시안게임
+def ag():
+    section("1) 아시안게임 — 'AG일반'(general) 탭 안의 종목 이름")
     found = set()
-    for url in ("https://m.sports.naver.com/", "https://sports.naver.com/", "https://m.sports.naver.com/ag/index",
-                "https://m.sports.naver.com/asiangames/index"):
+    for url in ("https://m.sports.naver.com/general/index", "https://m.sports.naver.com/general/schedule/index"):
         r = get(url, headers={"User-Agent": CHROME})
         if r is None:
             continue
-        text = r.text
-        ids = set(re.findall(r'sports\.naver\.com/([a-zA-Z0-9]+)/', text)) | set(re.findall(r'"upperCategoryId"\s*:\s*"([a-zA-Z0-9]+)"', text))
-        ag_ctx = re.findall(r'.{0,80}AG\s?일반.{0,80}', text)
-        print(f"  {url} HTTP {r.status_code} · 메뉴 이름 {len(ids)}개")
-        if ag_ctx:
-            for ctx in ag_ctx[:3]:
-                print(f"     'AG일반' 주변: {ctx.strip()[:200]}")
-        found |= ids
-    cands = sorted(i for i in found if len(i) < 25)
-    print(f"  발견한 메뉴 이름: {cands[:80]}")
-    guesses = ["ag", "agetc", "aggeneral", "aggen", "asiangame", "asiangames", "ag2026", "general", "etc",
-               "olympic", "multisports"]
-    tried = []
-    for up in [c for c in cands if c.lower().startswith(("ag", "asia", "gen", "etc", "multi"))] + guesses:
-        if up in tried:
+        t = r.text
+        cats = set(re.findall(r'category[=:"\\s]+([a-zA-Z0-9_]{2,30})', t))
+        found |= cats
+        js = re.findall(r'src="([^"]+\.js)"', t)
+        print(f"  {url} HTTP {r.status_code} · {len(t)}바이트 · 스크립트 {len(js)}개 · 종목 후보 {sorted(cats)[:30]}")
+        for s in js[:6]:
+            src = s if s.startswith("http") else "https://m.sports.naver.com" + s
+            rj = get(src, headers={"User-Agent": CHROME})
+            if rj is None or rj.status_code != 200:
+                continue
+            hits = set(re.findall(r'["\'](ag[a-z0-9_]{2,25})["\']', rj.text))
+            if hits:
+                print(f"     {src[-60:]} 안의 ag로 시작하는 이름: {sorted(hits)[:40]}")
+                found |= hits
+    cands = ["agfootball", "agsoccer", "agwfootball", "agfootballw", "agmfootball", "agsoccerw", "football", "soccer",
+             "ag", "agetc", "aggeneral", "general", "asiangames", "agbasketball", "agvolleyball", "agbaseball"]
+    cands = [c for c in sorted(found) if c.lower().startswith("ag")] + cands
+    for extra in ({"superCategoryId": "football"}, {"categoryIds": "agfootball"}, {}):
+        gs, st = games(dict({"upperCategoryId": "general", "fromDate": "2026-09-10", "toDate": "2026-10-05"}, **extra))
+        cats = sorted({(g.get("categoryId"), g.get("categoryName")) for g in (gs or [])})
+        print(f"  {'O' if gs else '-'}  general + {extra or '조건 없음'}: HTTP {st} · 경기 {len(gs) if gs is not None else None} · {cats[:10]}")
+    tried = set()
+    for c in cands:
+        if c in tried:
             continue
-        tried.append(up)
-        gs, st = games({"upperCategoryId": up, "fromDate": "2026-09-10", "toDate": "2026-10-05"})
+        tried.add(c)
+        gs, st = games({"upperCategoryId": "general", "categoryId": c, "fromDate": "2026-09-10", "toDate": "2026-10-05"})
         if gs is None:
-            print(f"     {up:14} HTTP {st}")
+            print(f"     general/{c:14} HTTP {st}")
             continue
-        cats = {}
-        for g in gs:
-            cats.setdefault((g.get("categoryId"), g.get("categoryName")), 0)
-            cats[(g.get("categoryId"), g.get("categoryName"))] += 1
-        print(f"  O  {up:14} 경기 {len(gs)} · " + ", ".join(f"{a}({b}){n}" for (a, b), n in cats.items())[:350])
-        foot = next((g for g in gs if "축구" in (g.get("categoryName") or "") or "football" in str(g.get("categoryId"))), None)
+        names = sorted({g.get('categoryName') for g in gs})
+        print(f"  O  general/{c:14} 경기 {len(gs)} · {names[:5]}")
+        foot = next((g for g in gs if "축구" in str(g.get("categoryName")) or "football" in str(g.get("superCategoryId"))), None)
         if foot:
-            print(f"     축구 예시: {one_line(foot, 400)}")
-            try:
-                detail(foot)
-            except Exception as exc:
-                print(f"     ! 오류 {exc}")
+            print(f"     축구 예시: {dump(foot, 500)}")
+            done = next((g for g in gs if g.get("statusCode") == "RESULT" and ("축구" in str(g.get("categoryName")) or "football" in str(g.get("superCategoryId")))), None)
+            if done:
+                detail(done, raw=False)
 
 
-def safe(fn, *a):
+# ---------------------------------------------------------------- 2) 유럽 리그
+def europe():
+    section("2) 유럽 리그 — 라인업 원본 모양·선수 기록")
+    today = date.today()
+    gs, st = games({"upperCategoryId": "wfootball", "fromDate": (today - timedelta(days=14)).isoformat(),
+                    "toDate": today.isoformat()})
+    if gs is None:
+        print(f"  X  목록 HTTP {st}")
+        return
+    print(f"  (14일 구간: {len(gs)}경기 — 1000 미만이면 이 간격으로 끊어 받으면 됨)")
+    for cat in ("epl", "primera", "bundesliga", "champs"):
+        g = next((x for x in reversed(gs) if x.get("categoryId") == cat and x.get("statusCode") == "RESULT"), None)
+        if g:
+            detail(g, raw=(cat == "epl"))
+        else:
+            print(f"\n  - {cat}: 최근 14일 끝난 경기 없음")
+
+
+# ---------------------------------------------------------------- 3) A매치
+def amatch():
+    section("3) A매치 — 6~9월 대표팀 경기")
+    start = date(2026, 6, 1)
+    allg = []
+    while start < date.today():
+        end = min(start + timedelta(days=13), date.today())
+        for upper in ("kfootball", "wfootball"):
+            gs, st = games({"upperCategoryId": upper, "fromDate": start.isoformat(), "toDate": end.isoformat()})
+            if gs is None:
+                print(f"  X  {upper} {start}~{end} HTTP {st}")
+                continue
+            if len(gs) >= 1000:
+                print(f"  ! {upper} {start}~{end} 1000경기 꽉 참 (더 잘게 끊어야 함)")
+            allg += [g for g in gs if g.get("categoryId") in ("amatch", "amatchfriendly", "worldcup", "fifaworldcup", "wc")
+                     or "월드컵" in str(g.get("categoryName")) or "국가대표" in str(g.get("categoryName"))]
+        start = end + timedelta(days=1)
+    uniq = {}
+    for g in allg:
+        uniq[g.get("gameId")] = g
+    allg = sorted(uniq.values(), key=lambda g: g.get("gameDate") or "")
+    cats = {}
+    for g in allg:
+        cats[(g.get("categoryId"), g.get("categoryName"))] = cats.get((g.get("categoryId"), g.get("categoryName")), 0) + 1
+    print("  대표팀 대회: " + ", ".join(f"{a}({b}) {n}" for (a, b), n in cats.items()))
+    kor = [g for g in allg if "대한민국" in (str(g.get("homeTeamName")) + str(g.get("awayTeamName")))]
+    print(f"  대한민국 경기 {len(kor)}개: " + ", ".join(f"{g.get('gameDate')} {g.get('homeTeamName')}-{g.get('awayTeamName')}({g.get('categoryId')})" for g in kor[-8:]))
+    pick = next((g for g in reversed(kor) if g.get("statusCode") == "RESULT"), None) or \
+        next((g for g in reversed(allg) if g.get("statusCode") == "RESULT"), None)
+    if pick:
+        detail(pick, raw=False)
+    other = next((g for g in reversed(allg) if g.get("statusCode") == "RESULT" and g is not pick and g.get("categoryId") != (pick or {}).get("categoryId")), None)
+    if other:
+        detail(other, raw=False)
+
+
+def safe(fn):
     try:
-        return fn(*a)
+        fn()
     except Exception as exc:
         print(f"  ! {fn.__name__} 오류: {type(exc).__name__} {str(exc)[:150]}")
-        return None
 
 
 def main():
-    safe(history_depth)
-    upcoming = safe(finished_check) or {}
-    safe(upcoming_check, upcoming)
-    safe(ag_search)
+    safe(ag)
+    safe(europe)
+    safe(amatch)
     print()
     print("점검 끝. 위 내용을 그대로 복사해서 보내주면 됩니다.")
     return 0
