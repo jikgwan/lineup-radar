@@ -170,11 +170,100 @@ def elo_check():
         print(f"  {'O' if r.status_code == 200 and n else 'X'}  World.tsv HTTP {r.status_code} / {n}줄")
 
 
+WEB = "https://site.web.api.espn.com/apis/site/v2/sports"
+
+
+def espn_web_detail():
+    """site.web 주소에서 라인업(summary)·팀 일정(schedule)·대회별 목록이 오는지."""
+    print()
+    print("=" * 74)
+    print("1-2) ESPN site.web — 라인업·팀 일정·대회별 경기 수")
+    print("=" * 74)
+    today = datetime.now(KST)
+    rng = f"{(today - timedelta(days=7)).strftime('%Y%m%d')}-{today.strftime('%Y%m%d')}"
+    ev = None
+    for slug in ("eng.1", "esp.1", "ita.1", "ger.1"):
+        r = get(f"{WEB}/soccer/{slug}/scoreboard", params={"dates": rng}, headers={"User-Agent": CHROME})
+        if r is None or r.status_code != 200:
+            print(f"  X  {slug} 지난 7일 목록 HTTP {getattr(r, 'status_code', '실패')}")
+            continue
+        events = r.json().get("events") or []
+        done = [e for e in events if ((e.get("competitions") or [{}])[0].get("status") or {}).get("type", {}).get("completed")]
+        print(f"  O  {slug} 지난 7일 경기 {len(events)}개 (끝난 경기 {len(done)})")
+        if done and not ev:
+            ev = (slug, done[0])
+    if ev:
+        slug, e = ev
+        comp = e["competitions"][0]
+        teams = [c.get("team", {}) for c in comp.get("competitors", [])]
+        r = get(f"{WEB}/soccer/{slug}/summary", params={"event": e["id"]}, headers={"User-Agent": CHROME})
+        if r is not None and r.status_code == 200:
+            body = r.json()
+            ros = body.get("rosters") or []
+            st = sum(1 for x in ros for p in (x.get("roster") or []) if p.get("starter"))
+            ke = len(body.get("keyEvents") or [])
+            print(f"  O  summary {e.get('name', '')[:40]} → 명단 {len(ros)}팀 · 선발 {st}명 · 주요 이벤트 {ke}개")
+        else:
+            print(f"  X  summary HTTP {getattr(r, 'status_code', '실패')}")
+        if teams:
+            tid = teams[0].get("id")
+            r = get(f"{WEB}/soccer/{slug}/teams/{tid}/schedule", headers={"User-Agent": CHROME})
+            n = len((r.json().get("events") or [])) if (r is not None and r.status_code == 200) else None
+            print(f"  {'O' if n else 'X'}  팀 일정({teams[0].get('displayName')}) HTTP {getattr(r, 'status_code', '실패')} · 경기 {n}")
+    nxt = f"{today.strftime('%Y%m%d')}-{(today + timedelta(days=10)).strftime('%Y%m%d')}"
+    for slug in ("uefa.nations", "fifa.friendly", "kor.1", "fifa.worldq.afc", "afc.asian.cup"):
+        r = get(f"{WEB}/soccer/{slug}/scoreboard", params={"dates": nxt}, headers={"User-Agent": CHROME})
+        if r is None:
+            continue
+        n = len(r.json().get("events") or []) if r.status_code == 200 else None
+        print(f"  {'O' if r.status_code == 200 else 'X'}  {slug:16} 앞으로 10일 HTTP {r.status_code} · 경기 {n}")
+
+
+def naver_ag_search():
+    """아시안게임 축구가 네이버 어디에 있는지."""
+    print()
+    print("=" * 74)
+    print("2-2) 네이버 — 아시안게임 축구 찾기 (9/10 ~ 10/5)")
+    print("=" * 74)
+    for upper in ("kfootball", "wfootball"):
+        r = get(f"{NAVER}/schedule/games", params={"fields": "basic", "upperCategoryId": upper,
+                "fromDate": "2026-09-10", "toDate": "2026-10-05", "size": 1000}, headers=NH)
+        if r is None or r.status_code != 200:
+            print(f"  X  {upper} HTTP {getattr(r, 'status_code', '실패')}")
+            continue
+        games = (r.json().get("result") or {}).get("games") or []
+        cats = sorted({(g.get("categoryId"), g.get("categoryName")) for g in games})
+        print(f"  O  {upper} 대회: " + ", ".join(f"{c}({n})" for c, n in cats)[:400])
+        for g in games:
+            if "AG" in (g.get("categoryName") or "") or "아시안" in (g.get("categoryName") or "") or \
+                    str(g.get("categoryId", "")).startswith("ag"):
+                print(f"     → {g.get('categoryId')} {g.get('categoryName')} {g.get('gameDateTime')} "
+                      f"{g.get('homeTeamName')} vs {g.get('awayTeamName')} gameId={g.get('gameId')}")
+                break
+    for cat in ("agfootball", "agwfootball", "agsoccer"):
+        r = get(f"{NAVER}/schedule/games", params={"fields": "basic", "categoryId": cat,
+                "fromDate": "2026-09-10", "toDate": "2026-10-05", "size": 200}, headers=NH)
+        if r is None:
+            continue
+        n = len((r.json().get("result") or {}).get("games") or []) if r.status_code == 200 else None
+        print(f"  {'O' if n else '-'}  categoryId={cat:12} HTTP {r.status_code} · 경기 {n}")
+
+
+def safe(fn, *args):
+    try:
+        return fn(*args)
+    except Exception as exc:   # 한 칸이 실패해도 나머지 점검은 계속
+        print(f"  ! {fn.__name__} 중 오류: {type(exc).__name__} {str(exc)[:150]}")
+        return None
+
+
 def main():
-    espn_check()
-    samples = naver_check()
-    naver_detail_check(samples)
-    elo_check()
+    safe(espn_check)
+    safe(espn_web_detail)
+    samples = safe(naver_check) or {}
+    safe(naver_ag_search)
+    safe(naver_detail_check, samples)
+    safe(elo_check)
     print()
     print("점검 끝. 위 내용을 그대로 복사해서 보내주면 됩니다.")
     return 0

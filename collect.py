@@ -50,7 +50,10 @@ GAME_DIR = os.path.join(DATA_DIR, "games")
 ARCHIVE_DIR = os.path.join(ROOT, "archive")    # 경기 전 판정 + 실제 결과 영구 기록 (백테스트·점수 조정용)
 CACHE_DIR = os.path.join(ROOT, "cache")
 
-ESPN_SITE = "https://site.api.espn.com/apis/site/v2/sports"
+# ESPN: 깃허브 서버에서는 site.api 주소가 막히고(403) site.web 주소는 열린다 (2026-09 소스 점검 결과).
+# site.web을 먼저 쓰고, 거부되면 같은 경로를 site.api로 한 번 더 시도한다.
+ESPN_SITE = "https://site.web.api.espn.com/apis/site/v2/sports"
+ESPN_FALLBACK = "https://site.api.espn.com/apis/site/v2/sports"
 MLB_API = "https://statsapi.mlb.com/api/v1"
 
 HISTORY_MATCHES = 6          # 최근 몇 경기로 주전을 판정할지
@@ -120,6 +123,9 @@ class Client:
                 if res.status_code in NO_RETRY:
                     # 404는 '없는 리그/경기'라 정상 응답으로 본다. 403 등 거부는 실패로 센다.
                     self.note(url, res.status_code == 404)
+                    if res.status_code in (401, 403) and url.startswith(ESPN_SITE):
+                        # 주 주소가 거부하면 예비 주소로 한 번 더
+                        return self.get_json(ESPN_FALLBACK + url[len(ESPN_SITE):], params, cache_key, ttl)
                     return None
                 res.raise_for_status()
                 data = res.json()
