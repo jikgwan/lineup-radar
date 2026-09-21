@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
-"""4차 소스 점검 (읽기만 함).
+"""5차 소스 점검 (읽기만 함): 유럽 리그·A매치의 교체·도움·출전시간을 줄 수 있는 곳 찾기.
 
-1) 아시안게임: 'AG일반' 탭(upperCategoryId=general) 안의 종목 이름 찾기, 축구 경기·라인업 확인
-2) 유럽 리그(EPL·라리가·분데스·챔스): 라인업 원본 모양, 선수 기록·출전시간 유무
-3) A매치: 6~9월 대표팀 경기(월드컵·친선) 라인업·선수 기록 유무, 1000경기 제한을 피하는 기간
+후보: ESPN(옵션 추가) · UEFA 공식 · FIFA 공식 · 소파스코어 · 풋몹, 그리고 네이버 eventMap
+각 후보마다: ① 경기 목록이 오는지 ② 끝난 경기 하나에서 선발·벤치·교체 시각·도움·출전시간이 오는지
 로그를 그대로 복사해서 보내주면 된다.
 """
 
 from __future__ import annotations
 
 import json
-import re
 import sys
 from datetime import date, timedelta
 
@@ -18,177 +16,235 @@ import requests
 
 CHROME = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
           "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
-API = "https://api-gw.sports.naver.com"
-H = {"User-Agent": CHROME, "Referer": "https://m.sports.naver.com/", "Origin": "https://m.sports.naver.com",
-     "Accept": "application/json, text/plain, */*"}
+BASE_H = {"User-Agent": CHROME, "Accept": "application/json, text/plain, */*", "Accept-Language": "en-US,en;q=0.9"}
+TODAY = date.today()
+CLUB_DAY = TODAY - timedelta(days=((TODAY.weekday() - 6) % 7) or 7)   # 가장 최근 지난 일요일
 
 
 def get(url, params=None, headers=None):
     try:
-        return requests.get(url, params=params, headers=headers or H, timeout=20)
+        return requests.get(url, params=params, headers=dict(BASE_H, **(headers or {})), timeout=20)
     except Exception as exc:
         print(f"      ! 접속 실패: {type(exc).__name__} {str(exc)[:100]}")
         return None
 
 
-def jget(url, params=None):
-    r = get(url, params)
-    if r is None or r.status_code != 200:
-        return None, (r.status_code if r is not None else "실패")
+def jget(url, params=None, headers=None):
+    r = get(url, params, headers)
+    if r is None:
+        return None, "실패"
+    if r.status_code != 200:
+        return None, r.status_code
     try:
         return r.json(), 200
     except ValueError:
         return None, "JSON 아님"
 
 
-def games(params):
-    body, st = jget(f"{API}/schedule/games", dict({"fields": "basic,superCategoryId,categoryName", "size": 1000}, **params))
-    if body is None:
-        return None, st
-    return (body.get("result") or {}).get("games") or [], st
-
-
-def dump(obj, n=900):
-    return json.dumps(obj, ensure_ascii=False)[:n]
-
-
-def section(t):
+def head(t):
     print()
     print("=" * 74)
     print(t)
     print("=" * 74)
 
 
-def detail(g, raw=True):
-    gid = g["gameId"]
-    print(f"\n  ▶ {g.get('categoryId')} {g.get('homeTeamName')} {g.get('homeTeamScore')}:{g.get('awayTeamScore')} "
-          f"{g.get('awayTeamName')} ({g.get('gameDate')}) gameId={gid}")
-    body, st = jget(f"{API}/schedule/games/{gid}/lineup")
-    lu = ((body or {}).get("result") or {}).get("lineUpData") or {}
-    if not lu:
-        print(f"     라인업: 없음 (HTTP {st})")
-    else:
-        home = (lu.get("lineup") or {}).get("home")
-        print(f"     라인업 키: {list(lu.keys())}")
-        print(f"     lineup.home 자료형: {type(home).__name__} · 키: {list(home.keys()) if isinstance(home, dict) else '-'}")
-        if raw:
-            print(f"     lineup.home 원본: {dump(home, 1200)}")
-        for k in ("substitution", "changedPlayer"):
-            v = (lu.get(k) or {}).get("home")
-            print(f"     {k}.home: {type(v).__name__} {len(v) if hasattr(v, '__len__') else ''} · {dump(v, 300)}")
-    body, st = jget(f"{API}/schedule/games/{gid}/record")
-    rec = ((body or {}).get("result") or {}).get("recordData") or {}
-    ps = rec.get("homePlayerStats") or []
-    if ps:
-        wt = [p.get("workTime") for p in ps if isinstance(p, dict)]
-        print(f"     선수 기록: 홈 {len(ps)}명 · 출전시간 예 {wt[:6]} · 항목 {list(ps[0].keys()) if isinstance(ps[0], dict) else '-'}")
-    else:
-        print(f"     선수 기록: 없음 (HTTP {st}, 키 {list(rec.keys())})")
-    body, st = jget(f"{API}/schedule/games/{gid}/relay")
-    rows = ((((body or {}).get("result") or {}).get("textRelayData")) or {}).get("textRelays") or []
-    print(f"     문자중계: {len(rows)}건")
+def verdict(label, starters=None, bench=None, sub_min=None, assists=None, minutes=None, note=""):
+    def m(x):
+        return "?" if x is None else ("O" if x else "X")
+    print(f"  ▶ {label}")
+    print(f"     선발 {m(starters)} · 벤치 {m(bench)} · 교체 시각 {m(sub_min)} · 도움 {m(assists)} · 출전시간 {m(minutes)}  {note}")
 
 
-# ---------------------------------------------------------------- 1) 아시안게임
-def ag():
-    section("1) 아시안게임 — 'AG일반'(general) 탭 안의 종목 이름")
-    found = set()
-    for url in ("https://m.sports.naver.com/general/index", "https://m.sports.naver.com/general/schedule/index"):
-        r = get(url, headers={"User-Agent": CHROME})
-        if r is None:
-            continue
-        t = r.text
-        cats = set(re.findall(r'category[=:"\\s]+([a-zA-Z0-9_]{2,30})', t))
-        found |= cats
-        js = re.findall(r'src="([^"]+\.js)"', t)
-        print(f"  {url} HTTP {r.status_code} · {len(t)}바이트 · 스크립트 {len(js)}개 · 종목 후보 {sorted(cats)[:30]}")
-        for s in js[:6]:
-            src = s if s.startswith("http") else "https://m.sports.naver.com" + s
-            rj = get(src, headers={"User-Agent": CHROME})
-            if rj is None or rj.status_code != 200:
-                continue
-            hits = set(re.findall(r'["\'](ag[a-z0-9_]{2,25})["\']', rj.text))
-            if hits:
-                print(f"     {src[-60:]} 안의 ag로 시작하는 이름: {sorted(hits)[:40]}")
-                found |= hits
-    cands = ["agfootball", "agsoccer", "agwfootball", "agfootballw", "agmfootball", "agsoccerw", "football", "soccer",
-             "ag", "agetc", "aggeneral", "general", "asiangames", "agbasketball", "agvolleyball", "agbaseball"]
-    cands = [c for c in sorted(found) if c.lower().startswith("ag")] + cands
-    for extra in ({"superCategoryId": "football"}, {"categoryIds": "agfootball"}, {}):
-        gs, st = games(dict({"upperCategoryId": "general", "fromDate": "2026-09-10", "toDate": "2026-10-05"}, **extra))
-        cats = sorted({(g.get("categoryId"), g.get("categoryName")) for g in (gs or [])})
-        print(f"  {'O' if gs else '-'}  general + {extra or '조건 없음'}: HTTP {st} · 경기 {len(gs) if gs is not None else None} · {cats[:10]}")
-    tried = set()
-    for c in cands:
-        if c in tried:
-            continue
-        tried.add(c)
-        gs, st = games({"upperCategoryId": "general", "categoryId": c, "fromDate": "2026-09-10", "toDate": "2026-10-05"})
-        if gs is None:
-            print(f"     general/{c:14} HTTP {st}")
-            continue
-        names = sorted({g.get('categoryName') for g in gs})
-        print(f"  O  general/{c:14} 경기 {len(gs)} · {names[:5]}")
-        foot = next((g for g in gs if "축구" in str(g.get("categoryName")) or "football" in str(g.get("superCategoryId"))), None)
-        if foot:
-            print(f"     축구 예시: {dump(foot, 500)}")
-            done = next((g for g in gs if g.get("statusCode") == "RESULT" and ("축구" in str(g.get("categoryName")) or "football" in str(g.get("superCategoryId")))), None)
-            if done:
-                detail(done, raw=False)
-
-
-# ---------------------------------------------------------------- 2) 유럽 리그
-def europe():
-    section("2) 유럽 리그 — 라인업 원본 모양·선수 기록")
-    today = date.today()
-    gs, st = games({"upperCategoryId": "wfootball", "fromDate": (today - timedelta(days=14)).isoformat(),
-                    "toDate": today.isoformat()})
-    if gs is None:
-        print(f"  X  목록 HTTP {st}")
+# ---------------------------------------------------------------- ESPN (옵션 추가)
+def espn():
+    head("1) ESPN site.web + 지역·언어 옵션")
+    base = "https://site.web.api.espn.com/apis/site/v2/sports/soccer"
+    opt = {"region": "us", "lang": "en", "contentorigin": "espn"}
+    d = CLUB_DAY.strftime("%Y%m%d")
+    ev = None
+    for label, params in (("날짜 하나", dict(opt, dates=d)), ("날짜 구간", dict(opt, dates=f"{(CLUB_DAY - timedelta(days=2)).strftime('%Y%m%d')}-{d}")),
+                          ("옵션만", opt)):
+        body, st = jget(f"{base}/eng.1/scoreboard", params)
+        evs = (body or {}).get("events") or []
+        print(f"  {'O' if body else 'X'}  EPL 목록 {label:6} HTTP {st} · 경기 {len(evs) if body else None}")
+        done = [e for e in evs if ((e.get('competitions') or [{}])[0].get('status') or {}).get('type', {}).get('completed')]
+        if done and not ev:
+            ev = done[0]
+    for slug in ("uefa.nations", "fifa.friendly"):
+        body, st = jget(f"{base}/{slug}/scoreboard", dict(opt, dates=(TODAY + timedelta(days=3)).strftime("%Y%m%d")))
+        print(f"  {'O' if body else 'X'}  {slug} 목록 HTTP {st} · 경기 {len((body or {}).get('events') or []) if body else None}")
+    if not ev:
+        print("  - 끝난 경기를 못 찾아 라인업 확인 생략")
         return
-    print(f"  (14일 구간: {len(gs)}경기 — 1000 미만이면 이 간격으로 끊어 받으면 됨)")
-    for cat in ("epl", "primera", "bundesliga", "champs"):
-        g = next((x for x in reversed(gs) if x.get("categoryId") == cat and x.get("statusCode") == "RESULT"), None)
-        if g:
-            detail(g, raw=(cat == "epl"))
-        else:
-            print(f"\n  - {cat}: 최근 14일 끝난 경기 없음")
+    body, st = jget(f"{base}/eng.1/summary", dict(opt, event=ev["id"]))
+    if not body:
+        verdict(f"summary HTTP {st}")
+        return
+    ros = body.get("rosters") or []
+    r0 = (ros[0].get("roster") or []) if ros else []
+    starters = sum(1 for p in r0 if p.get("starter"))
+    bench = sum(1 for p in r0 if not p.get("starter"))
+    subs = [k for k in (body.get("keyEvents") or []) if "ubstitution" in str((k.get("type") or {}).get("text"))]
+    stats = {s.get("name") for p in r0 for s in (p.get("stats") or []) if isinstance(s, dict)}
+    verdict(f"ESPN {ev.get('name', '')[:50]} (HTTP {st})", starters >= 10, bench > 0, bool(subs),
+            "goalAssists" in stats, None, f"교체 이벤트 {len(subs)}건 · 선수 통계 {sorted(stats)[:8]}")
+    body, st = jget(f"{base}/eng.1/teams/{(ev['competitions'][0]['competitors'][0].get('team') or {}).get('id')}/schedule", opt)
+    print(f"  {'O' if body else 'X'}  팀 일정 HTTP {st} · 경기 {len((body or {}).get('events') or []) if body else None}")
 
 
-# ---------------------------------------------------------------- 3) A매치
-def amatch():
-    section("3) A매치 — 6~9월 대표팀 경기")
-    start = date(2026, 6, 1)
-    allg = []
-    while start < date.today():
-        end = min(start + timedelta(days=13), date.today())
-        for upper in ("kfootball", "wfootball"):
-            gs, st = games({"upperCategoryId": upper, "fromDate": start.isoformat(), "toDate": end.isoformat()})
-            if gs is None:
-                print(f"  X  {upper} {start}~{end} HTTP {st}")
-                continue
-            if len(gs) >= 1000:
-                print(f"  ! {upper} {start}~{end} 1000경기 꽉 참 (더 잘게 끊어야 함)")
-            allg += [g for g in gs if g.get("categoryId") in ("amatch", "amatchfriendly", "worldcup", "fifaworldcup", "wc")
-                     or "월드컵" in str(g.get("categoryName")) or "국가대표" in str(g.get("categoryName"))]
-        start = end + timedelta(days=1)
-    uniq = {}
-    for g in allg:
-        uniq[g.get("gameId")] = g
-    allg = sorted(uniq.values(), key=lambda g: g.get("gameDate") or "")
-    cats = {}
-    for g in allg:
-        cats[(g.get("categoryId"), g.get("categoryName"))] = cats.get((g.get("categoryId"), g.get("categoryName")), 0) + 1
-    print("  대표팀 대회: " + ", ".join(f"{a}({b}) {n}" for (a, b), n in cats.items()))
-    kor = [g for g in allg if "대한민국" in (str(g.get("homeTeamName")) + str(g.get("awayTeamName")))]
-    print(f"  대한민국 경기 {len(kor)}개: " + ", ".join(f"{g.get('gameDate')} {g.get('homeTeamName')}-{g.get('awayTeamName')}({g.get('categoryId')})" for g in kor[-8:]))
-    pick = next((g for g in reversed(kor) if g.get("statusCode") == "RESULT"), None) or \
-        next((g for g in reversed(allg) if g.get("statusCode") == "RESULT"), None)
-    if pick:
-        detail(pick, raw=False)
-    other = next((g for g in reversed(allg) if g.get("statusCode") == "RESULT" and g is not pick and g.get("categoryId") != (pick or {}).get("categoryId")), None)
-    if other:
-        detail(other, raw=False)
+# ---------------------------------------------------------------- UEFA 공식
+def uefa():
+    head("2) UEFA 공식 (챔스·네이션스리그)")
+    base = "https://match.uefa.com/v5/matches"
+    found = None
+    for comp, name in (("1", "챔스"), ("9", "네이션스리그?"), ("14", "유로파")):
+        body, st = jget(base, {"competitionId": comp, "seasonYear": "2027", "status": "FINISHED", "limit": "5",
+                               "order": "DESC", "offset": "0"})
+        rows = body if isinstance(body, list) else (body or {}).get("matches") if isinstance(body, dict) else None
+        print(f"  {'O' if body is not None else 'X'}  목록 {name}(competitionId={comp}) HTTP {st} · 경기 {len(rows) if rows is not None else None}")
+        if rows and not found:
+            found = rows[0]
+    if not found:
+        return
+    mid = found.get("id")
+    body, st = jget(f"{base}/{mid}/lineups")
+    if not body:
+        verdict(f"UEFA 라인업 HTTP {st}")
+        return
+    ht = body.get("homeTeam") or {}
+    field = ht.get("field") or []
+    bench = ht.get("bench") or []
+    txt = json.dumps(body)[:200000]
+    verdict(f"UEFA {((found.get('homeTeam') or {}).get('internationalName'))} vs {((found.get('awayTeam') or {}).get('internationalName'))} (HTTP {st})",
+            len(field) >= 10, len(bench) > 0, None, None, None, f"라인업 키 {list(body.keys())[:8]} · 홈 키 {list(ht.keys())[:10]}")
+    ev, st2 = jget(f"https://match.uefa.com/v5/matches/{mid}/events", {"filter": "LINEUP_EVENTS"})
+    print(f"     이벤트 HTTP {st2} · {json.dumps(ev)[:250] if ev else ''}")
+    print(f"     'substitut' 포함: {'substitut' in txt.lower()} · 'assist' 포함: {'assist' in txt.lower()}")
+
+
+# ---------------------------------------------------------------- FIFA 공식
+def fifa():
+    head("3) FIFA 공식 (A매치·월드컵)")
+    frm = (TODAY - timedelta(days=100)).strftime("%Y-%m-%dT00:00:00Z")
+    to = TODAY.strftime("%Y-%m-%dT23:59:59Z")
+    body, st = jget("https://api.fifa.com/api/v3/calendar/matches", {"from": frm, "to": to, "language": "en", "count": "500"})
+    res = (body or {}).get("Results") or []
+    print(f"  {'O' if body else 'X'}  경기 목록 HTTP {st} · 경기 {len(res) if body else None}")
+    if not res:
+        return
+    comps = {}
+    for m in res:
+        name = ((m.get("CompetitionName") or [{}])[0] or {}).get("Description")
+        comps[name] = comps.get(name, 0) + 1
+    print("     대회: " + ", ".join(f"{k} {v}" for k, v in sorted(comps.items(), key=lambda x: -x[1])[:10]))
+    done = [m for m in res if m.get("MatchStatus") == 0]
+    if not done:
+        print("  - 끝난 경기 없음")
+        return
+    m = done[-1]
+    url = f"https://api.fifa.com/api/v3/live/football/{m.get('IdCompetition')}/{m.get('IdSeason')}/{m.get('IdStage')}/{m.get('IdMatch')}"
+    body, st = jget(url, {"language": "en"})
+    if not body:
+        verdict(f"FIFA 경기 상세 HTTP {st}")
+        return
+    team = body.get("HomeTeam") or {}
+    players = team.get("Players") or []
+    subs = team.get("Substitutions") or []
+    starters = [p for p in players if p.get("Status") == 1]
+    bench = [p for p in players if p.get("Status") == 2]
+    goals = team.get("Goals") or []
+    verdict(f"FIFA {((team.get('TeamName') or [{}])[0] or {}).get('Description')} (HTTP {st})",
+            len(starters) >= 10, len(bench) > 0, bool(subs and subs[0].get("Minute")),
+            any(g.get("IdAssistPlayer") for g in goals), None, f"교체 {len(subs)}건 · 득점 {len(goals)}")
+
+
+# ---------------------------------------------------------------- 소파스코어
+def sofascore():
+    head("4) 소파스코어")
+    ev = None
+    for host in ("https://api.sofascore.com", "https://www.sofascore.com"):
+        body, st = jget(f"{host}/api/v1/sport/football/scheduled-events/{CLUB_DAY.isoformat()}",
+                        headers={"Referer": "https://www.sofascore.com/", "Origin": "https://www.sofascore.com"})
+        evs = (body or {}).get("events") or []
+        print(f"  {'O' if body else 'X'}  {host} 목록 HTTP {st} · 경기 {len(evs) if body else None}")
+        if evs and not ev:
+            epl = [e for e in evs if (e.get("tournament") or {}).get("uniqueTournament", {}).get("id") == 17
+                   and (e.get("status") or {}).get("type") == "finished"]
+            ev = (host, (epl or [e for e in evs if (e.get("status") or {}).get("type") == "finished"] or [None])[0])
+    if not ev or not ev[1]:
+        return
+    host, e = ev
+    body, st = jget(f"{host}/api/v1/event/{e['id']}/lineups", headers={"Referer": "https://www.sofascore.com/"})
+    if not body:
+        verdict(f"라인업 HTTP {st}")
+        return
+    home = (body.get("home") or {}).get("players") or []
+    starters = [p for p in home if not p.get("substitute")]
+    bench = [p for p in home if p.get("substitute")]
+    stat_keys = set()
+    for p in home:
+        stat_keys |= set((p.get("statistics") or {}).keys())
+    verdict(f"소파스코어 {(e.get('homeTeam') or {}).get('name')} vs {(e.get('awayTeam') or {}).get('name')} (HTTP {st})",
+            len(starters) >= 10, len(bench) > 0, None, "goalAssist" in stat_keys, "minutesPlayed" in stat_keys,
+            f"통계 항목 {sorted(stat_keys)[:10]}")
+    inc, st2 = jget(f"{host}/api/v1/event/{e['id']}/incidents", headers={"Referer": "https://www.sofascore.com/"})
+    subs = [i for i in (inc or {}).get("incidents", []) if i.get("incidentType") == "substitution"]
+    print(f"     교체 기록 HTTP {st2} · {len(subs)}건 · 예: {json.dumps(subs[:1], ensure_ascii=False)[:200]}")
+
+
+# ---------------------------------------------------------------- 풋몹
+def fotmob():
+    head("5) 풋몹")
+    d = CLUB_DAY.strftime("%Y%m%d")
+    mid = None
+    for path in ("/api/data/matches", "/api/matches"):
+        body, st = jget(f"https://www.fotmob.com{path}", {"date": d}, headers={"Referer": "https://www.fotmob.com/"})
+        leagues = (body or {}).get("leagues") or []
+        n = sum(len(l.get("matches") or []) for l in leagues)
+        print(f"  {'O' if body else 'X'}  {path} HTTP {st} · 리그 {len(leagues)} · 경기 {n if body else None}")
+        for l in leagues:
+            if l.get("primaryId") == 47 and not mid:
+                fin = [m for m in (l.get("matches") or []) if (m.get("status") or {}).get("finished")]
+                if fin:
+                    mid = fin[0].get("id")
+    if not mid:
+        return
+    for path in ("/api/data/matchDetails", "/api/matchDetails"):
+        body, st = jget(f"https://www.fotmob.com{path}", {"matchId": mid}, headers={"Referer": "https://www.fotmob.com/"})
+        if not body:
+            print(f"     {path} HTTP {st}")
+            continue
+        lu = ((body.get("content") or {}).get("lineup") or {})
+        ht = lu.get("homeTeam") or {}
+        verdict(f"풋몹 경기 상세 {path} (HTTP {st})", len(ht.get("starters") or []) >= 10, len(ht.get("subs") or []) > 0,
+                None, None, None, f"라인업 키 {list(ht.keys())[:10]}")
+        break
+
+
+# ---------------------------------------------------------------- 네이버 eventMap
+def naver_eventmap():
+    head("6) 네이버 유럽 경기 eventMap (교체·골 정보가 들어가는지)")
+    api = "https://api-gw.sports.naver.com"
+    h = {"Referer": "https://m.sports.naver.com/", "Origin": "https://m.sports.naver.com"}
+    body, st = jget(f"{api}/schedule/games", {"fields": "basic", "upperCategoryId": "wfootball", "size": 1000,
+                                              "fromDate": (TODAY - timedelta(days=10)).isoformat(), "toDate": TODAY.isoformat()}, h)
+    gs = [g for g in ((body or {}).get("result") or {}).get("games") or [] if g.get("categoryId") in ("epl", "primera", "bundesliga", "seria")
+          and g.get("statusCode") == "RESULT"][:6]
+    shown = 0
+    for g in gs:
+        b, _ = jget(f"{api}/schedule/games/{g['gameId']}/lineup", headers=h)
+        home = ((((b or {}).get("result") or {}).get("lineUpData") or {}).get("lineup") or {}).get("home") or {}
+        rows = (home.get("players") or {}).get("lineup") or []
+        flat = [p for row in rows for p in row] if isinstance(rows, list) else []
+        subs_flag = [p for p in flat if str(p.get("substitute")) not in ("0", "None", "")]
+        with_ev = [p for p in flat if p.get("eventMap")]
+        other_keys = [k for k in (home.get("players") or {}).keys() if k != "lineup"]
+        print(f"  {g['categoryId']} {g.get('homeTeamName')}-{g.get('awayTeamName')}: 선발 {len(flat)} · substitute≠0 {len(subs_flag)} · "
+              f"eventMap 있음 {len(with_ev)} · players 다른 키 {other_keys}")
+        for p in with_ev[:2]:
+            if shown < 4:
+                print(f"     예: {p.get('name')} eventMap={json.dumps(p.get('eventMap'), ensure_ascii=False)[:250]}")
+                shown += 1
 
 
 def safe(fn):
@@ -199,9 +255,9 @@ def safe(fn):
 
 
 def main():
-    safe(ag)
-    safe(europe)
-    safe(amatch)
+    print(f"(기준일: 오늘 {TODAY} · 클럽 경기 확인일 {CLUB_DAY})")
+    for fn in (espn, uefa, fifa, sofascore, fotmob, naver_eventmap):
+        safe(fn)
     print()
     print("점검 끝. 위 내용을 그대로 복사해서 보내주면 됩니다.")
     return 0
