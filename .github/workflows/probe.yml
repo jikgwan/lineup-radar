@@ -1,0 +1,16 @@
+name: 소스 점검
+
+on:
+  workflow_dispatch:   # Actions 탭에서 버튼으로 실행
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install requests
+      - name: 점검 실행
+        run: python probe.py
