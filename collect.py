@@ -67,7 +67,8 @@ DETAIL_WINDOW_BEFORE = 6 * 60   # 경기 시작 몇 분 전부터 라인업을 �
 DETAIL_WINDOW_AFTER = 4 * 60    # 시작 후 몇 분까지 확인할지
 MAX_DETAIL_GAMES = 40
 MAX_REQUESTS = 800
-REQUEST_PAUSE = 0.4
+REQUEST_PAUSE = 0.25
+TIME_BUDGET = 6 * 60      # 한 번 실행에서 새로 받는 시간 한도(초). 넘으면 받은 것까지만 쓰고 다음 실행에서 이어받는다
 
 USER_AGENT = "lineup-radar/1.0 (personal hobby project)"
 
@@ -93,6 +94,8 @@ class Client:
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": USER_AGENT, "Accept": "application/json"})
         self.count = 0
+        self.started = time.time()
+        self.out_of_time = False
         self.verbose = verbose
         self.fails = {}      # 사이트별 연속 실패 수
         os.makedirs(CACHE_DIR, exist_ok=True)
@@ -117,6 +120,11 @@ class Client:
                 return hit
         if self.count >= MAX_REQUESTS:
             print("  ! 요청 상한에 도달해서 이번 실행은 여기까지만 수집합니다", file=sys.stderr)
+            return None
+        if time.time() - self.started > TIME_BUDGET:
+            if not self.out_of_time:
+                self.out_of_time = True
+                print(f"  ! 시간 한도({TIME_BUDGET // 60}분)에 도달 — 받은 것까지만 쓰고 나머지는 다음 실행에서 이어받습니다", flush=True)
             return None
         if self.host_down(url):
             return None
@@ -770,7 +778,8 @@ def run(verbose=False):
     games.sort(key=lambda g: (g.get("start_kst") or "9999"))
 
     targets = [g for g in games if needs_detail(g, now)][:MAX_DETAIL_GAMES]
-    print(f"경기 {len(games)}개 수집, 상세 판정 대상 {len(targets)}개")
+    started = getattr(client, "started", time.time())
+    print(f"경기 {len(games)}개 수집, 상세 판정 대상 {len(targets)}개 (요청 {client.count}건)", flush=True)
 
     index = []
     details = {}
@@ -792,6 +801,8 @@ def run(verbose=False):
             "grade_away": "",
         }
         if g in targets:
+            print(f"  · 경기 상세 {targets.index(g) + 1}/{len(targets)}: {g['league']} {g['home']['name']} vs {g['away']['name']} "
+                  f"(요청 {client.count}건 · {int(time.time() - started)}초)", flush=True)
             try:
                 detail = build_mlb_detail(client, g, now) if g["sport"] == "야구" else build_espn_detail(client, g, now)
             except Exception as exc:  # 한 경기가 깨져도 전체는 계속
