@@ -54,6 +54,9 @@ CACHE_DIR = os.path.join(ROOT, "cache")
 # site.web을 먼저 쓰고, 거부되면 같은 경로를 site.api로 한 번 더 시도한다.
 ESPN_SITE = "https://site.web.api.espn.com/apis/site/v2/sports"
 ESPN_FALLBACK = "https://site.api.espn.com/apis/site/v2/sports"
+# site.web은 이 옵션이 있어야 날짜별 목록·라인업·팀 일정이 열린다 (5차 소스 점검에서 확인).
+# 날짜는 하나씩만 가능하고 구간(20260901-20260910)은 400이 난다.
+ESPN_PARAMS = {"region": "us", "lang": "en", "contentorigin": "espn"}
 MLB_API = "https://statsapi.mlb.com/api/v1"
 
 HISTORY_MATCHES = 6          # 최근 몇 경기로 주전을 판정할지
@@ -78,6 +81,7 @@ def load_config():
 
 BREAKER_LIMIT = 6        # 같은 사이트가 연속 이만큼 실패하면 이번 실행에서는 더 요청하지 않음
 NO_RETRY = {400, 401, 403, 404, 410}
+NOT_FOUND = {400, 404, 410}   # '그 대회·경기엔 데이터 없음' — 사이트 장애로 세지 않는다
 
 
 def _host(url):
@@ -116,13 +120,15 @@ class Client:
             return None
         if self.host_down(url):
             return None
+        if url.startswith(ESPN_SITE):
+            params = dict(ESPN_PARAMS, **(params or {}))
         for attempt in range(3):
             self.count += 1
             try:
                 res = self.session.get(url, params=params, timeout=20)
                 if res.status_code in NO_RETRY:
-                    # 404는 '없는 리그/경기'라 정상 응답으로 본다. 403 등 거부는 실패로 센다.
-                    self.note(url, res.status_code == 404)
+                    # 400·404는 '없는 리그/경기'라 사이트 장애가 아니다. 401·403 거부만 실패로 센다.
+                    self.note(url, res.status_code in NOT_FOUND)
                     if res.status_code in (401, 403) and url.startswith(ESPN_SITE):
                         # 주 주소가 거부하면 예비 주소로 한 번 더
                         return self.get_json(ESPN_FALLBACK + url[len(ESPN_SITE):], params, cache_key, ttl)
@@ -163,7 +169,7 @@ def get_text(client, url, cache_key, ttl):
             res = client.session.get(url, timeout=20, headers={"Accept": "text/plain,*/*"})
             if res.status_code in NO_RETRY:
                 if note:
-                    note(url, res.status_code == 404)
+                    note(url, res.status_code in NOT_FOUND)
                 return None
             res.raise_for_status()
             res.encoding = res.encoding or "utf-8"
