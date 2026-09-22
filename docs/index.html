@@ -295,8 +295,8 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
   const md = (iso) => { const k = iso && kst(iso); return k ? `${k.m}/${k.d}` : ""; };
   function dayDiff(iso){ const k = kst(iso), n = kst(new Date().toISOString()); if (!k) return null; return Date.UTC(k.y, k.m - 1, k.d) / 864e5 - Date.UTC(n.y, n.m - 1, n.d) / 864e5; }
   const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
-  // 오늘 이전 날짜의 경기 (단, 자정을 넘겨 아직 진행 중인 경기는 제외)
-  const isPast = (g) => dayDiff(g.start_kst) < 0 && g.state !== "in";
+  // 전날(한국 시간 기준 오늘 이전 날짜) 경기는 전부 '지난 경기'로
+  const isPast = (g) => dayDiff(g.start_kst) < 0;
   const dateKey = (iso) => { const k = iso && kst(iso); return k ? `${k.y}-${String(k.m).padStart(2, "0")}-${String(k.d).padStart(2, "0")}` : ""; };
   function relWord(iso){ const d = dayDiff(iso); return {"-1": "어제", "0": "오늘", "1": "내일", "2": "모레"}[String(d)] || ""; }
   function dayTitle(iso){ const k = kst(iso); if (!k) return ""; const r = relWord(iso); return `${r ? r + " · " : ""}${k.m}월 ${k.d}일 ${WEEK[k.w]}요일`; }
