@@ -414,7 +414,7 @@ def summarize(home_name, away_name, teams, sport="축구"):
             mg = sum(int(m.get("goals") or 0) for m in missing)
             if tg and mg:
                 scorers = " · ".join(f"{m['name']} {m['goals']}골" for m in missing if m.get("goals"))
-                points.append([f"팀 {tg}골 중 {mg}골({round(mg * 100 / tg)}%) 넣은 선수가 선발에 없음", scorers])
+                points.append([f"{fname} {tg}골 중 {mg}골({round(mg * 100 / tg)}%) 넣은 선수가 선발에 없음", scorers])
     if focus:
         om = len(ot.get("missing") or [])
         line = f"{josa(oname, '은', '는')} 주전 {ot.get('core_in')}명 그대로" if om <= 1 else f"{oname}도 주전 {om}명 빠짐"
@@ -724,9 +724,9 @@ MLB_HOME_EDGE = 0.54     # 홈 승률(대략)
 PYTH_EXP = 1.83
 
 
-def _ra9_starter(sp):
+def _ra9_starter(sp, rpg=MLB_RPG):
     """선발투수 9이닝당 예상 실점: 시즌 FIP 50% + 시즌 ERA 30% + 최근 3경기 ERA 20% (없는 값은 평균으로)."""
-    avg = MLB_RPG * 0.95
+    avg = rpg * 0.95
     fip = sp.get("fip") if sp.get("fip") is not None else avg
     era = sp.get("era") if sp.get("era") is not None else avg
     rec = sp.get("recent_era") if sp.get("recent_era") is not None else era
@@ -744,21 +744,24 @@ def bullpen_fatigue(pitches_3d):
     return max(0.0, min(0.15, (pitches_3d - 420) / 1000.0))
 
 
-def baseball_power(home, away, home_name, away_name):
-    """야구 오늘 전력: 예상 득점과 비율. home/away = {"off_rpg", "sp", "pen_era", "pen_3d", "core_in", "size"}"""
+def baseball_power(home, away, home_name, away_name, rpg=None):
+    """야구 오늘 전력: 예상 득점과 비율. home/away = {"off_rpg", "sp", "pen_era", "pen_3d", "core_in", "size"}
+    rpg: 리그 평균 경기당 득점 (MLB 약 4.4, KBO 약 5)"""
+    rpg = rpg or MLB_RPG
+
     def allowed(t):
         sp = t.get("sp") or {}
         share = min(0.75, max(0.45, ((sp.get("ip_per_start") or 5.3) / 9.0)))
-        pen = (t.get("pen_era") if t.get("pen_era") is not None else MLB_RPG * 0.95) * (1 + bullpen_fatigue(t.get("pen_3d") or 0))
-        return share * _ra9_starter(sp) + (1 - share) * pen
+        pen = (t.get("pen_era") if t.get("pen_era") is not None else rpg * 0.95) * (1 + bullpen_fatigue(t.get("pen_3d") or 0))
+        return share * _ra9_starter(sp, rpg) + (1 - share) * pen
 
     def offense(t):
-        base = t.get("off_rpg") if t.get("off_rpg") else MLB_RPG
+        base = t.get("off_rpg") if t.get("off_rpg") else rpg
         ratio = (t.get("core_in") or 0) / (t.get("size") or 9)
         return base * (0.9 + 0.1 * ratio)          # 타선 몇 군은 작은 보정만
 
-    exp_h = offense(home) * allowed(away) / MLB_RPG
-    exp_a = offense(away) * allowed(home) / MLB_RPG
+    exp_h = offense(home) * allowed(away) / rpg
+    exp_a = offense(away) * allowed(home) / rpg
     p = exp_h ** PYTH_EXP / (exp_h ** PYTH_EXP + exp_a ** PYTH_EXP) if (exp_h + exp_a) else 0.5
     p = (p * MLB_HOME_EDGE) / (p * MLB_HOME_EDGE + (1 - p) * (1 - MLB_HOME_EDGE))
     share = round(100 * p)
