@@ -596,6 +596,8 @@ def parse_mlb_team_results(data, team_id):
             if gf is None or ga is None:
                 continue
             out.append({
+                "gamePk": g.get("gamePk"),
+                "side": "home" if is_home else "away",
                 "date": _s(g.get("gameDate")),
                 "opp": _s(_d(opp.get("team")).get("name")),
                 "home": is_home,
@@ -693,3 +695,26 @@ def elo_for(team_name, ratings, names):
         if code and code in ratings:
             return ratings[code], code
     return None, None
+
+
+
+def parse_mlb_boxscore_side(box, side):
+    """statsapi boxscore 한 팀 -> {"starters": 선발 타순 id, "played": 타석에 선 선수 id, "names": {...}}"""
+    t = _d(_d(_d(box).get("teams")).get(side))
+    order = [str(x) for x in _l(t.get("battingOrder")) if x]
+    batters = [str(x) for x in _l(t.get("batters")) if x]
+    names = {}
+    for key, p in _d(t.get("players")).items():
+        person = _d(_d(p).get("person"))
+        pid = str(person.get("id") or str(key).replace("ID", ""))
+        if pid:
+            names[pid] = _s(person.get("fullName"))
+    played = []
+    for pid in order + batters:
+        if pid not in played:
+            played.append(pid)
+    # 투수는 타석에 안 서면 batters에 들어와도 타자 기록이 아니다 — 타순에 없고 포지션이 P면 뺀다
+    pos = {str(_d(_d(p).get("person")).get("id")): _s(_d(_d(p).get("position")).get("abbreviation"))
+           for p in _d(t.get("players")).values()}
+    played = [pid for pid in played if pid in order or pos.get(pid) != "P"]
+    return {"starters": order[:9], "played": played, "names": names}
