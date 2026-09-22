@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 
 def josa(word, with_final, without_final):
     """받침 유무로 조사 선택: josa('레알', '은', '는') -> '레알은'."""
@@ -61,7 +63,7 @@ def role_of(pid, profiles, matches):
 
 # 기준 인원별 (1군 최소 인원, 1.5군 최소 인원)
 GRADE_CUTS = {
-    11: (9, 6),  # 축구
+    11: (8, 6),  # 축구 — 백테스트: 팀들이 평소에도 2~3명씩 바꿈 → 0~3명 빠짐 1군 · 4~5명 1.5군 · 6명+ 2군
     9: (8, 6),   # 야구 타선
     7: (6, 5),   # 배구
     5: (5, 4),   # 농구
@@ -943,3 +945,81 @@ def rotation_risk(history, events, core, size, today_next, today_rest):
         reason = (reason + " · " if reason else "") + f"지난 경기 후 {today_rest}일 휴식"
     return {"level": level, "situation": today, "situation_text": SITUATION_TEXT[today], "today": s_today,
             "base": s_base, "tired": sorted(tired)[:4], "reason": reason, "size": size}
+
+
+
+# ---------------------------------------------------------------- 새 전력 계산 (백테스트 model.json: 득실차 + Elo + 리그별 홈 이점)
+
+LEAGUE_OVER = {"eng.1": 55, "esp.1": 51, "fra.1": 54, "ger.1": 64, "ita.1": 47, "jpn.1": 50, "kleague": 48}   # 2.5골 이상 비율(%)
+
+
+def _sg(x):
+    x = max(-35.0, min(35.0, x))
+    return 1 / (1 + math.exp(-x))
+
+
+def model_probs(model, league, h, a):
+    """h, a = {"gd": 경기당 득실차, "elo": Elo} → [원정 승, 무, 홈 승] 확률"""
+    pw = model.get("power", 1.0)
+    eta = 0.0
+    for f in model["features"]:
+        key = f.split(":", 1)[1]
+        m, sd = model["zstats"][f]
+        d = ((h[key] - m) - (a[key] - m)) / (sd or 1)
+        d = math.copysign(abs(d) ** pw, d)
+        eta += model["beta"][f] * d
+    offs = model.get("league_home") or {}
+    eta += offs.get(league, sum(offs.values()) / len(offs) if offs else 0.0)
+    s1, s2 = _sg(model["cut1"] - eta), _sg(model["cut2"] - eta)
+    return [s1, s2 - s1, 1 - s2]
+
+
+def model_goals(model, league, h, a):
+    """예상 골 (양 팀 득점·실점 기록 × 리그 평균)"""
+    gp = (model.get("goals") or {})
+    g = gp.get(league) or gp.get("_all") or {"mh": 1.45, "ma": 1.2, "L": 1.33}
+    k = 6
+    att = lambda t: (t["gf_pg"] * 10 + g["L"] * k) / (10 + k) / g["L"]
+    dfn = lambda t: (t["ga_pg"] * 10 + g["L"] * k) / (10 + k) / g["L"]
+    return g["mh"] * att(h) * dfn(a), g["ma"] * att(a) * dfn(h)
+
+
+def model_power(model, league, h, a, home_name, away_name, teams=None):
+    """전력 비교(A안): 기대 승점 비율 64 vs 36. 확률은 계산에만 쓰고 화면엔 비율로."""
+    p = model_probs(model, league, h, a)
+    share = max(1, min(99, round(100 * (p[2] + 0.5 * p[1]))))
+    gap = share - 50
+    fav = "home" if gap > 0 else "away"
+    fname = home_name if fav == "home" else away_name
+    verdict = "비슷한 전력" if abs(gap) < 5 else f"{fname} {'근소 ' if abs(gap) < 10 else ''}우위"
+    note = ""
+    if teams:
+        rot = [(s, teams[s].get("grade")) for s in ("home", "away") if teams.get(s, {}).get("grade") in ("2군", "1.5군")]
+        if rot:
+            s, gr = rot[0]
+            nm = home_name if s == "home" else away_name
+            note = f"{nm} {gr} 출전 · 전력은 팀 체급 기준 (라인업은 아래 정보로)"
+    lh, la = model_goals(model, league, h, a)
+    offs = model.get("league_home") or {}
+    edge = offs.get(league)
+    return {"home": share, "away": 100 - share, "verdict": verdict, "fav": fav if abs(gap) >= 5 else None, "note": note,
+            "mode": "model", "probs": [round(x, 4) for x in p], "confident": max(p) >= 0.65,
+            "pick": ("away", "draw", "home")[max(range(3), key=lambda i: p[i])],
+            "exp_goals": round(lh + la, 2), "exp_home": round(lh, 2), "exp_away": round(la, 2),
+            "basis": {"gd": [round(h["gd"], 2), round(a["gd"], 2)], "elo": [round(h["elo"]), round(a["elo"])],
+                      "home_edge": round(edge, 3) if edge is not None else None},
+            "league_over": LEAGUE_OVER.get(league)}
+
+
+def elo_table(matches, k=20, home=60, regress=1 / 3):
+    """matches: [(날짜, 시즌, 홈 id, 원정 id, 홈 골, 원정 골)] → {팀: Elo}. 시즌이 바뀌면 평균 쪽으로 당김."""
+    elo, season = {}, None
+    for d, s, hid, aid, hg, ag in sorted(matches, key=lambda x: str(x[0])):
+        if s != season and season is not None:
+            elo = {t: 1500 + (e - 1500) * (1 - regress) for t, e in elo.items()}
+        season = s
+        eh, ea = elo.get(hid, 1500.0), elo.get(aid, 1500.0)
+        exp = 1 / (1 + 10 ** (-(eh + home - ea) / 400))
+        sc = 1.0 if hg > ag else 0.5 if hg == ag else 0.0
+        elo[hid], elo[aid] = eh + k * (sc - exp), ea - k * (sc - exp)
+    return elo
