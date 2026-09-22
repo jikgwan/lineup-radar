@@ -11,7 +11,7 @@
 <title>라인업 레이더</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&family=Inter:wght@800&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#0B0D0C; --s1:#131615; --s2:#1A1E1C; --line:#252A28; --ink:#ECEFED; --mute:#8E9892; --dim:#5F6863;
@@ -65,11 +65,23 @@ h1{margin:0;font-size:24px;font-weight:900;letter-spacing:-0.03em}
 .chip{white-space:nowrap;font-size:13px;font-weight:600;padding:7px 13px;border-radius:999px;background:var(--s1);color:var(--mute)}
 .chip[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
 .glist{display:flex;flex-direction:column;gap:10px;padding:0 14px}
+.days{display:flex;gap:6px;overflow-x:auto;padding:2px 18px 10px;scrollbar-width:none}
+.days::-webkit-scrollbar{display:none}
+.dchip{flex:none;display:flex;flex-direction:column;align-items:center;min-width:64px;padding:7px 10px;border-radius:12px;background:var(--s1);color:var(--mute);font-size:13px;font-weight:700;line-height:1.25}
+.dchip small{font-size:11px;font-weight:500;color:var(--dim)}
+.dchip[aria-pressed="true"]{background:var(--acc);color:#1A1204} .dchip[aria-pressed="true"] small{color:#5A4300}
+.dgroup{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:baseline;margin:6px -14px 0;padding:10px 18px 8px;background:linear-gradient(var(--bg) 80%,rgba(11,13,12,0));font-size:14px;font-weight:800}
+.dgroup small{font-size:12px;color:var(--mute);font-weight:500}
+.ltable tr.grow td{background:var(--bg);padding:14px 4px 6px;font-size:13px;font-weight:800;color:var(--ink);border-bottom:1px solid var(--line);cursor:default}
+.ltable tr.grow td small{color:var(--mute);font-weight:500}
+.ltable tr.grow:hover td{background:var(--bg)}
 .group{font-size:12px;font-weight:700;color:var(--mute);margin:6px 4px 0}
 .gcard{position:relative;display:block;width:100%;background:var(--s1);border-radius:16px;padding:14px 14px 14px}
 .gcard.sel{box-shadow:inset 0 0 0 2px var(--acc)}
-.gtop{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--mute);margin-bottom:8px;padding-right:34px}
-.gtop .time{color:var(--ink);font-weight:700;font-size:14px}
+.gtop{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--mute);margin-bottom:10px;padding-right:34px}
+.gtop .time{font-family:'Inter','Noto Sans KR',sans-serif;font-variant-numeric:tabular-nums;color:var(--ink);font-weight:800;font-size:26px;letter-spacing:-0.03em;line-height:1}
+.gtop .until{font-size:12px;font-weight:700;color:var(--acc);background:rgba(255,197,61,.12);padding:2px 7px;border-radius:6px}
+.gtop .lg{color:var(--mute)}
 .gside{display:flex;align-items:center;gap:10px;margin-top:6px}
 .gside .nm{flex:1;font-size:15px;font-weight:700;min-width:0;padding-left:10px;border-left:3px solid var(--tc)}
 .star{position:absolute;top:10px;right:10px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:10px;color:var(--dim);font-size:17px}
@@ -104,6 +116,7 @@ h1{margin:0;font-size:24px;font-weight:900;letter-spacing:-0.03em}
 .ltable tr{cursor:pointer} .ltable tr:hover td{background:rgba(255,255,255,.03)}
 .ltable tr.sel td{background:rgba(255,197,61,.08)} .ltable tr.sel td:first-child{box-shadow:inset 3px 0 0 var(--acc)}
 .ltable .tm{display:flex;align-items:center;gap:6px;font-weight:700}
+.ltable td:first-child b{font-family:'Inter','Noto Sans KR',sans-serif;font-weight:800;font-size:16px;letter-spacing:-0.02em}
 .ltable td.lg{white-space:normal;color:var(--mute);font-size:12px}
 .ltable th.sort{color:var(--acc);cursor:pointer}
 .gapbar{display:inline-block;height:6px;border-radius:3px;background:var(--acc)}
@@ -223,6 +236,7 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     <header class="lhead"><div><div class="brand">LINEUP RADAR</div><h1>오늘의 라인업</h1></div><div class="upd num" id="updated">불러오는 중</div></header>
     <div class="search"><input id="q" type="search" placeholder="팀 이름 검색  ( / )" aria-label="팀 이름 검색"></div>
     <div class="keys">↑↓ 경기 이동 · Enter 열기 · / 검색</div>
+    <nav class="days" id="days" aria-label="날짜"></nav>
     <nav class="chips" id="chips" aria-label="보기"></nav>
     <div id="list"></div>
     <p class="foot">라인업은 보통 경기 1시간 전에 나오고, 나오면 등급이 켜집니다. 전력 비율은 승률이 아니라 오늘 라인업의 무게 비교예요.<br>
@@ -255,7 +269,7 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
   function josa(word, a, b){ const ch = String(word || "").slice(-1);
     if (ch >= "가" && ch <= "힣") return (ch.charCodeAt(0) - 0xAC00) % 28 ? a : b; return /[lmnr0136789]/i.test(ch) ? a : b; }
 
-  let games = [], view = [], filter = "전체", query = "", current = null, sortGap = false;
+  let games = [], view = [], filter = "전체", query = "", current = null, sortGap = false, day = "all";
   let NAT = false;
 
   // ---------- 관심 경기 (이 기기에만 저장)
@@ -269,11 +283,22 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
   const hhmm = (iso) => { const k = iso && kst(iso); return k ? String(k.h).padStart(2, "0") + ":" + String(k.mi).padStart(2, "0") : "--:--"; };
   const md = (iso) => { const k = iso && kst(iso); return k ? `${k.m}/${k.d}` : ""; };
   function dayDiff(iso){ const k = kst(iso), n = kst(new Date().toISOString()); if (!k) return null; return Date.UTC(k.y, k.m - 1, k.d) / 864e5 - Date.UTC(n.y, n.m - 1, n.d) / 864e5; }
+  const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
+  const dateKey = (iso) => { const k = iso && kst(iso); return k ? `${k.y}-${String(k.m).padStart(2, "0")}-${String(k.d).padStart(2, "0")}` : ""; };
+  function relWord(iso){ const d = dayDiff(iso); return {"-1": "어제", "0": "오늘", "1": "내일", "2": "모레"}[String(d)] || ""; }
+  function dayTitle(iso){ const k = kst(iso); if (!k) return ""; const r = relWord(iso); return `${r ? r + " · " : ""}${k.m}월 ${k.d}일 ${WEEK[k.w]}요일`; }
+  function dayChip(iso){ const k = kst(iso); const r = relWord(iso); return r ? `${r} ${k.m}/${k.d}` : `${k.m}/${k.d} ${WEEK[k.w]}`; }
   const dayWord = (iso) => { const d = dayDiff(iso); return d === 0 ? "오늘" : d === 1 ? "내일" : d === -1 ? "어제" : md(iso); };
   const announce = (iso) => { const t = Date.parse(iso); return isNaN(t) ? "" : hhmm(new Date(t - 3600e3).toISOString()); };
+  function untilText(g){
+    if (g.state !== "pre") return "";
+    const m = Math.round((Date.parse(g.start_kst) - Date.now()) / 60000);
+    if (isNaN(m) || m < 0) return "";
+    if (m < 60) return `${m}분 뒤`;
+    if (m < 12 * 60) return `${Math.floor(m / 60)}시간${m % 60 >= 30 ? " 반" : ""} 뒤`;
+    return "";
+  }
   const isNew = (g) => { if (g.lineup_ready !== true || g.state !== "pre") return false; const t = Date.parse(g.start_kst); return !isNaN(t) && t - Date.now() < 90 * 60e3; };
-  const bigGap = (g) => g.lineup_ready === true && (g.power ? Math.abs(g.power[0] - g.power[1]) >= 20
-    : !!(RANK[g.grade_home] && RANK[g.grade_away]) && Math.abs(RANK[g.grade_home] - RANK[g.grade_away]) >= 1);
 
   // ---------- 조각
   // 팀 로고: 설정에서 켰고 주소가 있을 때만 이미지로. 없으면 아무것도 그리지 않는다
@@ -367,18 +392,27 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     let rows = games;
     if (filter === "관심") rows = rows.filter(g => pins.has(g.key));
     else if (filter === "NEW") rows = rows.filter(isNew);
-    else if (filter === "전력 차 큼") rows = rows.filter(bigGap);
     else if (filter === "A매치") rows = rows.filter(g => g.national);
     else if (filter !== "전체") rows = rows.filter(g => g.sport === filter);
+    if (day !== "all") rows = rows.filter(g => dateKey(g.start_kst) === day);
     if (query) rows = rows.filter(g => (g.home + " " + g.away + " " + g.league).toLowerCase().includes(query));
     if (sortGap) rows = [...rows].sort((a, b) => (b.power ? Math.abs(b.power[0] - b.power[1]) : -1) - (a.power ? Math.abs(a.power[0] - a.power[1]) : -1));
+    else rows = [...rows].sort((a, b) => (Date.parse(a.start_kst) || 0) - (Date.parse(b.start_kst) || 0));   // 날짜·시간 순
     return rows;
   }
   function renderList(){
     const pins = getPins();
     const sports = ["축구", "야구", "농구"].filter(s => games.some(g => g.sport === s));
-    const opts = [["전체", "전체"], ["NEW", `NEW ${games.filter(isNew).length}`], ["관심", `관심 ${[...pins].filter(k => games.some(g => g.key === k)).length}`], ["전력 차 큼", "전력 차 큼"]]
-      .concat(games.some(g => g.national) ? [["A매치", "A매치"]] : []).concat(sports.map(s => [s, s]));
+    const opts = [["전체", "전체"], ["NEW", `NEW ${games.filter(isNew).length}`]]
+      .concat(sports.map(s => [s, `${s} ${games.filter(g => g.sport === s).length}`]))
+      .concat([["관심", `관심 ${[...pins].filter(k => games.some(g => g.key === k)).length}`]])
+      .concat(games.some(g => g.national) ? [["A매치", "A매치"]] : []);
+    const dayBar = $("days"); dayBar.textContent = "";
+    const keys = [...new Set(games.map(g => dateKey(g.start_kst)).filter(Boolean))].sort();
+    if (day !== "all" && !keys.includes(day)) day = "all";
+    [["all", "전체 날짜", games.length]].concat(keys.map(k => { const g = games.find(x => dateKey(x.start_kst) === k); return [k, dayChip(g.start_kst), games.filter(x => dateKey(x.start_kst) === k).length]; }))
+      .forEach(([id, label, n]) => { const b = el("button", "dchip"); b.type = "button"; b.setAttribute("aria-pressed", String(day === id));
+        b.append(el("span", null, label), el("small", "num", n)); b.onclick = () => { day = id; renderList(); }; dayBar.append(b); });
     const chips = $("chips"); chips.textContent = "";
     opts.forEach(([id, label]) => { const b = el("button", "chip", label); b.type = "button"; b.setAttribute("aria-pressed", String(filter === id)); b.onclick = () => { filter = id; renderList(); }; chips.append(b); });
     view = filtered();
@@ -390,13 +424,21 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     const wrap = el("div", "glist");
     const pinned = filter === "전체" ? view.filter(g => pins.has(g.key)) : [];
     if (pinned.length){ wrap.append(el("div", "group", "관심 경기")); pinned.forEach(g => wrap.append(card(g, pins))); wrap.append(el("div", "group", "전체")); }
-    view.filter(g => !pinned.includes(g)).forEach(g => wrap.append(card(g, pins)));
+    let last = null;
+    view.filter(g => !pinned.includes(g)).forEach(g => {
+      const k = dateKey(g.start_kst);
+      if (k !== last){ last = k; const n = view.filter(x => dateKey(x.start_kst) === k && !pinned.includes(x)).length;
+        const h = el("div", "dgroup"); h.append(el("span", null, dayTitle(g.start_kst)), el("small", null, `${n}경기`)); wrap.append(h); }
+      wrap.append(card(g, pins));
+    });
     return wrap;
   }
   function card(g, pins){
     const c = el("div", "gcard" + (current && current.key === g.key ? " sel" : ""));
     c.setAttribute("role", "button"); c.tabIndex = 0;
-    const top = el("div", "gtop"); top.append(el("span", "time num", hhmm(g.start_kst)), el("span", null, dayWord(g.start_kst) + " · " + g.league));
+    const top = el("div", "gtop"); top.append(el("span", "time num", hhmm(g.start_kst)));
+    const left = untilText(g); if (left) top.append(el("span", "until", left));
+    top.append(el("span", "lg", g.league));
     if (g.state === "in") top.append(el("span", "live", "LIVE"));
     if (g.state === "post") top.append(el("span", null, "종료"));
     if (isNew(g)) top.append(el("span", "new", "NEW"));
@@ -425,9 +467,13 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     [["시간"], ["리그"], ["홈"], ["등급"], ["원정"], ["등급"], ["전력"], ["차이 " + (sortGap ? "▼" : "↕"), "sort"]].forEach(([h, c]) => { const th = el("th", c || null, h); if (c) th.onclick = () => { sortGap = !sortGap; renderList(); }; head.append(th); });
     const thead = el("thead"); thead.append(head); t.append(thead);
     const tb = el("tbody");
+    let lastDay = null;
     view.forEach(g => {
+      const k = dateKey(g.start_kst);
+      if (!sortGap && k !== lastDay){ lastDay = k; const gr = el("tr", "grow"); const td = el("td"); td.colSpan = 8;
+        td.append(el("span", null, dayTitle(g.start_kst)), el("small", null, ` · ${view.filter(x => dateKey(x.start_kst) === k).length}경기`)); gr.append(td); tb.append(gr); }
       const tr = el("tr", current && current.key === g.key ? "sel" : null);
-      const tt = el("td"); tt.append(el("b", "num", hhmm(g.start_kst))); if (pins.has(g.key)){ const s = el("span", null, " ★"); s.style.color = "var(--acc)"; tt.append(s); } tr.append(tt);
+      const tt = el("td"); if (sortGap) tt.append(el("small", "num", md(g.start_kst) + " ")); tt.append(el("b", "num", hhmm(g.start_kst))); if (pins.has(g.key)){ const s = el("span", null, " ★"); s.style.color = "var(--acc)"; tt.append(s); } tr.append(tt);
       const lg = el("td", "lg", g.league + (g.state === "in" ? " · LIVE" : "")); if (isNew(g)){ lg.append(document.createTextNode(" ")); lg.append(el("span", "new", "NEW")); } tr.append(lg);
       [["home", "grade_home", "var(--home)"], ["away", "grade_away", "var(--away)"]].forEach(([s, gk, col]) => {
         const td = el("td"); const d = el("div", "tm"); const dot = el("span"); dot.style.cssText = `width:3px;height:14px;border-radius:2px;background:${col};flex:none`;
@@ -551,7 +597,6 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
       b.append(line);
       if ((r.tired || []).length) b.append(el("div", "note", "최근 3경기 연속 풀타임: " + r.tired.join(" · ")));
     });
-    b.append(el("div", "note", "이번 시즌 경기마다 '다음 경기까지 며칠·어떤 대회였는지'와 '주전 몇 명을 바꿨는지'를 모아 본 경향이에요. 라인업이 나오면 실제 판정으로 바뀌어요."));
     return b;
   }
 
@@ -563,8 +608,8 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     const w = el("div");
     const sm = d.summary || {};
     const pts = block("핵심 포인트"); const ul = el("ul", "pts");
-    (sm.points || []).slice(1).forEach(([a, b]) => { const li = el("li"); li.append(el("b", null, a)); if (b) li.append(el("span", null, b)); ul.append(li); });
-    const aceLi = aceLine(T, g); if (aceLi) ul.append(aceLi);
+    (sm.points || []).slice(1, 3).forEach(([a, b]) => { const li = el("li"); li.append(el("b", null, a)); if (b) li.append(el("span", null, b)); ul.append(li); });
+    aceLines(T, g).forEach(li => ul.append(li));
     if (!ul.children.length && (sm.points || [])[0]){ const [a, b] = sm.points[0]; const li = el("li"); li.append(el("b", null, a)); if (b) li.append(el("span", null, b)); ul.append(li); }
     pts.append(ul); w.append(pts);
 
@@ -575,7 +620,6 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     [["전력 보존율", "retain"], ["득점 지분", "goal_share"], ["도움 지분", "assist_share"]].forEach(([k, f]) => {
       if (S1[f] != null || S2[f] != null) pc.append(mrow(k, S1[f], S2[f], pct(S1[f]), pct(S2[f]), {scale: 100}));
     });
-    pc.append(el("div", "note", "막대는 만점 기준 (주전 인원 · 100%) · 노란 숫자가 앞선 쪽"));
     w.append(pc);
 
     const tb = block("선발 11명 합계", NAT ? "대표팀 기록" : "이번 시즌 기록"); tb.append(teamKey(g));
@@ -584,18 +628,22 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     const bh = (T.home.lineup_power || {}).back_ga_pg, ba = (T.away.lineup_power || {}).back_ga_pg;
     if (bh != null && ba != null) tb.append(mrow("수비진 실점 ↓", bh, ba, fmt(bh), fmt(ba), {lower: true}));
     tb.append(simRow(T, g));
-    tb.append(el("div", "note", "골+도움 = 오늘 선발 / 평소 주전 (막대는 평소 대비 몇 %) · ↓ 낮을수록 좋은 항목 · 비슷한 라인업 = 오늘 선발 중 8명 이상이 같이 선발로 나온 지난 경기"));
     w.append(tb);
     return w;
   }
-  function aceLine(T, g){
-    const H = T.home.ace, A = T.away.ace; if (!H && !A) return null;
-    const li = el("li"); const b = el("b"); b.append(document.createTextNode("에이스 "));
-    const part = (a) => { if (!a) return el("span", null, "-"); return el("em", a.status === "선발" ? "good" : "bad", `${a.name} ${a.status === "선발" ? "선발" : a.status === "벤치" ? "벤치" : "결장"}`); };
-    b.append(part(H), document.createTextNode(" · "), part(A)); li.append(b);
-    const st = (a) => a ? `${(a.season || {}).goals || 0}골 ${(a.season || {}).assists || 0}도움` : "-";
-    li.append(el("span", null, `${NAT ? "대표팀" : "시즌"} ${st(H)} · ${st(A)}`));
-    return li;
+  // 에이스: 팀마다 한 줄 (어느 팀 에이스인지 헷갈리지 않게)
+  function aceLines(T, g){
+    const out = [];
+    [["home", "var(--home)"], ["away", "var(--away)"]].forEach(([s, col]) => {
+      const a = T[s].ace; if (!a) return;
+      const li = el("li"); const b = el("b");
+      const tm = el("span", null, `${g[s]} 에이스 `); tm.style.color = col;
+      const word = a.status === "선발" ? "선발" : a.status === "벤치" ? "벤치" : "결장";
+      b.append(tm, el("em", a.status === "선발" ? "good" : "bad", `${a.name} ${word}`)); li.append(b);
+      li.append(el("span", null, `${NAT ? "대표팀" : "시즌"} ${(a.season || {}).goals || 0}골 ${(a.season || {}).assists || 0}도움`));
+      out.push(li);
+    });
+    return out;
   }
   function simRow(T, g){
     const row = el("div", "simrow");
@@ -675,7 +723,7 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     const w = el("div");
     if ((T.home.rows || []).length && (T.away.rows || []).length){
       const b = block("양 팀 포메이션", `${g.home} 아래 · ${g.away} 위`); b.append(fullPitch(T.home, T.away, g));
-      b.append(el("div", "note", "흰 글씨 주전 · 노랑 로테이션 · 회색 백업 · 테두리 색이 팀")); w.append(b);
+      w.append(b);
     }
     const m = block("빠진 주전", "벤치 · 명단 제외"); m.append(missBlock(T, g)); w.append(m);
     const pl = block("선발 선수", NAT ? "대표팀 골·도움" : "시즌 골·도움");
@@ -685,7 +733,6 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     [["home", g.home], ["away", g.away]].forEach(([s, n], k) => { const b = el("button", null, n); b.type = "button"; b.setAttribute("aria-pressed", String(k === 0));
       b.onclick = () => { lh.hidden = s !== "home"; la.hidden = s !== "away"; seg.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b))); thumb.style.transform = `translateX(${k * 100}%)`; }; seg.append(b); });
     seg.append(thumb); pl.append(seg, lists);
-    pl.append(el("div", "note", "칸: 파랑 선 선발 · 노랑 교 교체 · 빨강 – 미출전 · 노란 점 골·도움 · 오른쪽이 최신 · 선수를 누르면 분위기"));
     w.append(pl);
     if ((T.home.bench || []).length || (T.away.bench || []).length){
       const bb = block("교체 명단", "주전이 벤치에 있으면 표시"); const bl = el("div", "plists");
@@ -712,7 +759,6 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
       if (cur !== "1군" && n >= 2 && n1 >= 3){ const p = (3 * W + D) / n, p1 = (3 * W1 + D1) / n1; if (!worst || p1 - p > worst.diff) worst = {name: g[s], cur, W, D, L, p, p1, diff: p1 - p}; }
     });
     if (worst){ const c = el("div", "callout"); c.innerHTML = `<b>${esc(worst.name)}${josa(worst.name, "은", "는")} ${worst.cur}일 때 ${worst.W}승 ${worst.D}무 ${worst.L}패</b> · 경기당 ${worst.p.toFixed(1)}점 (1군 ${worst.p1.toFixed(1)}점)`; rot.append(c); }
-    rot.append(el("div", "note", "경기마다 그날 선발이 몇 군이었는지(오늘 기준 주전으로 셈)와 결과"));
     w.append(rot);
     // 일정
     if (g.sport !== "야구"){
@@ -777,7 +823,6 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     if (ph.era != null && pa.era != null) pen.append(mrow("불펜 ERA ↓", ph.era, pa.era, fmt(ph.era), fmt(pa.era), {lower: true}));
     if (ph.pitches_3d != null && pa.pitches_3d != null) pen.append(mrow("최근 3일 ↓", ph.pitches_3d, pa.pitches_3d, ph.pitches_3d + "구", pa.pitches_3d + "구", {lower: true}));
     if (ph.b2b != null && pa.b2b != null) pen.append(mrow("이틀 연속 ↓", ph.b2b + .01, pa.b2b + .01, ph.b2b + "명", pa.b2b + "명", {lower: true}));
-    pen.append(el("div", "note", "평소 불펜은 3일에 약 420구를 던져요. 많이 던졌을수록 오늘 불펜이 지쳐 있어요."));
     w.append(pen);
     return w;
   }
