@@ -1111,7 +1111,6 @@ def mlb_pitcher_card(client, pitcher, season):
 
 KBO_RECENT = 10          # 주전 판정에 쓸 최근 경기 수
 KBO_LOOKBACK = 16        # 선발투수 최근 등판·불펜을 찾을 최근 경기 수
-PEN_PITCHES_PER_BF = 3.9  # 네이버 경기 기록엔 투구수 대신 상대 타자 수 → 타자당 약 3.9구로 환산
 
 
 def kbo_season_games(client, cfg, upper, cat, before_kst):
@@ -1188,7 +1187,8 @@ def build_kbo_detail(client, game, now):
         starts = []
         for h in hist:
             if h.get("sp") and sp.get("id") and h["sp"]["id"] == sp["id"]:
-                starts.append({"date": str(h["date"])[:10], "opp": h.get("opp"), "ip": h["sp"]["ip"], "er": h["sp"]["er"], "pitches": None})
+                starts.append({"date": str(h["date"])[:10], "opp": h.get("opp"), "ip": h["sp"]["ip"], "er": h["sp"]["er"],
+                               "pitches": h["sp"].get("pitches")})
         sp["recent"] = starts[:3]
         sp["recent_era"] = recent_era(starts)
         if starts:
@@ -1196,7 +1196,7 @@ def build_kbo_detail(client, game, now):
                 sp["rest_days"] = (day - datetime.fromisoformat(starts[0]["date"]).date()).days
             except ValueError:
                 sp["rest_days"] = None
-        # 불펜: 최근 3일 상대 타자 수 → 투구수 환산, 이틀 연속 등판
+        # 불펜: 최근 3일 투구수(네이버 기록의 bf가 투구수), 이틀 연속 등판
         by_day = {}
         for h in hist:
             try:
@@ -1204,12 +1204,12 @@ def build_kbo_detail(client, game, now):
             except ValueError:
                 continue
             if 1 <= gap <= 3:
-                d = by_day.setdefault(gap, {"bf": 0, "ids": set()})
-                d["bf"] += h.get("pen_bf") or 0
+                d = by_day.setdefault(gap, {"p": 0, "ids": set()})
+                d["p"] += h.get("pen_pitches") or 0
                 d["ids"] |= set(h.get("pen_ids") or [])
         pen = {"era": info.get("team_era"), "basis": "팀 전체",
-               "pitches_3d": round(sum(d["bf"] for d in by_day.values()) * PEN_PITCHES_PER_BF),
-               "b2b": len(by_day.get(1, {}).get("ids", set()) & by_day.get(2, {}).get("ids", set())), "estimated": True}
+               "pitches_3d": sum(d["p"] for d in by_day.values()),
+               "b2b": len(by_day.get(1, {}).get("ids", set()) & by_day.get(2, {}).get("ids", set()))}
         season_runs = [(int(g.get("homeTeamScore")) if g.get("homeTeamCode") == code else int(g.get("awayTeamScore")))
                        for _, g in season if code in (g.get("homeTeamCode"), g.get("awayTeamCode"))
                        and str(g.get("homeTeamScore", "")).isdigit() and str(g.get("awayTeamScore", "")).isdigit()]
