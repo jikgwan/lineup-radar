@@ -706,3 +706,58 @@ def compare_elo(home, away, home_name, away_name, elo_home, elo_away, home_adv=0
         lp["today_elo"] = round(th if side == "home" else ta)
     res.update({"home": share, "away": 100 - share, "mode": "elo", "home_adv": home_adv, "league_adjusted": False})
     return res
+
+
+# ---------------------------------------------------------------- 야구 전력 (투수 중심)
+
+MLB_RPG = 4.4            # MLB 평균 경기당 득점(대략)
+MLB_HOME_EDGE = 0.54     # 홈 승률(대략)
+PYTH_EXP = 1.83
+
+
+def _ra9_starter(sp):
+    """선발투수 9이닝당 예상 실점: 시즌 FIP 50% + 시즌 ERA 30% + 최근 3경기 ERA 20% (없는 값은 평균으로)."""
+    avg = MLB_RPG * 0.95
+    fip = sp.get("fip") if sp.get("fip") is not None else avg
+    era = sp.get("era") if sp.get("era") is not None else avg
+    rec = sp.get("recent_era") if sp.get("recent_era") is not None else era
+    return 0.5 * fip + 0.3 * era + 0.2 * rec
+
+
+def recent_era(starts, n=3):
+    s = starts[:n]
+    ip = sum(x["ip"] for x in s)
+    return round(9 * sum(x["er"] for x in s) / ip, 2) if ip >= 3 else None
+
+
+def bullpen_fatigue(pitches_3d):
+    """최근 3일 불펜 투구수 -> 실점 가산 비율 (평소 3일 약 420구, 많이 던지면 최대 +15%)"""
+    return max(0.0, min(0.15, (pitches_3d - 420) / 1000.0))
+
+
+def baseball_power(home, away, home_name, away_name):
+    """야구 오늘 전력: 예상 득점과 비율. home/away = {"off_rpg", "sp", "pen_era", "pen_3d", "core_in", "size"}"""
+    def allowed(t):
+        sp = t.get("sp") or {}
+        share = min(0.75, max(0.45, ((sp.get("ip_per_start") or 5.3) / 9.0)))
+        pen = (t.get("pen_era") if t.get("pen_era") is not None else MLB_RPG * 0.95) * (1 + bullpen_fatigue(t.get("pen_3d") or 0))
+        return share * _ra9_starter(sp) + (1 - share) * pen
+
+    def offense(t):
+        base = t.get("off_rpg") if t.get("off_rpg") else MLB_RPG
+        ratio = (t.get("core_in") or 0) / (t.get("size") or 9)
+        return base * (0.9 + 0.1 * ratio)          # 타선 몇 군은 작은 보정만
+
+    exp_h = offense(home) * allowed(away) / MLB_RPG
+    exp_a = offense(away) * allowed(home) / MLB_RPG
+    p = exp_h ** PYTH_EXP / (exp_h ** PYTH_EXP + exp_a ** PYTH_EXP) if (exp_h + exp_a) else 0.5
+    p = (p * MLB_HOME_EDGE) / (p * MLB_HOME_EDGE + (1 - p) * (1 - MLB_HOME_EDGE))
+    share = round(100 * p)
+    fake_h = {"grade": home.get("grade"), "lineup_power": {"today": share}}
+    fake_a = {"grade": away.get("grade"), "lineup_power": {"today": 100 - share}}
+    out = compare_power(fake_h, fake_a, home_name, away_name) or {}
+    out.update({"home": share, "away": 100 - share, "mode": "mlb", "league_adjusted": False,
+                "exp_home": round(exp_h, 1), "exp_away": round(exp_a, 1), "exp_total": round(exp_h + exp_a, 1),
+                "allowed_home": round(allowed(home), 2), "allowed_away": round(allowed(away), 2)})
+    out["note"] = ""       # 축구식 '2군이지만…' 문구는 야구에 맞지 않아 뺀다
+    return out
