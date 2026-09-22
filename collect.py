@@ -20,10 +20,11 @@ import random
 import re
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import requests
 
+from names_ko import _key as team_key
 from names_ko import ko_team
 from grade import (ELO_HOME, add_bench, add_context, core_from_history, rotation_risk, add_periods, analyze_lineup, baseball_power, build_signals, compare_elo, compare_power,
                    enrich, lineup_power, pick_ace, recent_era, strength, summarize, team_leaders)
@@ -37,7 +38,11 @@ from parse import (
     mlb_history_from_stats,
     pitcher_season,
     pitcher_starts,
+    parse_fotmob_matches,
+    parse_fotmob_unavailable,
     parse_kbo_preview,
+    person_key,
+    same_person,
     parse_kbo_record,
     parse_naver_games,
     parse_naver_lineup,
@@ -460,6 +465,68 @@ def load_elo(client):
 
 EURO_COMPS = ("uefa.champions", "uefa.europa", "uefa.europa.conf")
 
+# ------------------------------------------------------------------ 풋몹: 부상·징계 결장자 (라인업 발표 전에도 있음)
+FOTMOB = "https://www.fotmob.com/api/data"
+
+
+def _team_match(a, b):
+    ka, kb = team_key(a), team_key(b)
+    if not ka or not kb:
+        return False
+    return ka == kb or ka in kb or kb in ka or ko_team(a) == ko_team(b) != a
+
+
+def fotmob_absences(client, game):
+    """ESPN 경기와 같은 풋몹 경기를 찾아 양 팀 결장자(부상·징계·복귀 예정)를 돌려준다. 못 찾으면 None."""
+    start = to_kst(game["start_kst"])
+    if not start:
+        return None
+    names = {s: (game[s].get("name_en") or game[s]["name"]) for s in ("home", "away")}
+    days = {start.strftime("%Y%m%d"), start.astimezone(timezone.utc).strftime("%Y%m%d")}
+    found = None
+    for d in sorted(days):
+        data = client.get_json(f"{FOTMOB}/matches", params={"date": d}, cache_key=f"fm_{d}", ttl=1800)
+        for m in parse_fotmob_matches(data or {}):
+            if _team_match(m["home"], names["home"]) and _team_match(m["away"], names["away"]):
+                found = m
+                break
+        if found:
+            break
+    if not found:
+        return None
+    det = client.get_json(f"{FOTMOB}/matchDetails", params={"matchId": found["id"]}, cache_key=f"fm_d_{found['id']}", ttl=1800)
+    return parse_fotmob_unavailable(det) if det else None
+
+
+def attach_absences(teams, absences, names):
+    """빠진 주전에 결장 사유를 붙이고, 주전이 부상·징계로 2명 이상 빠지면 신호."""
+    sig = []
+    if not absences:
+        return sig
+    for side in ("home", "away"):
+        t = teams.get(side) or {}
+        rows = absences.get(side) or []
+        t["absent"] = rows
+        hit, used = 0, set()
+        missing = t.get("missing") or []
+        # 1차: 이름이 똑같은 사람 · 2차: 남은 사람끼리 성·이니셜로 (한 결장자는 한 선수에게만)
+        for exact in (True, False):
+            for m in missing:
+                if m.get("reason"):
+                    continue
+                for i, x in enumerate(rows):
+                    if i in used:
+                        continue
+                    ok = person_key(m.get("name")) == person_key(x["name"]) if exact else same_person(m.get("name"), x["name"])
+                    if ok:
+                        m["reason"], m["return"] = x["type"], x["return"]
+                        used.add(i)
+                        hit += 1
+                        break
+        if hit >= 2:
+            sig.append([f"{names[side]} 주전 {hit}명 부상·징계", "bad"])
+    return sig
+
 
 def _risk_signals(names, risk):
     sig = []
@@ -498,9 +565,26 @@ def espn_pre_lineup(client, game, now, extractor):
         r = rotation_risk(history, events, core, 11, ctx.get("next"), (ctx.get("last") or {}).get("days_ago"))
         if r:
             r["schedule"] = ctx
+            r["core_names"] = [m.get("name") for m in core]
             risk[side] = r
     names = {s: game[s]["name"] for s in ("home", "away")}
-    return {"risk": risk, "signals": _risk_signals(names, risk)}
+    sig = []
+    try:
+        ab = fotmob_absences(client, game)
+    except Exception as exc:
+        ab = None
+        print(f"  ! 풋몹 결장자 실패: {exc}", file=sys.stderr)
+    if ab:
+        for side in ("home", "away"):
+            rows = ab.get(side) or []
+            r = risk.setdefault(side, {"level": None, "situation": "normal", "situation_text": "평소", "today": {"n": 0},
+                                       "base": {"n": 0}, "tired": [], "reason": "", "size": 11, "core_names": []})
+            r["absent"] = rows
+            core_out = [x for x in rows if any(same_person(n, x["name"]) for n in r.get("core_names") or [])]
+            r["core_absent"] = [x["name"] for x in core_out]
+            if len(core_out) >= 2:
+                sig.append([f"{names[side]} 주전 {len(core_out)}명 부상·징계", "bad"])
+    return {"risk": risk, "signals": (sig + _risk_signals(names, risk))[:4]}
 
 
 def _ctx(last, nxt, start):
@@ -656,8 +740,14 @@ def build_espn_detail(client, game, now):
             fh, fa = ls.get(slugs["home"], ls.get("default", 0.8)), ls.get(slugs["away"], ls.get("default", 0.8))
         power = compare_power(teams["home"], teams["away"], game["home"]["name"], game["away"]["name"], fh, fa)
     names = {s: game[s]["name"] for s in ("home", "away")}
+    extra = []
+    if game["sport"] == "축구":
+        try:
+            extra = attach_absences(teams, fotmob_absences(client, game), names)
+        except Exception as exc:                 # 풋몹이 막혀도 판정은 그대로
+            print(f"  ! 풋몹 결장자 실패: {exc}", file=sys.stderr)
     return {"lineup_ready": True, "teams": teams, "power": power, "national": bool(game.get("national")),
-            "signals": build_signals(names, teams, game["sport"]),
+            "signals": (extra + build_signals(names, teams, game["sport"]))[:4],
             "summary": summarize(game["home"]["name"], game["away"]["name"], teams, game["sport"])}
 
 
