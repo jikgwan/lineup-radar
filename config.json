@@ -292,5 +292,7 @@
       "name": "K리그2"
     }
   ],
-  "naver_season_start": "2026-02-01"
+  "naver_season_start": "2026-02-01",
+  "show_logos": false,
+  "_show_logos_설명": "팀 로고(구단 상표) 표시 여부. 여러 사람에게 공유할 땐 false 권장 → 팀 색 동그라미+이니셜로 표시"
 }
