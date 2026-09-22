@@ -64,7 +64,7 @@ def parse_espn_scoreboard(data, sport, league_slug, league_name):
             c = _d(c)
             team = _d(c.get("team"))
             side = {
-                "id": _s(team.get("id")),
+                "id": _idstr(team.get("id")),
                 "name": _s(team.get("displayName")) or _s(team.get("name")),
                 "short": _s(team.get("shortDisplayName")) or _s(team.get("abbreviation")),
                 "logo": _s(team.get("logo")),
@@ -106,6 +106,15 @@ def _stat_map(stats):
         if name:
             out[name] = st.get("value", st.get("displayValue"))
     return out
+
+
+def _idstr(v):
+    """번호(숫자·문자 모두) → 문자열. 공급처가 번호를 숫자로 줘도 빈 값이 되지 않게."""
+    if v is None or isinstance(v, (dict, list)) or v == "":
+        return ""
+    if isinstance(v, float) and v.is_integer():
+        v = int(v)
+    return str(v).strip()
 
 
 def _int(value):
@@ -259,7 +268,7 @@ def parse_soccer_lineup(summary):
                 _d(ath.get("position")).get("abbreviation")
             )
             entry = {
-                "id": _s(ath.get("id")),
+                "id": _idstr(ath.get("id")),
                 "name": _s(ath.get("displayName")) or _s(ath.get("shortName")),
                 "short": _s(ath.get("shortName")) or _s(ath.get("lastName")) or _s(ath.get("displayName")),
                 "pos": pos,
@@ -754,11 +763,11 @@ def parse_naver_games(data, categories, sport="축구"):
         if cat not in categories or g.get("cancel"):
             continue
         kst = naver_kst(g.get("gameDateTime"))
-        gid = _s(g.get("gameId"))
+        gid = _idstr(g.get("gameId"))
         if not gid or not kst:
             continue
         side = lambda p: {
-            "id": _s(g.get(f"{p}TeamCode")), "name": _s(g.get(f"{p}TeamName")), "short": _s(g.get(f"{p}TeamName")),
+            "id": _idstr(g.get(f"{p}TeamCode")), "name": _s(g.get(f"{p}TeamName")), "short": _s(g.get(f"{p}TeamName")),
             "logo": _s(g.get(f"{p}TeamEmblemUrl")), "score": _int(g.get(f"{p}TeamScore")),
         }
         status = _s(g.get("statusCode")).upper()
@@ -773,7 +782,7 @@ def parse_naver_games(data, categories, sport="축구"):
 def _naver_player(p):
     p = _d(p)
     return {
-        "id": _s(p.get("playerId")), "name": _s(p.get("name")) or _s(p.get("playerName")),
+        "id": _idstr(p.get("playerId")), "name": _s(p.get("name")) or _s(p.get("playerName")),
         "short": _s(p.get("name")) or _s(p.get("playerName")), "pos": _s(p.get("pos")) or _s(p.get("position")),
         "jersey": _s(p.get("shirtNumber")), "place": _int(p.get("positionOrder")),
     }
@@ -820,7 +829,7 @@ def parse_naver_record(record, lineup, side):
     minutes, goals, assists, rating, played = {}, {}, {}, {}, list(starters)
     for s in stats:
         s = _d(s)
-        pid = _s(s.get("playerId"))
+        pid = _idstr(s.get("playerId"))
         if not pid:
             continue
         names.setdefault(pid, _s(s.get("playerName")))
@@ -840,7 +849,7 @@ def parse_naver_record(record, lineup, side):
             pass
     if not stats:                                  # 선수 기록이 없으면 라인업의 골·도움으로 대신
         for p in [p for r in _naver_raw_rows(lineup, side) for p in r]:
-            pid = _s(p.get("playerId"))
+            pid = _idstr(p.get("playerId"))
             if _int(p.get("goal")):
                 goals[pid] = _int(p.get("goal"))
             if _int(p.get("assists")):
@@ -969,7 +978,7 @@ def parse_kbo_preview(data, side):
         p = _d(p)
         if "투수" in _s(p.get("positionName")):
             continue
-        pid = _s(p.get("playerCode"))
+        pid = _idstr(p.get("playerCode"))
         if pid:
             bats = _s(p.get("batsThrows"))
             batters.append({"id": pid, "name": _s(p.get("playerName")), "pos": _s(p.get("positionName")),
@@ -981,7 +990,7 @@ def parse_kbo_preview(data, side):
         ip = ip_to_float(cs.get("inn"))
         k, bb, hr = _num(cs.get("kk")), _num(cs.get("bb")), _num(cs.get("hr"))
         gs = int(_num(cs.get("gameCount")))
-        sp = {"id": _s(info.get("pCode")), "name": _s(info.get("name")), "hand": _kbo_hand(info.get("hitType")),
+        sp = {"id": _idstr(info.get("pCode")), "name": _s(info.get("name")), "hand": _kbo_hand(info.get("hitType")),
               "era": _num(cs.get("era")) if cs.get("era") not in (None, "", "-") else None,
               "whip": _num(cs.get("whip")) if cs.get("whip") not in (None, "", "-") else None,
               "fip": round((13 * hr + 3 * bb - 2 * k) / ip + FIP_CONST, 2) if ip >= 10 else None,
@@ -998,7 +1007,7 @@ def parse_kbo_record(data, side):
     first, played, names = {}, [], {}
     for b in bats:
         b = _d(b)
-        pid = _s(b.get("playerCode"))
+        pid = _idstr(b.get("playerCode"))
         if not pid:
             continue
         names[pid] = _s(b.get("name") or b.get("playerName"))
@@ -1011,8 +1020,79 @@ def parse_kbo_record(data, side):
     sp = None
     if pits:
         p0 = pits[0]
-        sp = {"id": _s(p0.get("pcode")), "ip": round(ip_to_float(p0.get("inn")), 1), "er": _int(p0.get("er"))}
+        sp = {"id": _idstr(p0.get("pcode")), "ip": round(ip_to_float(p0.get("inn")), 1), "er": _int(p0.get("er"))}
     pen_bf = sum(_int(p.get("bf")) for p in pits[1:])
-    pen_ids = [_s(p.get("pcode")) for p in pits[1:] if p.get("pcode")]
+    pen_ids = [_idstr(p.get("pcode")) for p in pits[1:] if p.get("pcode")]
     return {"starters": [first[o] for o in sorted(first)], "played": played, "names": names,
             "sp": sp, "pen_bf": pen_bf, "pen_ids": pen_ids}
+
+
+# ---------------------------------------------------------------- 풋몹 결장자 (9차 소스 점검에서 확인한 모양)
+#  목록: /api/data/matches?date=YYYYMMDD → leagues[].matches[] {id, home{name,id}, away{name,id}, status{utcTime, finished, started}}
+#  상세: /api/data/matchDetails?matchId= → content.lineup.{homeTeam,awayTeam}.unavailable[]
+#        {id, name, unavailability{type: injury|suspension, expectedReturn: "Mid October 2026", expectedReturnDate?}}
+
+_MONTH_KO = {m: i for i, m in enumerate(["January", "February", "March", "April", "May", "June", "July", "August",
+                                          "September", "October", "November", "December"], 1)}
+
+
+def fotmob_return_text(text):
+    """'Late September 2026' → '9월 말', 'Mid October 2026' → '10월 중순', 'Early January 2027' → '1월 초'"""
+    t = _s(text)
+    if not t or t.lower().startswith("unknown"):
+        return "미정"
+    part = {"Early": "초", "Mid": "중순", "Late": "말"}
+    words = t.split()
+    when = part.get(words[0]) if words else None
+    month = next((_MONTH_KO[w] for w in words if w in _MONTH_KO), None)
+    if month:
+        return f"{month}월 {when}".strip() if when else f"{month}월"
+    return t
+
+
+def parse_fotmob_matches(data):
+    out = []
+    for lg in _l(_d(data).get("leagues")):
+        lg = _d(lg)
+        for m in _l(lg.get("matches")):
+            m = _d(m)
+            st = _d(m.get("status"))
+            out.append({"id": _idstr(m.get("id")), "home": _s(_d(m.get("home")).get("name")), "away": _s(_d(m.get("away")).get("name")),
+                        "utc": _s(st.get("utcTime") or m.get("time")), "league": _s(lg.get("name"))})
+    return out
+
+
+def parse_fotmob_unavailable(data):
+    lu = _d(_d(_d(data).get("content")).get("lineup"))
+    out = {}
+    for side, key in (("home", "homeTeam"), ("away", "awayTeam")):
+        rows = []
+        for u in _l(_d(lu.get(key)).get("unavailable")):
+            u = _d(u)
+            un = _d(u.get("unavailability"))
+            typ = _s(un.get("type")).lower()
+            rows.append({"id": _idstr(u.get("id")), "name": _s(u.get("name")),
+                         "type": "부상" if typ == "injury" else "징계" if typ == "suspension" else "결장",
+                         "return": fotmob_return_text(un.get("expectedReturn")),
+                         "rating": _d(u.get("performance")).get("seasonRating")})
+        out[side] = rows
+    return out
+
+
+def person_key(name):
+    """선수 이름 비교용: 악센트 없애고 소문자 글자만."""
+    t = unicodedata.normalize("NFKD", _s(name)).encode("ascii", "ignore").decode("ascii").lower()
+    return " ".join(re.sub(r"[^a-z0-9 ]+", " ", t).split())
+
+
+def same_person(a, b):
+    ka, kb = person_key(a), person_key(b)
+    if not ka or not kb:
+        return False
+    if ka == kb:
+        return True
+    wa, wb = ka.split(), kb.split()
+    # 성이 같고 이름 첫 글자가 같거나, 한쪽이 한 단어(예: 'Rodrygo')로 다른 쪽에 들어 있을 때
+    if wa[-1] == wb[-1] and (len(wa) == 1 or len(wb) == 1 or wa[0][0] == wb[0][0]):
+        return True
+    return (len(wa) == 1 and wa[0] in wb) or (len(wb) == 1 and wb[0] in wa)
