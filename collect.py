@@ -37,6 +37,8 @@ from parse import (
     mlb_history_from_stats,
     pitcher_season,
     pitcher_starts,
+    parse_kbo_preview,
+    parse_kbo_record,
     parse_naver_games,
     parse_naver_lineup,
     parse_naver_record,
@@ -662,10 +664,10 @@ def build_espn_detail(client, game, now):
 # ------------------------------------------------------------------ 네이버 (K리그1·2)
 
 def naver_categories(cfg):
-    """{upperCategoryId: {categoryId: 리그 이름}}"""
+    """{(upperCategoryId, 종목): {categoryId: 리그 이름}}"""
     out = {}
     for lg in cfg.get("naver_leagues", []):
-        out.setdefault(lg["upper"], {})[lg["category"]] = lg["name"]
+        out.setdefault((lg["upper"], lg.get("sport", "축구")), {})[lg["category"]] = lg["name"]
     return out
 
 
@@ -682,10 +684,10 @@ def naver_schedule(client, upper, frm, to, today):
 def collect_naver_games(client, now, cfg):
     games = []
     today = now.date()
-    for upper, cats in naver_categories(cfg).items():
+    for (upper, sport), cats in naver_categories(cfg).items():
         data = naver_schedule(client, upper, today - timedelta(days=1), today + timedelta(days=1), today)
         if data:
-            games.extend(parse_naver_games(data, cats))
+            games.extend(parse_naver_games(data, cats, sport))
     return games
 
 
@@ -1015,6 +1017,136 @@ def mlb_pitcher_card(client, pitcher, season):
     }
 
 
+# ------------------------------------------------------------------ KBO (네이버)
+
+KBO_RECENT = 10          # 주전 판정에 쓸 최근 경기 수
+KBO_LOOKBACK = 16        # 선발투수 최근 등판·불펜을 찾을 최근 경기 수
+PEN_PITCHES_PER_BF = 3.9  # 네이버 경기 기록엔 투구수 대신 상대 타자 수 → 타자당 약 3.9구로 환산
+
+
+def kbo_season_games(client, cfg, upper, cat, before_kst):
+    """이번 시즌 끝난 경기 전부 (2주씩 끊어 받은 일정, 지난 구간은 영구 캐시)."""
+    today = before_kst.date()
+    start = datetime.fromisoformat(cfg.get("naver_baseball_season_start", f"{today.year}-03-01")).date()
+    out, seen, frm = [], set(), start
+    while frm <= today:
+        to = min(frm + timedelta(days=NAVER_CHUNK_DAYS - 1), today)
+        data = naver_schedule(client, upper, frm, to, today)
+        for g in (((data or {}).get("result") or {}).get("games") or []):
+            if g.get("categoryId") != cat or str(g.get("statusCode")).upper() != "RESULT" or g.get("gameId") in seen:
+                continue
+            w = parse_naver_games({"result": {"games": [g]}}, {cat: ""}, "야구")
+            if not w or to_kst(w[0]["start_kst"]) >= before_kst:
+                continue
+            seen.add(g["gameId"])
+            out.append((w[0]["start_kst"], g))
+        frm = to + timedelta(days=1)
+    out.sort(key=lambda x: x[0], reverse=True)
+    return out
+
+
+def kbo_team_history(client, season, code, n):
+    hist = []
+    for when, g in season:
+        if code not in (g.get("homeTeamCode"), g.get("awayTeamCode")):
+            continue
+        mine = "home" if g.get("homeTeamCode") == code else "away"
+        other = "away" if mine == "home" else "home"
+        rec = client.get_json(f"{NAVER_API}/schedule/games/{g['gameId']}/record", cache_key=f"nvrec_{g['gameId']}", ttl=-1)
+        r = parse_kbo_record(rec or {}, mine)
+        if len(r["starters"]) < 9:
+            continue
+        try:
+            gf, ga = int(g.get(f"{mine}TeamScore")), int(g.get(f"{other}TeamScore"))
+        except (TypeError, ValueError):
+            continue
+        r.update({"date": when, "opp": g.get(f"{other}TeamName") or "", "home": mine == "home", "gf": gf, "ga": ga,
+                  "res": "W" if gf > ga else "L" if gf < ga else "D"})
+        hist.append(r)
+        if len(hist) >= n:
+            break
+    return hist
+
+
+def build_kbo_detail(client, game, now):
+    cfg = load_config()
+    lg = next((x for x in cfg.get("naver_leagues", []) if x["category"] == game.get("category")), {})
+    upper = lg.get("upper", "kbaseball")
+    pv = client.get_json(f"{NAVER_API}/schedule/games/{game['event_id']}/preview", cache_key=f"nvpv_{game['event_id']}", ttl=180)
+    sides = {s: parse_kbo_preview(pv or {}, s) for s in ("home", "away")}
+    if not all(len(sides[s]["lineup"]) >= 9 for s in ("home", "away")):
+        return {"lineup_ready": False, "note": "아직 선발 라인업이 나오지 않았습니다."}
+    start = to_kst(game["start_kst"]) or now
+    day = start.date()
+    season = kbo_season_games(client, cfg, upper, game.get("category"), start)
+    # 리그 평균 득점 (시즌 경기 점수로)
+    runs = [int(g.get(k)) for _, g in season for k in ("homeTeamScore", "awayTeamScore") if str(g.get(k, "")).lstrip("-").isdigit()]
+    rpg = sum(runs) / len(runs) if len(runs) >= 40 else 5.0
+    teams = {}
+    for side in ("home", "away"):
+        code = game[side]["id"]
+        info = sides[side]
+        lineup = info["lineup"]
+        hist = kbo_team_history(client, season, code, KBO_LOOKBACK)
+        recent = hist[:KBO_RECENT]
+        result = analyze_lineup(lineup, recent, 9)
+        result["basis"] = "recent"
+        for p in result.get("players") or []:
+            p["season_games"] = None
+        # 선발투수: 시즌 기록(미리보기) + 최근 등판(팀 경기 기록에서)
+        sp = dict(info["sp"] or {})
+        starts = []
+        for h in hist:
+            if h.get("sp") and sp.get("id") and h["sp"]["id"] == sp["id"]:
+                starts.append({"date": str(h["date"])[:10], "opp": h.get("opp"), "ip": h["sp"]["ip"], "er": h["sp"]["er"], "pitches": None})
+        sp["recent"] = starts[:3]
+        sp["recent_era"] = recent_era(starts)
+        if starts:
+            try:
+                sp["rest_days"] = (day - datetime.fromisoformat(starts[0]["date"]).date()).days
+            except ValueError:
+                sp["rest_days"] = None
+        # 불펜: 최근 3일 상대 타자 수 → 투구수 환산, 이틀 연속 등판
+        by_day = {}
+        for h in hist:
+            try:
+                gap = (day - datetime.fromisoformat(str(h["date"])[:10]).date()).days
+            except ValueError:
+                continue
+            if 1 <= gap <= 3:
+                d = by_day.setdefault(gap, {"bf": 0, "ids": set()})
+                d["bf"] += h.get("pen_bf") or 0
+                d["ids"] |= set(h.get("pen_ids") or [])
+        pen = {"era": info.get("team_era"), "basis": "팀 전체",
+               "pitches_3d": round(sum(d["bf"] for d in by_day.values()) * PEN_PITCHES_PER_BF),
+               "b2b": len(by_day.get(1, {}).get("ids", set()) & by_day.get(2, {}).get("ids", set())), "estimated": True}
+        season_runs = [(int(g.get("homeTeamScore")) if g.get("homeTeamCode") == code else int(g.get("awayTeamScore")))
+                       for _, g in season if code in (g.get("homeTeamCode"), g.get("awayTeamCode"))
+                       and str(g.get("homeTeamScore", "")).isdigit() and str(g.get("awayTeamScore", "")).isdigit()]
+        off = round(sum(season_runs) / len(season_runs), 2) if len(season_runs) >= 10 else None
+        hands = [p.get("bats") for p in lineup]
+        result["pitching"] = {"sp": sp if sp.get("name") else None, "pen": pen, "off_rpg": off,
+                              "bats": {k: hands.count(k) for k in ("L", "R", "S")}}
+        result["team_name"] = game[side]["name"]
+        add_context(result, hist, "야구")
+        teams[side] = result
+
+    def inputs(side):
+        t = teams[side]
+        pit = t["pitching"]
+        return {"sp": pit.get("sp") or {}, "off_rpg": pit.get("off_rpg"), "pen_era": (pit.get("pen") or {}).get("era"),
+                "pen_3d": (pit.get("pen") or {}).get("pitches_3d") or 0, "core_in": t.get("core_in"), "size": 9, "grade": t.get("grade")}
+    power = baseball_power(inputs("home"), inputs("away"), game["home"]["name"], game["away"]["name"], rpg=rpg)
+    summary = summarize(game["home"]["name"], game["away"]["name"], teams, "야구")
+    summary["points"] = (mlb_points(game, teams, power) + (summary.get("points") or []))[:3]
+    sps = [((teams[s].get("pitching") or {}).get("sp") or {}).get("name") for s in ("home", "away")]
+    if all(sps):
+        summary["headline"] = f"{power.get('verdict', '')} · 선발 {sps[0]} vs {sps[1]}".strip(" ·")
+    names = {s: game[s]["name"] for s in ("home", "away")}
+    return {"lineup_ready": True, "teams": teams, "power": power, "summary": summary,
+            "signals": build_signals(names, teams, "야구")}
+
+
 def build_mlb_detail(client, game, now):
     season = (to_kst(game["start_kst"]) or now).year
     lineups = game.get("lineups") or {}
@@ -1283,7 +1415,9 @@ def run(verbose=False):
             print(f"  · 경기 상세 {targets.index(g) + 1}/{len(targets)}: {g['league']} {g['home']['name']} vs {g['away']['name']} "
                   f"(요청 {client.count}건 · {int(time.time() - started)}초)", flush=True)
             try:
-                if g.get("source") == "naver":
+                if g.get("source") == "naver" and g["sport"] == "야구":
+                    detail = build_kbo_detail(client, g, now)
+                elif g.get("source") == "naver":
                     detail = build_naver_detail(client, g, now)
                 elif g["sport"] == "야구":
                     detail = build_mlb_detail(client, g, now)
