@@ -718,3 +718,202 @@ def parse_mlb_boxscore_side(box, side):
            for p in _d(t.get("players")).values()}
     played = [pid for pid in played if pid in order or pos.get(pid) != "P"]
     return {"starters": order[:9], "played": played, "names": names}
+
+
+# ---------------------------------------------------------------- 네이버 스포츠 (K리그1·2)
+# 6차 소스 점검에서 확인한 모양:
+#  경기 목록: result.games[] {gameId, categoryId, gameDateTime(한국시간, 시간대 표기 없음), statusCode BEFORE/…/RESULT,
+#             homeTeamCode, homeTeamName, homeTeamScore, homeTeamEmblemUrl, cancel …}
+#  라인업:   result.lineUpData.lineup.{home,away} = {players: [[줄1 선수…], [줄2 …]] , formation}
+#             선수 {playerId, name, pos(GK/DF/MF/FW), shirtNumber, positionOrder, goal, assists}
+#             result.lineUpData.substitution.{home,away} = [교체명단 선수…]
+#  선수 기록: result.recordData.{home,away}PlayerStats[] {playerId, playerName, position, goals, assists,
+#             playerPoint(평점), workTime(출전 분)}
+
+NAVER_STATE = {"BEFORE": "pre", "READY": "pre", "STARTED": "in", "LIVE": "in", "RESULT": "post", "END": "post"}
+
+
+def naver_kst(text):
+    """'2026-09-27T19:00:00' (한국시간) -> KST datetime"""
+    t = _s(text)
+    if not t:
+        return None
+    try:
+        dt = datetime.fromisoformat(t.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return dt.replace(tzinfo=KST) if dt.tzinfo is None else dt.astimezone(KST)
+
+
+def parse_naver_games(data, categories):
+    """경기 목록 -> 우리 형식. categories: {categoryId: 리그 이름}"""
+    out = []
+    for g in _l(_d(_d(data).get("result")).get("games")):
+        g = _d(g)
+        cat = _s(g.get("categoryId"))
+        if cat not in categories or g.get("cancel"):
+            continue
+        kst = naver_kst(g.get("gameDateTime"))
+        gid = _s(g.get("gameId"))
+        if not gid or not kst:
+            continue
+        side = lambda p: {
+            "id": _s(g.get(f"{p}TeamCode")), "name": _s(g.get(f"{p}TeamName")), "short": _s(g.get(f"{p}TeamName")),
+            "logo": _s(g.get(f"{p}TeamEmblemUrl")), "score": _int(g.get(f"{p}TeamScore")),
+        }
+        status = _s(g.get("statusCode")).upper()
+        out.append({
+            "key": f"축구:naver.{cat}:{gid}", "sport": "축구", "league": categories[cat], "league_slug": f"naver.{cat}",
+            "event_id": gid, "start_kst": kst.isoformat(), "state": NAVER_STATE.get(status, "in" if status else "pre"),
+            "home": side("home"), "away": side("away"), "source": "naver", "category": cat,
+        })
+    return out
+
+
+def _naver_player(p):
+    p = _d(p)
+    return {
+        "id": _s(p.get("playerId")), "name": _s(p.get("name")) or _s(p.get("playerName")),
+        "short": _s(p.get("name")) or _s(p.get("playerName")), "pos": _s(p.get("pos")) or _s(p.get("position")),
+        "jersey": _s(p.get("shirtNumber")), "place": _int(p.get("positionOrder")),
+    }
+
+
+def _naver_raw_rows(data, side):
+    """라인업 원본에서 한 팀의 줄별 선수(가공 전) 목록."""
+    lu = _d(_d(_d(data).get("result")).get("lineUpData"))
+    players = _d(_d(lu.get("lineup")).get(side)).get("players")
+    if isinstance(players, dict):              # 유럽 경기 모양: {"lineup": [[…]], "row": …}
+        players = players.get("lineup")
+    return [[_d(p) for p in (r if isinstance(r, list) else [r])] for r in _l(players)]
+
+
+def parse_naver_lineup(data):
+    """라인업 -> {"home"/"away": {"lineup": [...], "rows": [[인덱스…]…], "formation", "bench": [...]}}
+    줄 순서는 네이버가 준 그대로(골키퍼 줄부터)."""
+    lu = _d(_d(_d(data).get("result")).get("lineUpData"))
+    out = {}
+    for side in ("home", "away"):
+        team = _d(_d(lu.get("lineup")).get(side))
+        lineup, rows = [], []
+        for r in _naver_raw_rows(data, side):
+            idxs = []
+            for p in r:
+                pl = _naver_player(p)
+                if pl["id"]:
+                    idxs.append(len(lineup))
+                    lineup.append(pl)
+            if idxs:
+                rows.append(idxs)
+        bench = [_naver_player(p) for p in _l(_d(lu.get("substitution")).get(side))]
+        out[side] = {"lineup": lineup, "rows": rows, "formation": _s(team.get("formation")),
+                     "bench": [b for b in bench if b["id"]]}
+    return out
+
+
+def parse_naver_record(record, lineup, side):
+    """지난 경기 하나에서 한 팀: 선발(라인업)·출전(출전시간>0)·출전시간·골·도움·평점."""
+    lu = parse_naver_lineup(lineup).get(side) or {}
+    starters = [p["id"] for p in lu.get("lineup") or []]
+    names = {p["id"]: p["name"] for p in (lu.get("lineup") or []) + (lu.get("bench") or [])}
+    stats = _l(_d(_d(_d(record).get("result")).get("recordData")).get(f"{side}PlayerStats"))
+    minutes, goals, assists, rating, played = {}, {}, {}, {}, list(starters)
+    for s in stats:
+        s = _d(s)
+        pid = _s(s.get("playerId"))
+        if not pid:
+            continue
+        names.setdefault(pid, _s(s.get("playerName")))
+        wt = _int(s.get("workTime"))
+        if wt:
+            minutes[pid] = min(wt, 90)
+            if pid not in played:
+                played.append(pid)
+        if _int(s.get("goals")):
+            goals[pid] = _int(s.get("goals"))
+        if _int(s.get("assists")):
+            assists[pid] = _int(s.get("assists"))
+        try:
+            if s.get("playerPoint") is not None and wt:
+                rating[pid] = float(s.get("playerPoint"))
+        except (TypeError, ValueError):
+            pass
+    if not stats:                                  # 선수 기록이 없으면 라인업의 골·도움으로 대신
+        for p in [p for r in _naver_raw_rows(lineup, side) for p in r]:
+            pid = _s(p.get("playerId"))
+            if _int(p.get("goal")):
+                goals[pid] = _int(p.get("goal"))
+            if _int(p.get("assists")):
+                assists[pid] = _int(p.get("assists"))
+    for pid in starters:
+        minutes.setdefault(pid, None if stats else 90)
+    return {"starters": starters, "played": played, "names": names, "minutes": minutes,
+            "goals": goals, "assists": assists, "rating": rating}
+
+
+# ---------------------------------------------------------------- 야구 투수 (MLB 공식)
+
+def ip_to_float(ip):
+    """'6.2'(6과 2/3이닝) -> 6.667"""
+    t = _s(str(ip)) if ip is not None else ""
+    if not t:
+        return 0.0
+    try:
+        whole, _, frac = t.partition(".")
+        return int(whole or 0) + {"": 0, "0": 0, "1": 1 / 3, "2": 2 / 3}.get(frac, 0)
+    except ValueError:
+        return 0.0
+
+
+FIP_CONST = 3.1
+
+
+def pitcher_season(person):
+    """people?hydrate=stats(group=[pitching],type=[season]) 한 명 -> 시즌 요약."""
+    person = _d(person)
+    st = {}
+    for block in _l(person.get("stats")):
+        for sp in _l(_d(block).get("splits")):
+            st = _d(_d(sp).get("stat")) or st
+    ip = ip_to_float(st.get("inningsPitched"))
+    k, bb, hr = _num(st.get("strikeOuts")), _num(st.get("baseOnBalls")), _num(st.get("homeRuns"))
+    gs = int(_num(st.get("gamesStarted")))
+    fip = round((13 * hr + 3 * bb - 2 * k) / ip + FIP_CONST, 2) if ip >= 10 else None
+    era = _num(st.get("era")) if st.get("era") not in (None, "-.--", "") else None
+    whip = _num(st.get("whip")) if st.get("whip") not in (None, "-.--", "") else None
+    return {
+        "id": str(person.get("id") or ""), "name": _s(person.get("fullName")),
+        "hand": _s(_d(person.get("pitchHand")).get("code")),
+        "era": era, "whip": whip, "fip": fip, "ip": round(ip, 1), "gs": gs,
+        "ip_per_start": round(ip / gs, 2) if gs else None, "k": int(k), "bb": int(bb),
+    }
+
+
+def pitcher_starts(data):
+    """people/{id}/stats?stats=gameLog&group=pitching -> 선발 등판 목록 (최신순)."""
+    out = []
+    for block in _l(_d(data).get("stats")):
+        for sp in _l(_d(block).get("splits")):
+            sp = _d(sp)
+            st = _d(sp.get("stat"))
+            if not _num(st.get("gamesStarted")):
+                continue
+            out.append({
+                "date": _s(sp.get("date")), "opp": _s(_d(sp.get("opponent")).get("name")),
+                "ip": round(ip_to_float(st.get("inningsPitched")), 1), "er": int(_num(st.get("earnedRuns"))),
+                "pitches": int(_num(st.get("numberOfPitches") or st.get("pitchesThrown"))),
+            })
+    out.sort(key=lambda r: r["date"], reverse=True)
+    return out
+
+
+def bullpen_usage(box, side):
+    """박스스코어 한 팀: 선발(첫 투수)을 뺀 불펜 투수별 투구수."""
+    t = _d(_d(_d(box).get("teams")).get(side))
+    pitchers = [str(x) for x in _l(t.get("pitchers")) if x]
+    out = {}
+    for pid in pitchers[1:]:
+        st = _d(_d(_d(_d(t.get("players")).get(f"ID{pid}")).get("stats")).get("pitching"))
+        n = int(_num(st.get("numberOfPitches") or st.get("pitchesThrown")))
+        out[pid] = n
+    return out
