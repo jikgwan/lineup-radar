@@ -40,7 +40,10 @@ from parse import (
     mlb_history_from_stats,
     pitcher_season,
     pitcher_starts,
+    parse_fotmob_league_matches,
+    parse_fotmob_lineups,
     parse_fotmob_matches,
+    parse_fotmob_team_fixtures,
     parse_fotmob_unavailable,
     parse_kbo_preview,
     person_key,
@@ -1397,6 +1400,99 @@ def build_kbo_detail(client, game, now):
             "signals": build_signals(names, teams, "야구")}
 
 
+# ------------------------------------------------------------------ 풋몹 컵대회 (일왕배 등): 라인업·몇 군·결장 (전력 숫자 없음)
+
+def collect_fotmob_games(client, now, cfg):
+    leagues = {int(x["id"]): x for x in cfg.get("fotmob_leagues", [])}
+    if not leagues:
+        return []
+    games, seen = [], set()
+    for back in (-1, 0, 1):
+        d = (now + timedelta(days=back)).strftime("%Y%m%d")
+        data = client.get_json(f"{FOTMOB}/matches", params={"date": d}, cache_key=f"fm_{d}", ttl=1800)
+        for m in parse_fotmob_league_matches(data or {}, set(leagues)):
+            if m["id"] in seen:
+                continue
+            seen.add(m["id"])
+            lg = leagues[m["league_id"]]
+            games.append({"key": f"축구:fotmob.{m['league_id']}:{m['id']}", "sport": "축구", "league": lg["name"],
+                          "league_slug": f"fotmob.{m['league_id']}", "source": "fotmob", "event_id": m["id"],
+                          "start_kst": m["start_kst"], "state": m["state"], "national": False,
+                          "home": {"id": m["home"]["id"], "name": m["home"]["name"], "score": m["home"]["score"] if m["state"] != "pre" else None},
+                          "away": {"id": m["away"]["id"], "name": m["away"]["name"], "score": m["away"]["score"] if m["state"] != "pre" else None}})
+    return games
+
+
+def fotmob_team_history(client, team_id, before_kst, n=12):
+    """풋몹 팀의 지난 경기 선발 (경기 상세는 끝난 경기라 영구 저장)."""
+    page = client.get_json(f"{FOTMOB}/teams", params={"id": team_id}, cache_key=f"fm_team_{team_id}", ttl=6 * 3600)
+    fx = [f for f in parse_fotmob_team_fixtures(page or {}) if to_kst(f["utc"]) and to_kst(f["utc"]) < before_kst]
+    fx.sort(key=lambda f: f["utc"], reverse=True)
+    hist = []
+    for f in fx[:n]:
+        if getattr(client, "out_of_time", False):
+            break
+        det = client.get_json(f"{FOTMOB}/matchDetails", params={"matchId": f["id"]}, cache_key=f"fm_d_{f['id']}", ttl=-1)
+        lu = parse_fotmob_lineups(det or {})
+        side = "home" if f["home_id"] == str(team_id) else "away"
+        st = (lu.get(side) or {}).get("lineup") or []
+        if len(st) < 9:
+            continue
+        gf, ga = (f["hg"], f["ag"]) if side == "home" else (f["ag"], f["hg"])
+        try:
+            gf, ga = int(gf), int(ga)
+        except (TypeError, ValueError):
+            continue
+        ids = [p["id"] for p in st]
+        hist.append({"date": to_kst(f["utc"]).isoformat(), "starters": ids, "played": ids, "names": {p["id"]: p["name"] for p in st},
+                     "minutes": {pid: 90 for pid in ids}, "goals": {}, "assists": {}, "home": side == "home",
+                     "gf": gf, "ga": ga, "res": "W" if gf > ga else "L" if gf < ga else "D"})
+    return hist
+
+
+def build_fotmob_detail(client, game, now):
+    det = client.get_json(f"{FOTMOB}/matchDetails", params={"matchId": game["event_id"]}, cache_key=f"fm_live_{game['event_id']}", ttl=120)
+    lu = parse_fotmob_lineups(det or {})
+    start = to_kst(game["start_kst"]) or now
+    names = {s: game[s]["name"] for s in ("home", "away")}
+    ab = parse_fotmob_unavailable(det) if det else None
+    hist = {s: fotmob_team_history(client, game[s]["id"], start) if game[s]["id"] else [] for s in ("home", "away")}
+    if not lu.get("confirmed") or not all(len((lu.get(s) or {}).get("lineup") or []) >= 11 for s in ("home", "away")):
+        out = {"lineup_ready": False, "note": "아직 선발 라인업이 나오지 않았습니다."}
+        risk, sig = {}, []
+        for s in ("home", "away"):
+            core = core_from_history(hist[s][:HISTORY_MATCHES], 11)
+            rows = (ab or {}).get(s) or []
+            core_out = [x["name"] for x in rows if any(same_person(m.get("name"), x["name"]) for m in core)]
+            risk[s] = {"level": None, "situation": "normal", "situation_text": "평소", "today": {"n": 0}, "base": {"n": 0}, "tired": [],
+                       "reason": "", "size": 11, "absent": rows, "core_absent": core_out}
+            if len(core_out) >= 2:
+                sig.append([f"{names[s]} 주전 {len(core_out)}명 부상·징계", "bad"])
+        out.update({"risk": risk, "signals": sig})
+        return out
+    teams = {}
+    for side in ("home", "away"):
+        lineup = lu[side]["lineup"]
+        h = hist[side]
+        recent, season = h[:HISTORY_MATCHES], h
+        result = analyze_lineup(lineup, recent, 11)
+        enrich(result, lineup, recent, season=season, formation=lu[side].get("formation") or "", shape=position_shape)
+        add_bench(result, [], recent, season)
+        strength(result, recent, season=season)
+        add_periods(result, recent, season)
+        add_context(result, h, "축구")
+        result["ace"] = pick_ace(result)
+        result["basis"] = "recent"
+        result["team_name"] = game[side]["name"]
+        result["formation"] = lu[side].get("formation") or ""
+        result["league"] = game.get("league_slug")
+        teams[side] = result
+    extra = attach_absences(teams, ab, names) if ab else []
+    summary = summarize(game["home"]["name"], game["away"]["name"], teams, "축구")
+    return {"lineup_ready": True, "teams": teams, "power": None, "national": False, "summary": summary, "record_recent": True,
+            "signals": (extra + build_signals(names, teams, "축구"))[:4]}
+
+
 def build_mlb_detail(client, game, now):
     season = (to_kst(game["start_kst"]) or now).year
     lineups = game.get("lineups") or {}
@@ -1636,6 +1732,11 @@ def run(verbose=False):
     games += collect_espn_games(client, now, cfg.get("espn_leagues", []))
     if cfg.get("naver_leagues"):
         games += collect_naver_games(client, now, cfg)
+    if cfg.get("fotmob_leagues"):
+        try:
+            games += collect_fotmob_games(client, now, cfg)
+        except Exception as exc:                      # 풋몹이 막혀도 나머지 수집은 그대로
+            print(f"  ! 풋몹 컵대회 목록 실패: {exc}", file=sys.stderr)
     if cfg.get("mlb_enabled", True):
         games += collect_mlb_games(client, now)
     games = translate_names(dedupe(games))
@@ -1672,7 +1773,9 @@ def run(verbose=False):
             print(f"  · 경기 상세 {targets.index(g) + 1}/{len(targets)}: {g['league']} {g['home']['name']} vs {g['away']['name']} "
                   f"(요청 {client.count}건 · {int(time.time() - started)}초)", flush=True)
             try:
-                if g.get("source") == "naver" and g["sport"] == "야구":
+                if g.get("source") == "fotmob":
+                    detail = build_fotmob_detail(client, g, now)
+                elif g.get("source") == "naver" and g["sport"] == "야구":
                     detail = build_kbo_detail(client, g, now)
                 elif g.get("source") == "naver":
                     detail = build_naver_detail(client, g, now)
