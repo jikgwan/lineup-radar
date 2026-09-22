@@ -78,6 +78,15 @@ h1{margin:0;font-size:24px;font-weight:900;letter-spacing:-0.03em}
 .group{font-size:12px;font-weight:700;color:var(--mute);margin:6px 4px 0}
 .gcard{position:relative;display:block;width:100%;background:var(--s1);border-radius:16px;padding:14px 14px 14px}
 .gcard.sel{box-shadow:inset 0 0 0 2px var(--acc)}
+.gcard.done{opacity:.5}
+.gcard.playing{box-shadow:inset 3px 0 0 var(--bad)}
+.gside .score{font-family:'Inter','Noto Sans KR',sans-serif;font-size:20px;font-weight:800;min-width:24px;text-align:right}
+.gside .score.lose{color:var(--mute)}
+.fin{font-size:11px;font-weight:700;color:var(--mute);background:var(--s2);padding:1px 6px;border-radius:4px}
+.nowline{display:flex;align-items:center;gap:10px;margin:4px 2px;color:var(--bad);font-size:12px;font-weight:800}
+.nowline::before,.nowline::after{content:"";flex:1;height:1px;background:var(--bad);opacity:.6}
+.ltable tr.done td{opacity:.5}
+.ltable tr.nowrow td{padding:6px 4px;border-bottom:0;cursor:default}
 .gtop{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--mute);margin-bottom:10px;padding-right:34px}
 .gtop .time{font-family:'Inter','Noto Sans KR',sans-serif;font-variant-numeric:tabular-nums;color:var(--ink);font-weight:800;font-size:26px;letter-spacing:-0.03em;line-height:1}
 .gtop .until{font-size:12px;font-weight:700;color:var(--acc);background:rgba(255,197,61,.12);padding:2px 7px;border-radius:6px}
@@ -335,12 +344,12 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     const better = (ca == null || cb == null || ca === cb) ? 0 : (lower ? (ca < cb ? 1 : -1) : (ca > cb ? 1 : -1));
     let wa, wb;
     if (scale != null){ const [sa, sb] = Array.isArray(scale) ? scale : [scale, scale]; wa = sa ? 100 * Math.min(1, (a || 0) / sa) : 0; wb = sb ? 100 * Math.min(1, (b || 0) / sb) : 0; }
-    else if (lower){ const mn = Math.min(a, b) || .01; wa = 100 * mn / (a || .01); wb = 100 * mn / (b || .01); }
+    else if (lower){ const mx = Math.max(Math.abs(a || 0), Math.abs(b || 0)) || 1; wa = 100 * (a || 0) / mx; wb = 100 * (b || 0) / mx; }   // 막대 = 실제 값, 좋은 쪽은 노란 숫자
     else { const mx = Math.max(Math.abs(a || 0), Math.abs(b || 0)) || 1; wa = 100 * (a || 0) / mx; wb = 100 * (b || 0) / mx; }
     const r = el("div", "mrow");
     r.append(el("b", better > 0 ? "hi" : null, fa ?? "-"));
-    const l = el("div", "mbar l"); const li = el("i"); li.style.width = (a == null ? 0 : Math.max(4, wa)) + "%"; l.append(li);
-    const rr = el("div", "mbar r"); const ri = el("i"); ri.style.width = (b == null ? 0 : Math.max(4, wb)) + "%"; rr.append(ri);
+    const l = el("div", "mbar l"); const li = el("i"); li.style.width = (a == null || !wa ? 0 : Math.max(4, wa)) + "%"; l.append(li);
+    const rr = el("div", "mbar r"); const ri = el("i"); ri.style.width = (b == null || !wb ? 0 : Math.max(4, wb)) + "%"; rr.append(ri);
     r.append(l, el("span", null, label), rr, el("b", better < 0 ? "hi" : null, fb ?? "-"));
     return r;
   }
@@ -424,28 +433,39 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     const wrap = el("div", "glist");
     const pinned = filter === "전체" ? view.filter(g => pins.has(g.key)) : [];
     if (pinned.length){ wrap.append(el("div", "group", "관심 경기")); pinned.forEach(g => wrap.append(card(g, pins))); wrap.append(el("div", "group", "전체")); }
-    let last = null;
+    let last = null, sawStarted = false, nowDone = false;
     view.filter(g => !pinned.includes(g)).forEach(g => {
       const k = dateKey(g.start_kst);
-      if (k !== last){ last = k; const n = view.filter(x => dateKey(x.start_kst) === k && !pinned.includes(x)).length;
+      if (k !== last){ last = k; sawStarted = false; nowDone = false;
+        const n = view.filter(x => dateKey(x.start_kst) === k && !pinned.includes(x)).length;
         const h = el("div", "dgroup"); h.append(el("span", null, dayTitle(g.start_kst)), el("small", null, `${n}경기`)); wrap.append(h); }
+      if (g.state !== "pre") sawStarted = true;
+      else if (sawStarted && !nowDone){ nowDone = true; wrap.append(nowLine()); }
       wrap.append(card(g, pins));
     });
     return wrap;
   }
+  function nowLine(){
+    const d = el("div", "nowline"); d.append(el("span", null, `지금 ${hhmm(new Date().toISOString())} · 여기부터 시작 전`)); return d;
+  }
   function card(g, pins){
-    const c = el("div", "gcard" + (current && current.key === g.key ? " sel" : ""));
+    const c = el("div", "gcard" + (current && current.key === g.key ? " sel" : "") + (g.state === "post" ? " done" : "") + (g.state === "in" ? " playing" : ""));
     c.setAttribute("role", "button"); c.tabIndex = 0;
     const top = el("div", "gtop"); top.append(el("span", "time num", hhmm(g.start_kst)));
     const left = untilText(g); if (left) top.append(el("span", "until", left));
     top.append(el("span", "lg", g.league));
     if (g.state === "in") top.append(el("span", "live", "LIVE"));
-    if (g.state === "post") top.append(el("span", null, "종료"));
+    if (g.state === "post") top.append(el("span", "fin", "종료"));
     if (isNew(g)) top.append(el("span", "new", "NEW"));
     c.append(top);
     [["home", "grade_home", "var(--home)"], ["away", "grade_away", "var(--away)"]].forEach(([s, gk, col]) => {
       const r = el("div", "gside"); const nm = el("span", "nm", g[s]); nm.style.setProperty("--tc", col); r.append(crest(g[s + "_logo"], g[s], col, 26), nm);
       if (g.lineup_ready === true && g[gk]) r.append(pips(g[gk]));
+      const sc = g.score && g.score[s === "home" ? 0 : 1];
+      if (g.state !== "pre" && sc != null){
+        const o = g.score[s === "home" ? 1 : 0];
+        r.append(el("b", "score num" + (g.state === "post" && sc < o ? " lose" : ""), sc));
+      }
       c.append(r);
     });
     if (g.lineup_ready === true && g.power) c.append(tug(g.power[0], g.power[1]));
@@ -467,12 +487,16 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     [["시간"], ["리그"], ["홈"], ["등급"], ["원정"], ["등급"], ["전력"], ["차이 " + (sortGap ? "▼" : "↕"), "sort"]].forEach(([h, c]) => { const th = el("th", c || null, h); if (c) th.onclick = () => { sortGap = !sortGap; renderList(); }; head.append(th); });
     const thead = el("thead"); thead.append(head); t.append(thead);
     const tb = el("tbody");
-    let lastDay = null;
+    let lastDay = null, sawStarted = false, nowDone = false;
     view.forEach(g => {
       const k = dateKey(g.start_kst);
-      if (!sortGap && k !== lastDay){ lastDay = k; const gr = el("tr", "grow"); const td = el("td"); td.colSpan = 8;
+      if (!sortGap && k !== lastDay){ lastDay = k; sawStarted = false; nowDone = false; const gr = el("tr", "grow"); const td = el("td"); td.colSpan = 8;
         td.append(el("span", null, dayTitle(g.start_kst)), el("small", null, ` · ${view.filter(x => dateKey(x.start_kst) === k).length}경기`)); gr.append(td); tb.append(gr); }
-      const tr = el("tr", current && current.key === g.key ? "sel" : null);
+      if (!sortGap){
+        if (g.state !== "pre") sawStarted = true;
+        else if (sawStarted && !nowDone){ nowDone = true; const nr = el("tr", "nowrow"); const td = el("td"); td.colSpan = 8; td.append(nowLine()); nr.append(td); tb.append(nr); }
+      }
+      const tr = el("tr", [current && current.key === g.key ? "sel" : "", g.state === "post" ? "done" : ""].join(" ").trim() || null);
       const tt = el("td"); if (sortGap) tt.append(el("small", "num", md(g.start_kst) + " ")); tt.append(el("b", "num", hhmm(g.start_kst))); if (pins.has(g.key)){ const s = el("span", null, " ★"); s.style.color = "var(--acc)"; tt.append(s); } tr.append(tt);
       const lg = el("td", "lg", g.league + (g.state === "in" ? " · LIVE" : "")); if (isNew(g)){ lg.append(document.createTextNode(" ")); lg.append(el("span", "new", "NEW")); } tr.append(lg);
       [["home", "grade_home", "var(--home)"], ["away", "grade_away", "var(--away)"]].forEach(([s, gk, col]) => {
@@ -481,7 +505,8 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
         const gd = el("td"); if (g.lineup_ready === true && g[gk]) gd.append(pips(g[gk])); else gd.append(el("span", "wait", g.state === "post" ? "-" : "대기")); tr.append(gd);
       });
       const pw = el("td", "num"); const gap = el("td");
-      if (g.power){ pw.innerHTML = `<b style="color:${g.power[0] > g.power[1] ? "var(--acc)" : "var(--ink)"}">${g.power[0]}</b> : <b style="color:${g.power[1] > g.power[0] ? "var(--acc)" : "var(--ink)"}">${g.power[1]}</b>`;
+      if (g.state !== "pre" && g.score && g.score[0] != null){ pw.innerHTML = `<span class="${g.state === "post" ? "fin" : "live"}">${g.state === "post" ? "종료" : "LIVE"}</span> <b>${g.score[0]} : ${g.score[1]}</b>`; }
+      else if (g.power){ pw.innerHTML = `<b style="color:${g.power[0] > g.power[1] ? "var(--acc)" : "var(--ink)"}">${g.power[0]}</b> : <b style="color:${g.power[1] > g.power[0] ? "var(--acc)" : "var(--ink)"}">${g.power[1]}</b>`;
         const b = el("span", "gapbar"); b.style.width = Math.min(56, Math.max(4, Math.abs(g.power[0] - g.power[1]) * 1.6)) + "px"; gap.append(b); } else pw.textContent = "-";
       tr.append(pw, gap);
       const badSig = (g.signals || []).filter(x => x[1] === "bad");
@@ -847,7 +872,7 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     const ph = P("home").pen || {}, pa = P("away").pen || {};
     if (ph.era != null && pa.era != null) pen.append(mrow("불펜 ERA ↓", ph.era, pa.era, fmt(ph.era), fmt(pa.era), {lower: true}));
     if (ph.pitches_3d != null && pa.pitches_3d != null) pen.append(mrow("최근 3일 ↓", ph.pitches_3d, pa.pitches_3d, ph.pitches_3d + "구", pa.pitches_3d + "구", {lower: true}));
-    if (ph.b2b != null && pa.b2b != null) pen.append(mrow("이틀 연속 ↓", ph.b2b + .01, pa.b2b + .01, ph.b2b + "명", pa.b2b + "명", {lower: true}));
+    if (ph.b2b != null && pa.b2b != null) pen.append(mrow("이틀 연속 ↓", ph.b2b, pa.b2b, ph.b2b + "명", pa.b2b + "명", {lower: true}));
     w.append(pen);
     return w;
   }
