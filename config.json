@@ -3,18 +3,6 @@
   "espn_leagues": [
     {
       "sport": "축구",
-      "slug": "kor.1",
-      "path": "soccer/kor.1",
-      "name": "K리그1"
-    },
-    {
-      "sport": "축구",
-      "slug": "kor.2",
-      "path": "soccer/kor.2",
-      "name": "K리그2"
-    },
-    {
-      "sport": "축구",
       "slug": "fifa.worldq.afc",
       "path": "soccer/fifa.worldq.afc",
       "name": "월드컵 예선(아시아)",
@@ -289,5 +277,20 @@
     "fifa.worldq.caf",
     "uefa.nations",
     "uefa.euroq"
-  ]
+  ],
+  "naver_leagues": [
+    {
+      "sport": "축구",
+      "upper": "kfootball",
+      "category": "kleague",
+      "name": "K리그1"
+    },
+    {
+      "sport": "축구",
+      "upper": "kfootball",
+      "category": "kleague2",
+      "name": "K리그2"
+    }
+  ],
+  "naver_season_start": "2026-02-01"
 }
