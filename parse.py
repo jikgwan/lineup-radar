@@ -964,6 +964,7 @@ def parse_espn_team_schedule(data, team_id):
 #           result.previewData.{home,away}Standings {era, hra, w, l, d, rank}
 #  record : result.recordData.battersBoxscore.{home,away}[] {batOrder, playerCode, name?, pos}
 #           result.recordData.pitchersBoxscore.{home,away}[] {pcode, name, inn, er, bf, ...}  (첫 투수 = 선발)
+#           ※ bf는 '상대 타자 수'가 아니라 '투구수' (같은 경기 문자중계 ballCount와 일치 확인: 6이닝 82구)
 
 def _kbo_hand(text):
     t = _s(text)
@@ -1001,7 +1002,7 @@ def parse_kbo_preview(data, side):
 
 
 def parse_kbo_record(data, side):
-    """지난 경기 한 팀: 선발 타순(1~9번 첫 타자)·출전 타자·선발투수 기록·불펜 상대 타자 수."""
+    """지난 경기 한 팀: 선발 타순(1~9번 첫 타자)·출전 타자·선발투수 기록·불펜 투구수."""
     rd = _d(_d(_d(data).get("result")).get("recordData"))
     bats = _l(_d(rd.get("battersBoxscore")).get(side))
     first, played, names = {}, [], {}
@@ -1020,11 +1021,12 @@ def parse_kbo_record(data, side):
     sp = None
     if pits:
         p0 = pits[0]
-        sp = {"id": _idstr(p0.get("pcode")), "ip": round(ip_to_float(p0.get("inn")), 1), "er": _int(p0.get("er"))}
-    pen_bf = sum(_int(p.get("bf")) for p in pits[1:])
+        sp = {"id": _idstr(p0.get("pcode")), "ip": round(ip_to_float(p0.get("inn")), 1), "er": _int(p0.get("er")),
+              "pitches": _int(p0.get("bf")) or None}
+    pen_pitches = sum(_int(p.get("bf")) for p in pits[1:])
     pen_ids = [_idstr(p.get("pcode")) for p in pits[1:] if p.get("pcode")]
     return {"starters": [first[o] for o in sorted(first)], "played": played, "names": names,
-            "sp": sp, "pen_bf": pen_bf, "pen_ids": pen_ids}
+            "sp": sp, "pen_pitches": pen_pitches, "pen_ids": pen_ids}
 
 
 # ---------------------------------------------------------------- 풋몹 결장자 (9차 소스 점검에서 확인한 모양)
