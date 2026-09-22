@@ -2,7 +2,7 @@ name: 라인업 수집
 
 on:
   schedule:
-    - cron: "*/10 * * * *"   # 10분마다
+    - cron: "7,17,27,37,47,57 * * * *"   # 10분마다 (정각 근처는 깃허브가 붐벼서 자주 밀리므로 7분 단위로)
   workflow_dispatch:          # Actions 탭에서 수동 실행 가능
 
 permissions:
