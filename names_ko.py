@@ -82,6 +82,21 @@ CLUBS = {
     "Shonan Bellmare": "쇼난 벨마레", "Avispa Fukuoka": "아비스파 후쿠오카", "Hokkaido Consadole Sapporo": "콘사도레 삿포로",
     "Kyoto Sanga": "교토 상가", "Jubilo Iwata": "주빌로 이와타", "Sagan Tosu": "사간 도스", "Shimizu S-Pulse": "시미즈 S펄스",
     "Fagiano Okayama": "파지아노 오카야마", "Yokohama FC": "요코하마 FC",
+    "Kyoto Sanga FC": "교토 상가", "Consadole Sapporo": "콘사도레 삿포로", "Urawa Reds": "우라와 레즈",
+    # J2·J3 (일왕배에 자주 나옴)
+    "Tokushima Vortis": "도쿠시마 보르티스", "Ventforet Kofu": "반포레 고후", "FC Imabari": "FC 이마바리",
+    "Fujieda MYFC": "후지에다 MYFC", "Tochigi City FC": "도치기 시티", "Tochigi City": "도치기 시티", "Tochigi SC": "도치기 SC",
+    "V-Varen Nagasaki": "V바렌 나가사키", "JEF United Chiba": "JEF 유나이티드 지바", "JEF United": "JEF 유나이티드 지바",
+    "Vegalta Sendai": "베갈타 센다이", "Montedio Yamagata": "몬테디오 야마가타", "Oita Trinita": "오이타 트리니타",
+    "Roasso Kumamoto": "로아소 구마모토", "Blaublitz Akita": "블라우블리츠 아키타", "Iwaki FC": "이와키 FC",
+    "Mito HollyHock": "미토 홀리호크", "Mito Hollyhock": "미토 홀리호크", "Renofa Yamaguchi": "레노파 야마구치",
+    "Ehime FC": "에히메 FC", "Kataller Toyama": "카탈레 도야마", "Zweigen Kanazawa": "츠바이겐 가나자와",
+    "Thespa Gunma": "테스파 군마", "Thespakusatsu Gunma": "테스파 군마", "Kagoshima United": "가고시마 유나이티드",
+    "Omiya Ardija": "오미야 아르디자", "RB Omiya Ardija": "RB 오미야 아르디자", "Giravanz Kitakyushu": "기라반츠 기타큐슈",
+    "Tokushima": "도쿠시마 보르티스", "FC Gifu": "FC 기후", "Matsumoto Yamaga": "마쓰모토 야마가", "Nagano Parceiro": "나가노 파르세이로",
+    "Kamatamare Sanuki": "가마타마레 사누키", "FC Ryukyu": "FC 류큐", "Azul Claro Numazu": "아술 클라로 누마즈",
+    "Gainare Tottori": "가이나레 돗토리", "SC Sagamihara": "SC 사가미하라", "Iwate Grulla Morioka": "이와테 그루자 모리오카",
+    "Vanraure Hachinohe": "반라우레 하치노헤", "FC Osaka": "FC 오사카", "Nara Club": "나라 클럽", "Kochi United": "고치 유나이티드",
 }
 
 NATIONS = {
