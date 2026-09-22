@@ -489,14 +489,14 @@ def parse_mlb_schedule(data):
                         "id": str(_d(_d(home).get("team")).get("id") or ""),
                         "name": _s(_d(_d(home).get("team")).get("name")),
                         "short": _s(_d(_d(home).get("team")).get("teamName")),
-                        "logo": "",
+                        "logo": f"https://www.mlbstatic.com/team-logos/{_d(_d(home).get('team')).get('id')}.svg" if _d(_d(home).get("team")).get("id") else "",
                         "score": _int(_d(home).get("score")),
                     },
                     "away": {
                         "id": str(_d(_d(away).get("team")).get("id") or ""),
                         "name": _s(_d(_d(away).get("team")).get("name")),
                         "short": _s(_d(_d(away).get("team")).get("teamName")),
-                        "logo": "",
+                        "logo": f"https://www.mlbstatic.com/team-logos/{_d(_d(away).get('team')).get('id')}.svg" if _d(_d(away).get("team")).get("id") else "",
                         "score": _int(_d(away).get("score")),
                     },
                     "lineups": {
@@ -916,4 +916,33 @@ def bullpen_usage(box, side):
         st = _d(_d(_d(_d(t.get("players")).get(f"ID{pid}")).get("stats")).get("pitching"))
         n = int(_num(st.get("numberOfPitches") or st.get("pitchesThrown")))
         out[pid] = n
+    return out
+
+
+def parse_espn_team_schedule(data, team_id):
+    """ESPN 팀 일정 -> [{"date"(KST iso), "completed", "opp", "home", "gf", "ga"}]"""
+    out = []
+    tid = _s(team_id)
+    for ev in _l(_d(data).get("events")):
+        ev = _d(ev)
+        comp = _d((_l(ev.get("competitions")) or [{}])[0])
+        when = to_kst(ev.get("date") or comp.get("date"))
+        if not when:
+            continue
+        mine = other = None
+        for c in _l(comp.get("competitors")):
+            c = _d(c)
+            cid = _s(c.get("id")) or _s(_d(c.get("team")).get("id"))
+            if cid == tid:
+                mine = c
+            else:
+                other = c
+        if mine is None:
+            continue
+        done = bool(_d(_d(comp.get("status")).get("type")).get("completed"))
+        out.append({"date": when.isoformat(), "completed": done,
+                    "opp": _s(_d(_d(other).get("team")).get("displayName")) if other else "",
+                    "home": _s(mine.get("homeAway")) == "home",
+                    "gf": _score(mine.get("score")) if done else None,
+                    "ga": _score(_d(other).get("score")) if (done and other) else None})
     return out
