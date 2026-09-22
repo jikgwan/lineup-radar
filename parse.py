@@ -1098,3 +1098,35 @@ def same_person(a, b):
     if wa[-1] == wb[-1] and (len(wa) == 1 or len(wb) == 1 or wa[0][0] == wb[0][0]):
         return True
     return (len(wa) == 1 and wa[0] in wb) or (len(wb) == 1 and wb[0] in wa)
+
+
+def parse_espn_schedule_events(data):
+    """ESPN 팀 일정 → 경기 목록 (두 팀 id·점수 포함, Elo 계산용)"""
+    out = []
+    for ev in _l(_d(data).get("events")):
+        ev = _d(ev)
+        comp = _d((_l(ev.get("competitions")) or [{}])[0])
+        cs = {_s(_d(c).get("homeAway")): _d(c) for c in _l(comp.get("competitors"))}
+        h, a = cs.get("home"), cs.get("away")
+        if not h or not a:
+            continue
+        when = to_kst(ev.get("date") or comp.get("date"))
+        done = bool(_d(_d(comp.get("status")).get("type")).get("completed"))
+        hid = _idstr(h.get("id")) or _idstr(_d(h.get("team")).get("id"))
+        aid = _idstr(a.get("id")) or _idstr(_d(a.get("team")).get("id"))
+        if not (when and hid and aid):
+            continue
+        out.append({"id": _idstr(ev.get("id")) or f"{when.isoformat()}_{hid}_{aid}", "date": when.isoformat(), "completed": done,
+                    "home_id": hid, "away_id": aid, "hg": _score(h.get("score")) if done else None, "ag": _score(a.get("score")) if done else None})
+    return out
+
+
+def parse_espn_team_ids(data):
+    out = []
+    for sp in _l(_d(data).get("sports")):
+        for lg in _l(_d(sp).get("leagues")):
+            for t in _l(_d(lg).get("teams")):
+                tid = _idstr(_d(_d(t).get("team")).get("id"))
+                if tid:
+                    out.append(tid)
+    return out
