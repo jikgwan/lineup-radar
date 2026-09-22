@@ -32,6 +32,7 @@ from parse import (
     parse_elo_names,
     parse_elo_world,
     mlb_history_from_stats,
+    parse_mlb_boxscore_side,
     parse_mlb_team_results,
     position_shape,
     parse_basketball_box_for_team,
@@ -509,7 +510,7 @@ def build_espn_detail(client, game, now):
 # ------------------------------------------------------------------ MLB 상세
 
 def mlb_team_regulars(client, team_id, season):
-    cache_key = f"mlbreg2_{team_id}_{season}"
+    cache_key = f"mlbreg3_{team_id}_{season}"
     cached = cache_read(cache_key, 12 * 3600)
     if cached is not None:
         return cached
@@ -554,14 +555,16 @@ def mlb_team_regulars(client, team_id, season):
     )
     info = mlb_history_from_stats((people or {}).get("people", []), team_games)
     info["team_games"] = team_games
-    info["form"] = mlb_team_form(client, team_id)
+    info["results"] = mlb_team_form(client, team_id)
+    info["form"] = info["results"][:5]
     cache_write(cache_key, info)
     return info
 
 
 def mlb_team_form(client, team_id):
+    """최근 약 2주 끝난 경기 (최신순, gamePk 포함)."""
     today = kst_now()
-    start = (today - timedelta(days=12)).strftime("%Y-%m-%d")
+    start = (today - timedelta(days=16)).strftime("%Y-%m-%d")
     end = today.strftime("%Y-%m-%d")
     data = client.get_json(
         f"{MLB_API}/schedule",
@@ -569,7 +572,27 @@ def mlb_team_form(client, team_id):
         cache_key=f"mlbform_{team_id}_{end}",
         ttl=6 * 3600,
     )
-    return parse_mlb_team_results(data, team_id)[:5] if data else []
+    return parse_mlb_team_results(data, team_id)[:15] if data else []
+
+
+MLB_RECENT = 10     # 최근 몇 경기 선발 타순으로 주전을 볼지
+
+
+def mlb_team_history(client, results):
+    """최근 경기 박스스코어에서 선발 타순·출전 선수 (축구의 '최근 6경기 선발'과 같은 방식)."""
+    history = []
+    for r in results[:MLB_RECENT]:
+        pk = r.get("gamePk")
+        if not pk:
+            continue
+        box = client.get_json(f"{MLB_API}/game/{pk}/boxscore", cache_key=f"mlbbox_{pk}", ttl=-1)
+        if not box:
+            continue
+        rec = parse_mlb_boxscore_side(box, r.get("side") or "home")
+        if len(rec["starters"]) >= 9:
+            rec.update({k: r.get(k) for k in ("date", "opp", "home", "gf", "ga", "res")})
+            history.append(rec)
+    return history
 
 
 def mlb_pitcher_card(client, pitcher, season):
@@ -606,8 +629,16 @@ def build_mlb_detail(client, game, now):
         info = mlb_team_regulars(client, game[side]["id"], season) if game[side]["id"] else {}
         regulars = info.get("regulars") or []
         names = info.get("names") or {}
-        history = synth_history(regulars, names, matches=10) if regulars else []
+        recent = mlb_team_history(client, info.get("results") or [])
+        if len(recent) >= 3:
+            history, basis = recent, "recent"
+        else:
+            # 최근 타순을 못 받으면 시즌 타석으로 대신 (경기 뛴 비주전도 '백업'으로 잡히게 함께 넣음)
+            others = [pid for pid, g in (info.get("games") or {}).items() if g and pid not in regulars]
+            history = synth_history(regulars, names, matches=10, extra_ids=others) if regulars else []
+            basis = "season"
         result = analyze_lineup(lineup, history, 9)
+        result["basis"] = basis
         season_games = info.get("games") or {}
         for p in result["players"]:
             try:
