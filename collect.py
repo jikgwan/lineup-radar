@@ -24,14 +24,20 @@ from datetime import datetime, timedelta
 
 import requests
 
-from grade import (ELO_HOME, add_bench, add_periods, analyze_lineup, compare_elo, compare_power, enrich,
-                   lineup_power, pick_ace, strength, summarize, team_leaders)
+from grade import (ELO_HOME, add_bench, add_periods, analyze_lineup, baseball_power, compare_elo, compare_power,
+                   enrich, lineup_power, pick_ace, recent_era, strength, summarize, team_leaders)
 from parse import (
     KST,
     elo_for,
     parse_elo_names,
     parse_elo_world,
+    bullpen_usage,
     mlb_history_from_stats,
+    pitcher_season,
+    pitcher_starts,
+    parse_naver_games,
+    parse_naver_lineup,
+    parse_naver_record,
     parse_mlb_boxscore_side,
     parse_mlb_team_results,
     position_shape,
@@ -58,6 +64,10 @@ ESPN_FALLBACK = "https://site.api.espn.com/apis/site/v2/sports"
 # site.web은 이 옵션이 있어야 날짜별 목록·라인업·팀 일정이 열린다 (5차 소스 점검에서 확인).
 # 날짜는 하나씩만 가능하고 구간(20260901-20260910)은 400이 난다.
 ESPN_PARAMS = {"region": "us", "lang": "en", "contentorigin": "espn"}
+# 네이버 스포츠 (K리그1·2): 깃허브 서버에서 열리고 한글 이름·출전시간·평점까지 준다
+NAVER_API = "https://api-gw.sports.naver.com"
+NAVER_HEADERS = {"Referer": "https://m.sports.naver.com/", "Origin": "https://m.sports.naver.com"}
+NAVER_CHUNK_DAYS = 14   # 네이버는 한 번에 최대 1000경기라 2주씩 끊어 받는다
 MLB_API = "https://statsapi.mlb.com/api/v1"
 
 HISTORY_MATCHES = 6          # 최근 몇 경기로 주전을 판정할지
@@ -134,7 +144,8 @@ class Client:
         for attempt in range(3):
             self.count += 1
             try:
-                res = self.session.get(url, params=params, timeout=20)
+                extra = NAVER_HEADERS if url.startswith(NAVER_API) else None
+                res = self.session.get(url, params=params, timeout=20, headers=extra)
                 if res.status_code in NO_RETRY:
                     # 400·404는 '없는 리그/경기'라 사이트 장애가 아니다. 401·403 거부만 실패로 센다.
                     self.note(url, res.status_code in NOT_FOUND)
@@ -507,10 +518,128 @@ def build_espn_detail(client, game, now):
             "summary": summarize(game["home"]["name"], game["away"]["name"], teams, game["sport"])}
 
 
+# ------------------------------------------------------------------ 네이버 (K리그1·2)
+
+def naver_categories(cfg):
+    """{upperCategoryId: {categoryId: 리그 이름}}"""
+    out = {}
+    for lg in cfg.get("naver_leagues", []):
+        out.setdefault(lg["upper"], {})[lg["category"]] = lg["name"]
+    return out
+
+
+def naver_schedule(client, upper, frm, to, today):
+    """네이버 경기 목록 한 구간 (지난 구간은 영구 캐시)."""
+    past = to < (today - timedelta(days=2))
+    return client.get_json(
+        f"{NAVER_API}/schedule/games",
+        params={"fields": "basic", "upperCategoryId": upper, "fromDate": frm.isoformat(), "toDate": to.isoformat(), "size": 1000},
+        cache_key=f"nvsched_{upper}_{frm.isoformat()}_{to.isoformat()}", ttl=-1 if past else 300,
+    )
+
+
+def collect_naver_games(client, now, cfg):
+    games = []
+    today = now.date()
+    for upper, cats in naver_categories(cfg).items():
+        data = naver_schedule(client, upper, today - timedelta(days=1), today + timedelta(days=1), today)
+        if data:
+            games.extend(parse_naver_games(data, cats))
+    return games
+
+
+def naver_team_history(client, cfg, game, side, before_kst):
+    """그 팀의 이번 시즌 같은 리그 끝난 경기 (최신순, 최대 SEASON_MATCHES)."""
+    code, cat = game[side]["id"], game.get("category")
+    upper = next((lg["upper"] for lg in cfg.get("naver_leagues", []) if lg["category"] == cat), "kfootball")
+    cache_key = f"nvhist_{cat}_{code}_{before_kst.strftime('%Y%m%d')}"
+    cached = cache_read(cache_key, 12 * 3600)
+    if cached is not None:
+        return cached
+    today = before_kst.date()
+    start = datetime.fromisoformat(cfg.get("naver_season_start", f"{today.year}-02-01")).date()
+    rows, seen = [], set()
+    frm = start
+    while frm <= today:
+        to = min(frm + timedelta(days=NAVER_CHUNK_DAYS - 1), today)
+        data = naver_schedule(client, upper, frm, to, today)
+        for g in (((data or {}).get("result") or {}).get("games") or []):
+            if g.get("categoryId") != cat or str(g.get("statusCode")).upper() != "RESULT" or g.get("gameId") in seen:
+                continue
+            if code not in (g.get("homeTeamCode"), g.get("awayTeamCode")):
+                continue
+            when = parse_naver_games({"result": {"games": [g]}}, {cat: ""})
+            if not when or to_kst(when[0]["start_kst"]) >= before_kst:
+                continue
+            seen.add(g.get("gameId"))
+            rows.append((when[0]["start_kst"], g))
+        frm = to + timedelta(days=1)
+    rows.sort(key=lambda x: x[0], reverse=True)
+
+    history = []
+    for when, g in rows[:SEASON_MATCHES]:
+        gid = g["gameId"]
+        lineup = client.get_json(f"{NAVER_API}/schedule/games/{gid}/lineup", cache_key=f"nvlu_{gid}", ttl=-1)
+        record = client.get_json(f"{NAVER_API}/schedule/games/{gid}/record", cache_key=f"nvrec_{gid}", ttl=-1)
+        if not lineup:
+            continue
+        mine = "home" if g.get("homeTeamCode") == code else "away"
+        other = "away" if mine == "home" else "home"
+        rec = parse_naver_record(record or {}, lineup, mine)
+        if not rec["starters"]:
+            continue
+        gf, ga = g.get(f"{mine}TeamScore"), g.get(f"{other}TeamScore")
+        try:
+            gf, ga = int(gf), int(ga)
+            res = "W" if gf > ga else "L" if gf < ga else "D"
+        except (TypeError, ValueError):
+            gf = ga = None
+            res = ""
+        rec.update({"date": when, "opp": g.get(f"{other}TeamName") or "", "home": mine == "home",
+                    "gf": gf, "ga": ga, "res": res})
+        history.append(rec)
+    if getattr(client, "out_of_time", False):
+        return history          # 시간 한도로 덜 받았으면 캐시하지 않고 다음에 이어받기
+    cache_write(cache_key, history)
+    return history
+
+
+def build_naver_detail(client, game, now):
+    cfg = load_config()
+    data = client.get_json(f"{NAVER_API}/schedule/games/{game['event_id']}/lineup",
+                           cache_key=f"nvlive_{game['event_id']}", ttl=180)
+    sides = parse_naver_lineup(data or {})
+    if not any((sides.get(s) or {}).get("lineup") for s in ("home", "away")):
+        return {"lineup_ready": False, "note": "아직 선발 라인업이 나오지 않았습니다."}
+    start = to_kst(game["start_kst"]) or now
+    teams = {}
+    for side in ("home", "away"):
+        info = sides.get(side) or {}
+        lineup = info.get("lineup") or []
+        history = naver_team_history(client, cfg, game, side, start)
+        recent = history[:HISTORY_MATCHES]
+        result = analyze_lineup(lineup, recent, 11)
+        enrich(result, lineup, recent, season=history, formation=info.get("formation") or "", shape=None)
+        result["rows"] = info.get("rows") or []
+        result["leaders"]["labels"] = ["최다 득점", "최다 도움"]
+        add_bench(result, info.get("bench") or [], recent, season=history)
+        strength(result, recent, season=history)
+        add_periods(result, recent, history)
+        result["ace"] = pick_ace(result)
+        lineup_power(result, history, shape=position_shape)
+        result["team_name"] = game[side]["name"]
+        result["formation"] = info.get("formation") or ""
+        result["league"] = game.get("league_slug")
+        teams[side] = result
+    power = compare_power(teams["home"], teams["away"], game["home"]["name"], game["away"]["name"])
+    return {"lineup_ready": True, "teams": teams, "power": power, "national": False,
+            "summary": summarize(game["home"]["name"], game["away"]["name"], teams, "축구")}
+
+
 # ------------------------------------------------------------------ MLB 상세
 
 def mlb_team_regulars(client, team_id, season):
-    cache_key = f"mlbreg3_{team_id}_{season}"
+    cache_key = f"mlbreg4_{team_id}_{season}"
     cached = cache_read(cache_key, 12 * 3600)
     if cached is not None:
         return cached
@@ -522,10 +651,14 @@ def mlb_team_regulars(client, team_id, season):
         ttl=12 * 3600,
     )
     team_games = 0
+    team_runs = 0
     for block in (team_stats or {}).get("stats", []) or []:
         for split in block.get("splits", []) or []:
             try:
-                team_games = max(team_games, int(float((split.get("stat") or {}).get("gamesPlayed") or 0)))
+                st = split.get("stat") or {}
+                g = int(float(st.get("gamesPlayed") or 0))
+                if g >= team_games:
+                    team_games, team_runs = g, int(float(st.get("runs") or 0))
             except (TypeError, ValueError):
                 pass
 
@@ -555,6 +688,9 @@ def mlb_team_regulars(client, team_id, season):
     )
     info = mlb_history_from_stats((people or {}).get("people", []), team_games)
     info["team_games"] = team_games
+    info["off_rpg"] = round(team_runs / team_games, 2) if team_games else None
+    info["bats"] = {str(p.get("id")): ((p.get("batSide") or {}).get("code") or "")
+                    for p in (people or {}).get("people", []) or []}
     info["results"] = mlb_team_form(client, team_id)
     info["form"] = info["results"][:5]
     cache_write(cache_key, info)
@@ -593,6 +729,78 @@ def mlb_team_history(client, results):
             rec.update({k: r.get(k) for k in ("date", "opp", "home", "gf", "ga", "res")})
             history.append(rec)
     return history
+
+
+def mlb_starter(client, pitcher, season, game_day):
+    """선발투수: 시즌 기록·좌우·최근 3경기·휴식일."""
+    if not pitcher:
+        return None
+    data = client.get_json(
+        f"{MLB_API}/people/{pitcher['id']}",
+        params={"hydrate": f"stats(group=[pitching],type=[season],season={season})"},
+        cache_key=f"mlbpit_{pitcher['id']}_{season}",
+        ttl=12 * 3600,
+    )
+    people = (data or {}).get("people") or []
+    sp = pitcher_season(people[0]) if people else {"id": pitcher["id"], "name": pitcher["name"]}
+    sp["name"] = sp.get("name") or pitcher["name"]
+    log = client.get_json(
+        f"{MLB_API}/people/{pitcher['id']}/stats",
+        params={"stats": "gameLog", "group": "pitching", "season": season},
+        cache_key=f"mlbplog_{pitcher['id']}_{game_day.isoformat()}",
+        ttl=6 * 3600,
+    )
+    starts = [s for s in pitcher_starts(log or {}) if s["date"] < game_day.isoformat()]
+    sp["recent"] = starts[:3]
+    sp["recent_era"] = recent_era(starts)
+    if starts:
+        try:
+            sp["rest_days"] = (game_day - datetime.fromisoformat(starts[0]["date"]).date()).days
+        except ValueError:
+            sp["rest_days"] = None
+    return sp
+
+
+def mlb_bullpen(client, team_id, season, results, game_day):
+    """불펜: 평균자책(불펜 기록 없으면 팀 전체), 최근 3일 투구수, 이틀 연속 던진 투수 수."""
+    era, basis = None, None
+    data = client.get_json(f"{MLB_API}/teams/{team_id}/stats",
+                           params={"stats": "statSplits", "group": "pitching", "season": season, "sitCodes": "rp"},
+                           cache_key=f"mlbpen_{team_id}_{season}", ttl=12 * 3600)
+    for block in (data or {}).get("stats", []) or []:
+        for sp in block.get("splits", []) or []:
+            v = (sp.get("stat") or {}).get("era")
+            if v not in (None, "", "-.--"):
+                try:
+                    era, basis = float(v), "불펜"
+                except ValueError:
+                    pass
+    if era is None:
+        data = client.get_json(f"{MLB_API}/teams/{team_id}/stats",
+                               params={"stats": "season", "group": "pitching", "season": season},
+                               cache_key=f"mlbtpit_{team_id}_{season}", ttl=12 * 3600)
+        for block in (data or {}).get("stats", []) or []:
+            for sp in block.get("splits", []) or []:
+                v = (sp.get("stat") or {}).get("era")
+                try:
+                    era, basis = float(v), "팀 전체"
+                except (TypeError, ValueError):
+                    pass
+    by_day = {}
+    for r in results:
+        try:
+            d = datetime.fromisoformat(str(r.get("date"))[:10]).date()
+        except ValueError:
+            continue
+        gap = (game_day - d).days
+        if not (1 <= gap <= 3) or not r.get("gamePk"):
+            continue
+        box = client.get_json(f"{MLB_API}/game/{r['gamePk']}/boxscore", cache_key=f"mlbbox_{r['gamePk']}", ttl=-1)
+        if box:
+            by_day.setdefault(gap, {}).update(bullpen_usage(box, r.get("side") or "home"))
+    pitches_3d = sum(sum(v.values()) for v in by_day.values())
+    b2b = len(set(by_day.get(1, {})) & set(by_day.get(2, {})))
+    return {"era": era, "basis": basis, "pitches_3d": pitches_3d, "b2b": b2b}
 
 
 def mlb_pitcher_card(client, pitcher, season):
@@ -662,9 +870,45 @@ def build_mlb_detail(client, game, now):
         result["team_name"] = game[side]["name"]
         result["formation"] = ""
         result["pitcher"] = mlb_pitcher_card(client, (game.get("probables") or {}).get(side), season)
+        game_day = (to_kst(game["start_kst"]) or now).date()
+        sp = mlb_starter(client, (game.get("probables") or {}).get(side), season, game_day)
+        pen = mlb_bullpen(client, game[side]["id"], season, info.get("results") or [], game_day) if game[side]["id"] else {}
+        bats = info.get("bats") or {}
+        hands = [bats.get(p["id"], "") for p in lineup]
+        result["pitching"] = {"sp": sp, "pen": pen, "off_rpg": info.get("off_rpg"),
+                              "bats": {k: hands.count(k) for k in ("L", "R", "S")}}
         teams[side] = result
-    return {"lineup_ready": True, "teams": teams,
-            "summary": summarize(game["home"]["name"], game["away"]["name"], teams, "야구")}
+
+    def inputs(side):
+        t = teams[side]
+        pit = t.get("pitching") or {}
+        return {"sp": pit.get("sp") or {}, "off_rpg": pit.get("off_rpg"), "pen_era": (pit.get("pen") or {}).get("era"),
+                "pen_3d": (pit.get("pen") or {}).get("pitches_3d") or 0, "core_in": t.get("core_in"), "size": 9,
+                "grade": t.get("grade")}
+    power = baseball_power(inputs("home"), inputs("away"), game["home"]["name"], game["away"]["name"])
+    summary = summarize(game["home"]["name"], game["away"]["name"], teams, "야구")
+    summary["points"] = (mlb_points(game, teams, power) + (summary.get("points") or []))[:3]
+    return {"lineup_ready": True, "teams": teams, "power": power, "summary": summary}
+
+
+def mlb_points(game, teams, power):
+    """야구 핵심 포인트: 선발 맞대결 · 불펜 피로 · 예상 득점."""
+    pts = []
+    sps = [(teams[s].get("pitching") or {}).get("sp") or {} for s in ("home", "away")]
+    if all(sp.get("name") for sp in sps):
+        def era(sp):
+            e = sp.get("era")
+            return f"ERA {e:.2f}" if isinstance(e, (int, float)) else "ERA -"
+        rec = [f"최근 3경기 {sp['recent_era']:.2f}" for sp in sps if sp.get("recent_era") is not None]
+        pts.append([f"선발 맞대결: {sps[0]['name']}({era(sps[0])}) vs {sps[1]['name']}({era(sps[1])})",
+                    " · ".join(rec) if len(rec) == 2 else ""])
+    tired = [(game[s]["name"], (teams[s].get("pitching") or {}).get("pen") or {}) for s in ("home", "away")]
+    tired = [(n, p) for n, p in tired if (p.get("pitches_3d") or 0) >= 500 or (p.get("b2b") or 0) >= 3]
+    for n, p in tired[:1]:
+        pts.append([f"{n} 불펜 과부하: 최근 3일 {p.get('pitches_3d')}구", f"이틀 연속 등판 {p.get('b2b', 0)}명"])
+    if power and power.get("exp_total") is not None:
+        pts.append([f"예상 득점 {power['exp_home']} : {power['exp_away']} (합계 {power['exp_total']})", "선발·불펜·타선 기록으로 계산한 참고값"])
+    return pts
 
 
 # ------------------------------------------------------------------ 저장
@@ -803,6 +1047,8 @@ def run(verbose=False):
 
     games = []
     games += collect_espn_games(client, now, cfg.get("espn_leagues", []))
+    if cfg.get("naver_leagues"):
+        games += collect_naver_games(client, now, cfg)
     if cfg.get("mlb_enabled", True):
         games += collect_mlb_games(client, now)
     games = dedupe(games)
@@ -835,7 +1081,12 @@ def run(verbose=False):
             print(f"  · 경기 상세 {targets.index(g) + 1}/{len(targets)}: {g['league']} {g['home']['name']} vs {g['away']['name']} "
                   f"(요청 {client.count}건 · {int(time.time() - started)}초)", flush=True)
             try:
-                detail = build_mlb_detail(client, g, now) if g["sport"] == "야구" else build_espn_detail(client, g, now)
+                if g.get("source") == "naver":
+                    detail = build_naver_detail(client, g, now)
+                elif g["sport"] == "야구":
+                    detail = build_mlb_detail(client, g, now)
+                else:
+                    detail = build_espn_detail(client, g, now)
             except Exception as exc:  # 한 경기가 깨져도 전체는 계속
                 print(f"  ! {g['key']} 처리 실패: {exc}", file=sys.stderr)
                 detail = {"lineup_ready": False, "note": "처리 중 오류가 났습니다."}
