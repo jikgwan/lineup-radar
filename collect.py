@@ -24,7 +24,8 @@ from datetime import datetime, timedelta
 
 import requests
 
-from grade import (ELO_HOME, add_bench, add_periods, analyze_lineup, baseball_power, compare_elo, compare_power,
+from names_ko import ko_team
+from grade import (ELO_HOME, add_bench, add_context, core_from_history, rotation_risk, add_periods, analyze_lineup, baseball_power, build_signals, compare_elo, compare_power,
                    enrich, lineup_power, pick_ace, recent_era, strength, summarize, team_leaders)
 from parse import (
     KST,
@@ -32,6 +33,7 @@ from parse import (
     parse_elo_names,
     parse_elo_world,
     bullpen_usage,
+    parse_espn_team_schedule,
     mlb_history_from_stats,
     pitcher_season,
     pitcher_starts,
@@ -282,6 +284,19 @@ def collect_mlb_games(client, now):
     return parse_mlb_schedule(data)
 
 
+def translate_names(games):
+    """화면용 팀 이름을 한국어로 (영어 원래 이름은 name_en에 보관 — 대표팀 Elo 비교 등에 씀)."""
+    for g in games:
+        for side in ("home", "away"):
+            t = g.get(side) or {}
+            en = t.get("name_en") or t.get("name") or ""
+            t["name_en"] = en
+            t["name"] = ko_team(en)
+            if t.get("short"):
+                t["short"] = ko_team(t["short"]) if ko_team(en) == en else t["name"]
+    return games
+
+
 def dedupe(games):
     seen, out = set(), []
     for g in games:
@@ -441,6 +456,120 @@ def load_elo(client):
     return parse_elo_world(world), parse_elo_names(names)
 
 
+EURO_COMPS = ("uefa.champions", "uefa.europa", "uefa.europa.conf")
+
+
+def _risk_signals(names, risk):
+    sig = []
+    for side in ("home", "away"):
+        r = risk.get(side) or {}
+        nx = ((r.get("schedule") or {}).get("next")) or {}
+        if r.get("level") == "높음":
+            sig.append([f"{names[side]} 로테이션 가능성 ↑", "warn"])
+        elif r.get("situation") == "big" and nx.get("in_days") is not None:
+            # 패턴을 알 만큼 기록이 없어도, 곧 큰 경기라는 사실 자체는 알려준다
+            sig.append([f"{names[side]} {nx['in_days']}일 뒤 {nx.get('comp') or ''}".strip(), "warn"])
+    return sig
+
+
+def espn_pre_lineup(client, game, now, extractor):
+    """라인업 발표 전: 양 팀의 로테이션 가능성 (지난 경기 패턴 + 오늘 일정)."""
+    start = to_kst(game["start_kst"]) or now
+    cfg = load_config()
+    risk = {}
+    for side in ("home", "away"):
+        team_id = game[side]["id"]
+        if not team_id:
+            continue
+        if game.get("national"):
+            history = national_history(client, team_id, start, cfg, extractor)
+            slugs = national_slugs(cfg)
+        else:
+            slug = game["league_slug"]
+            if slug in EURO_COMPS:
+                slug = domestic_slug(client, team_id, slug, cfg) or slug
+            history = espn_team_history(client, "soccer", slug, team_id, start, extractor)
+            slugs = [slug] + [s for s in EURO_COMPS if s in {lg["slug"] for lg in cfg.get("espn_leagues", [])} and s != slug]
+        events = espn_team_events(client, "soccer", slugs, team_id)
+        ctx = espn_schedule_context(client, "soccer", slugs, team_id, start, events=events)
+        core = core_from_history(history[:HISTORY_MATCHES], 11)
+        r = rotation_risk(history, events, core, 11, ctx.get("next"), (ctx.get("last") or {}).get("days_ago"))
+        if r:
+            r["schedule"] = ctx
+            risk[side] = r
+    names = {s: game[s]["name"] for s in ("home", "away")}
+    return {"risk": risk, "signals": _risk_signals(names, risk)}
+
+
+def _ctx(last, nxt, start):
+    out = {"last": None, "next": None}
+    if last:
+        d = to_kst(last["date"])
+        out["last"] = dict(last, days_ago=(start.date() - d.date()).days if d else None)
+    if nxt:
+        d = to_kst(nxt["date"])
+        out["next"] = dict(nxt, in_days=(d.date() - start.date()).days if d else None)
+    return out
+
+
+def espn_team_events(client, sport_root, slugs, team_id):
+    """팀의 전체 일정(리그 + 유럽 대회 등) — 이미 받아둔 일정 캐시를 쓴다."""
+    cfg = load_config()
+    names = {lg["slug"]: lg["name"] for lg in cfg.get("espn_leagues", [])}
+    out = []
+    for slug in slugs:
+        sched = client.get_json(f"{ESPN_SITE}/{sport_root}/{slug}/teams/{team_id}/schedule",
+                                cache_key=f"sched_{slug}_{team_id}", ttl=6 * 3600)
+        for r in parse_espn_team_schedule(sched or {}, team_id):
+            r["comp"] = names.get(slug, slug)
+            out.append(r)
+    return out
+
+
+def espn_schedule_context(client, sport_root, slugs, team_id, start, events=None):
+    """지난 경기·다음 경기 (리그 + 유럽 대회 일정에서)."""
+    past, future = [], []
+    for r in (events if events is not None else espn_team_events(client, sport_root, slugs, team_id)):
+        when = to_kst(r["date"])
+        if not when:
+            continue
+        if r["completed"] and when < start:
+            past.append((when, r))
+        elif not r["completed"] and when > start + timedelta(minutes=90):
+            future.append((when, r))
+    last = dict(max(past, key=lambda x: x[0])[1]) if past else None
+    if last and last.get("gf") is not None and last.get("ga") is not None:
+        last["res"] = "W" if last["gf"] > last["ga"] else "L" if last["gf"] < last["ga"] else "D"
+    nxt = min(future, key=lambda x: x[0])[1] if future else None
+    return _ctx(last, nxt, start)
+
+def naver_schedule_context(client, game, side, history, start):
+    last = None
+    if history:
+        h = history[0]
+        last = {"date": h.get("date"), "comp": game.get("league"), "opp": h.get("opp"), "home": h.get("home"),
+                "gf": h.get("gf"), "ga": h.get("ga"), "res": h.get("res")}
+    code = game[side]["id"]
+    today = start.date()
+    data = client.get_json(f"{NAVER_API}/schedule/games",
+                           params={"fields": "basic,categoryName", "upperCategoryId": "kfootball", "size": 1000,
+                                   "fromDate": today.isoformat(), "toDate": (today + timedelta(days=30)).isoformat()},
+                           cache_key=f"nvnext_{today.isoformat()}", ttl=3600)
+    nxt = None
+    for g in (((data or {}).get("result") or {}).get("games") or []):
+        if code not in (g.get("homeTeamCode"), g.get("awayTeamCode")) or g.get("gameId") == game.get("event_id"):
+            continue
+        when = parse_naver_games({"result": {"games": [g]}}, {g.get("categoryId"): g.get("categoryName") or ""})
+        if not when:
+            continue
+        t = to_kst(when[0]["start_kst"])
+        if t and t > start + timedelta(minutes=90) and (nxt is None or t < to_kst(nxt["date"])):
+            mine_home = g.get("homeTeamCode") == code
+            nxt = {"date": when[0]["start_kst"], "comp": g.get("categoryName") or "", "home": mine_home,
+                   "opp": g.get("awayTeamName") if mine_home else g.get("homeTeamName")}
+    return _ctx(last, nxt, start)
+
+
 def build_espn_detail(client, game, now):
     sport_root = "soccer" if game["sport"] == "축구" else "basketball"
     league_slug = game["league_slug"]
@@ -463,7 +592,10 @@ def build_espn_detail(client, game, now):
         size = 5
 
     if not sides or not any((s or {}).get("lineup") for s in sides.values()):
-        return {"lineup_ready": False, "note": "아직 선발 라인업이 나오지 않았습니다."}
+        out = {"lineup_ready": False, "note": "아직 선발 라인업이 나오지 않았습니다."}
+        if game["sport"] == "축구":
+            out.update(espn_pre_lineup(client, game, now, extractor))
+        return out
 
     start = to_kst(game["start_kst"]) or now
     cfg = load_config()
@@ -495,6 +627,13 @@ def build_espn_detail(client, game, now):
         result["ace"] = pick_ace(result)
         if game["sport"] == "축구":
             lineup_power(result, history, shape=position_shape)
+            add_context(result, history, "축구")
+            if team_id:
+                if national:
+                    sl = national_slugs(cfg)
+                else:
+                    sl = [hist_slug] + [s for s in EURO_COMPS if s in {lg["slug"] for lg in cfg.get("espn_leagues", [])} and s != hist_slug]
+                result["schedule"] = espn_schedule_context(client, sport_root, sl, team_id, start)
         result["league"] = hist_slug
         result["leaders"]["labels"] = ["최다 득점", "최다 도움"] if game["sport"] == "축구" else ["최다 득점", "최다 어시스트"]
         result["team_name"] = game[side]["name"] or info.get("team_name") or ""
@@ -503,8 +642,8 @@ def build_espn_detail(client, game, now):
     power = None
     if game["sport"] == "축구" and game.get("national"):
         ratings, names = load_elo(client)
-        eh, ch = elo_for(game["home"]["name"], ratings, names)
-        ea, ca = elo_for(game["away"]["name"], ratings, names)
+        eh, ch = elo_for(game["home"].get("name_en") or game["home"]["name"], ratings, names)
+        ea, ca = elo_for(game["away"].get("name_en") or game["away"]["name"], ratings, names)
         home_adv = ELO_HOME if league_slug in (cfg.get("home_advantage_slugs") or []) else 0
         power = compare_elo(teams["home"], teams["away"], game["home"]["name"], game["away"]["name"], eh, ea, home_adv)
         teams["home"]["elo_code"], teams["away"]["elo_code"] = ch, ca
@@ -514,7 +653,9 @@ def build_espn_detail(client, game, now):
         if slugs["home"] != slugs["away"]:   # 리그가 다를 때만 리그 수준 보정
             fh, fa = ls.get(slugs["home"], ls.get("default", 0.8)), ls.get(slugs["away"], ls.get("default", 0.8))
         power = compare_power(teams["home"], teams["away"], game["home"]["name"], game["away"]["name"], fh, fa)
+    names = {s: game[s]["name"] for s in ("home", "away")}
     return {"lineup_ready": True, "teams": teams, "power": power, "national": bool(game.get("national")),
+            "signals": build_signals(names, teams, game["sport"]),
             "summary": summarize(game["home"]["name"], game["away"]["name"], teams, game["sport"])}
 
 
@@ -604,13 +745,58 @@ def naver_team_history(client, cfg, game, side, before_kst):
     return history
 
 
+NAVER_COMP = {"kleague": "K리그1", "kleague2": "K리그2", "acl": "ACL", "acl2": "ACL2", "facup": "코리아컵",
+              "kfootballetc": "국내 컵", "amatch": "A매치"}
+
+
+def naver_team_events(client, cfg, game, side, start):
+    """네이버 일정 구간(이미 받아둔 캐시)에서 이 팀의 모든 대회 경기."""
+    code = game[side]["id"]
+    today = start.date()
+    first = datetime.fromisoformat(cfg.get("naver_season_start", f"{today.year}-02-01")).date()
+    out, frm = [], first
+    while frm <= today:
+        to = min(frm + timedelta(days=NAVER_CHUNK_DAYS - 1), today)
+        data = naver_schedule(client, "kfootball", frm, to, today)
+        for g in (((data or {}).get("result") or {}).get("games") or []):
+            if code in (g.get("homeTeamCode"), g.get("awayTeamCode")):
+                w = parse_naver_games({"result": {"games": [g]}}, {g.get("categoryId"): ""})
+                if w:
+                    out.append({"date": w[0]["start_kst"], "comp": NAVER_COMP.get(g.get("categoryId"), g.get("categoryId") or ""),
+                                "completed": str(g.get("statusCode")).upper() == "RESULT"})
+        frm = to + timedelta(days=1)
+    nxt = naver_schedule_context(client, game, side, [], start).get("next")
+    if nxt:
+        out.append({"date": nxt["date"], "comp": nxt.get("comp") or "", "completed": False})
+    return out
+
+
+def naver_pre_lineup(client, game, now):
+    cfg = load_config()
+    start = to_kst(game["start_kst"]) or now
+    risk = {}
+    for side in ("home", "away"):
+        history = naver_team_history(client, cfg, game, side, start)
+        events = naver_team_events(client, cfg, game, side, start)
+        ctx = naver_schedule_context(client, game, side, history, start)
+        core = core_from_history(history[:HISTORY_MATCHES], 11)
+        r = rotation_risk(history, events, core, 11, ctx.get("next"), (ctx.get("last") or {}).get("days_ago"))
+        if r:
+            r["schedule"] = ctx
+            risk[side] = r
+    names = {s: game[s]["name"] for s in ("home", "away")}
+    return {"risk": risk, "signals": _risk_signals(names, risk)}
+
+
 def build_naver_detail(client, game, now):
     cfg = load_config()
     data = client.get_json(f"{NAVER_API}/schedule/games/{game['event_id']}/lineup",
                            cache_key=f"nvlive_{game['event_id']}", ttl=180)
     sides = parse_naver_lineup(data or {})
     if not any((sides.get(s) or {}).get("lineup") for s in ("home", "away")):
-        return {"lineup_ready": False, "note": "아직 선발 라인업이 나오지 않았습니다."}
+        out = {"lineup_ready": False, "note": "아직 선발 라인업이 나오지 않았습니다."}
+        out.update(naver_pre_lineup(client, game, now))
+        return out
     start = to_kst(game["start_kst"]) or now
     teams = {}
     for side in ("home", "away"):
@@ -627,12 +813,16 @@ def build_naver_detail(client, game, now):
         add_periods(result, recent, history)
         result["ace"] = pick_ace(result)
         lineup_power(result, history, shape=position_shape)
+        add_context(result, history, "축구")
+        result["schedule"] = naver_schedule_context(client, game, side, history, start)
         result["team_name"] = game[side]["name"]
         result["formation"] = info.get("formation") or ""
         result["league"] = game.get("league_slug")
         teams[side] = result
     power = compare_power(teams["home"], teams["away"], game["home"]["name"], game["away"]["name"])
+    names = {s: game[s]["name"] for s in ("home", "away")}
     return {"lineup_ready": True, "teams": teams, "power": power, "national": False,
+            "signals": build_signals(names, teams, "축구"),
             "summary": summarize(game["home"]["name"], game["away"]["name"], teams, "축구")}
 
 
@@ -877,6 +1067,7 @@ def build_mlb_detail(client, game, now):
         hands = [bats.get(p["id"], "") for p in lineup]
         result["pitching"] = {"sp": sp, "pen": pen, "off_rpg": info.get("off_rpg"),
                               "bats": {k: hands.count(k) for k in ("L", "R", "S")}}
+        add_context(result, history, "야구")
         teams[side] = result
 
     def inputs(side):
@@ -888,7 +1079,14 @@ def build_mlb_detail(client, game, now):
     power = baseball_power(inputs("home"), inputs("away"), game["home"]["name"], game["away"]["name"])
     summary = summarize(game["home"]["name"], game["away"]["name"], teams, "야구")
     summary["points"] = (mlb_points(game, teams, power) + (summary.get("points") or []))[:3]
-    return {"lineup_ready": True, "teams": teams, "power": power, "summary": summary}
+    # 야구는 투수가 핵심이라 한 줄 요약도 선발 맞대결 중심으로
+    sps = [((teams[s].get("pitching") or {}).get("sp") or {}).get("name") for s in ("home", "away")]
+    if all(sps) and power:
+        last = lambda n: n.split(" ")[-1]
+        summary["headline"] = f"{power.get('verdict', '')} · 선발 {last(sps[0])} vs {last(sps[1])}".strip(" ·")
+    names = {s: game[s]["name"] for s in ("home", "away")}
+    return {"lineup_ready": True, "teams": teams, "power": power, "summary": summary,
+            "signals": build_signals(names, teams, "야구")}
 
 
 def mlb_points(game, teams, power):
@@ -1051,7 +1249,11 @@ def run(verbose=False):
         games += collect_naver_games(client, now, cfg)
     if cfg.get("mlb_enabled", True):
         games += collect_mlb_games(client, now)
-    games = dedupe(games)
+    games = translate_names(dedupe(games))
+    if not cfg.get("show_logos", False):        # 공유용: 구단 로고(상표) 대신 이니셜 표시
+        for g in games:
+            for side in ("home", "away"):
+                (g.get(side) or {})["logo"] = ""
     games.sort(key=lambda g: (g.get("start_kst") or "9999"))
 
     targets = [g for g in games if needs_detail(g, now)][:MAX_DETAIL_GAMES]
@@ -1101,9 +1303,12 @@ def run(verbose=False):
                 row["insight"] = (detail.get("summary") or {}).get("insight", "")
                 pw = detail.get("power") or {}
                 row["power"] = [pw["home"], pw["away"]] if pw else None
+                row["signals"] = (detail.get("signals") or [])[:3]
                 for side in ("home", "away"):
                     ace = detail["teams"][side].get("ace") or {}
                     row[f"ace_{side}"] = {"name": ace.get("name", ""), "status": ace.get("status", "")} if ace else None
+            elif detail.get("signals"):          # 라인업 발표 전: 로테이션 가능성 신호
+                row["signals"] = detail["signals"][:3]
             row["note"] = detail.get("note", "")
         index.append(row)
 
