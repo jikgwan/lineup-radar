@@ -398,7 +398,7 @@ button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
     [["home","grade_home"],["away","grade_away"]].forEach(([s, gk]) => {
       const r = el("div","tm"); r.append(el("span", null, g[s]));
       if (g.lineup_ready === true && g[gk]){ const x = el("span","gr", g[gk]); x.style.color = GCOL[g[gk]] || "var(--g0)"; r.append(x); }
-      else r.append(el("span","wait", g.lineup_ready === null || g.lineup_ready === undefined ? "확인" : "대기"));
+      else r.append(el("span","wait", g.lineup_ready === null || g.lineup_ready === undefined ? "확인" : g.state === "post" ? "기록 없음" : "대기"));
       body.append(r);
     });
     if (g.lineup_ready === true){
@@ -455,7 +455,7 @@ button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
       col.append(el("div","n", g[s]));
       const sr = ready && T[s].season_record;
       if (sr && sr.matches) col.append(el("div","rec", `${NAT ? `최근 ${sr.matches}경기` : "시즌"} ${sr.w}승 ${sr.d}무 ${sr.l}패`));
-      const gr = ready ? T[s].grade : "대기";
+      const gr = ready ? T[s].grade : (g.state === "post" ? "—" : "대기");
       const gx = el("div","g", gr); gx.style.color = ready ? (GCOL[gr] || "var(--g0)") : "var(--g0)";
       col.append(gx);
       vr.append(col);
@@ -489,6 +489,10 @@ button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
     view.append(bd);
 
     if (!ready){
+      if (g.state === "post"){
+        view.append(el("p","msg", "라인업을 받기 전에 끝난 경기라 판정 기록이 없어요."));
+        return;
+      }
       view.append(el("p","msg", (d && d.note) || `아직 선발 라인업이 나오지 않았습니다. ${announce(g.start_kst)}쯤 발표 예정입니다.`));
       const again = el("button","retry","다시 확인"); again.type = "button"; again.onclick = () => openGame(g);
       view.append(again);
@@ -811,12 +815,13 @@ button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
     }
 
     if (sport === "야구"){
-      const s = section("BATTING ORDER · 선발 타순", "시즌 타석 수로 주전 판정");
+      const s = section("BATTING ORDER · 선발 타순", t.basis === "recent" ? `최근 ${t.matches}경기 선발 타순으로 주전 판정` : "시즌 타석 수로 주전 판정");
       const ol = el("ol","order");
       (t.players || []).forEach((p, i) => {
         const li = el("li"); li.append(el("span","no", i + 1), el("span", null, p.name));
         const tg = el("span","tag", p.role); tg.style.background = RCOL[p.role] || "#5E6862"; li.append(tg);
-        li.append(el("span","ps", [p.pos, p.season_games ? `${p.season_games}G` : ""].filter(Boolean).join(" · ")));
+        const recentTxt = t.basis === "recent" ? `최근 ${p.starts}/${t.matches} 선발` : "";
+        li.append(el("span","ps", [p.pos, recentTxt, p.season_games ? `시즌 ${p.season_games}G` : ""].filter(Boolean).join(" · ")));
         ol.append(li);
       });
       s.append(ol); out.push(s);
