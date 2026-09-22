@@ -70,6 +70,8 @@ h1{margin:0;font-size:24px;font-weight:900;letter-spacing:-0.03em}
 .dchip{flex:none;display:flex;flex-direction:column;align-items:center;min-width:64px;padding:7px 10px;border-radius:12px;background:var(--s1);color:var(--mute);font-size:13px;font-weight:700;line-height:1.25}
 .dchip small{font-size:11px;font-weight:500;color:var(--dim)}
 .dchip[aria-pressed="true"]{background:var(--acc);color:#1A1204} .dchip[aria-pressed="true"] small{color:#5A4300}
+.dchip.pastchip{margin-left:auto;background:transparent;box-shadow:inset 0 0 0 1px var(--line);color:var(--mute)}
+.dchip.pastchip[aria-pressed="true"]{background:var(--s2);color:var(--ink);box-shadow:inset 0 0 0 1px var(--mute)}
 .dgroup{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:baseline;margin:6px -14px 0;padding:10px 18px 8px;background:linear-gradient(var(--bg) 80%,rgba(11,13,12,0));font-size:14px;font-weight:800}
 .dgroup small{font-size:12px;color:var(--mute);font-weight:500}
 .ltable tr.grow td{background:var(--bg);padding:14px 4px 6px;font-size:13px;font-weight:800;color:var(--ink);border-bottom:1px solid var(--line);cursor:default}
@@ -248,9 +250,9 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     <nav class="days" id="days" aria-label="날짜"></nav>
     <nav class="chips" id="chips" aria-label="보기"></nav>
     <div id="list"></div>
-    <p class="foot">라인업은 보통 경기 1시간 전에 나오고, 나오면 등급이 켜집니다. 전력 비율은 승률이 아니라 오늘 라인업의 무게 비교예요.<br>
+    <p class="foot">라인업은 보통 경기 1시간 전에 나오고, 나오면 등급이 켜집니다. 전력 비율은 팀 체급(득실차·Elo)과 리그별 홈 이점으로 계산한 기대 승점 비율이고, 라인업·결장은 따로 정보로 보여줘요.<br>
     <b>개인이 경기 분석에 참고하려고 만든 무료 사이트</b>를 같이 보시라고 공유한 거예요. 공식 서비스가 아니라 기록이 틀리거나 잠시 멈출 수 있어요.
-    특정 경기의 베팅을 권유하지 않으며, 판단과 책임은 이용자 본인에게 있습니다. 만 19세 이상 <b>합법 스포츠토토(베트맨)</b> 참고용이에요.<br>
+    특정 경기의 베팅을 권유하지 않으며, 판단과 책임은 이용자 본인에게 있습니다.<br>
     데이터 출처: 축구·농구 ESPN · K리그·KBO 네이버 스포츠 · 야구 MLB · 부상·징계 FotMob · 대표팀 World Football Elo. 각 데이터의 권리는 해당 제공처에 있으며, 요청이 있으면 즉시 내립니다.</p>
   </aside>
   <main id="detailPane" hidden><div id="emptyDetail">왼쪽에서 경기를 고르세요</div><div id="detail"></div></main>
@@ -293,6 +295,8 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
   const md = (iso) => { const k = iso && kst(iso); return k ? `${k.m}/${k.d}` : ""; };
   function dayDiff(iso){ const k = kst(iso), n = kst(new Date().toISOString()); if (!k) return null; return Date.UTC(k.y, k.m - 1, k.d) / 864e5 - Date.UTC(n.y, n.m - 1, n.d) / 864e5; }
   const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
+  // 오늘 이전 날짜의 경기 (단, 자정을 넘겨 아직 진행 중인 경기는 제외)
+  const isPast = (g) => dayDiff(g.start_kst) < 0 && g.state !== "in";
   const dateKey = (iso) => { const k = iso && kst(iso); return k ? `${k.y}-${String(k.m).padStart(2, "0")}-${String(k.d).padStart(2, "0")}` : ""; };
   function relWord(iso){ const d = dayDiff(iso); return {"-1": "어제", "0": "오늘", "1": "내일", "2": "모레"}[String(d)] || ""; }
   function dayTitle(iso){ const k = kst(iso); if (!k) return ""; const r = relWord(iso); return `${r ? r + " · " : ""}${k.m}월 ${k.d}일 ${WEEK[k.w]}요일`; }
@@ -403,30 +407,45 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     else if (filter === "NEW") rows = rows.filter(isNew);
     else if (filter === "A매치") rows = rows.filter(g => g.national);
     else if (filter !== "전체") rows = rows.filter(g => g.sport === filter);
-    if (day !== "all") rows = rows.filter(g => dateKey(g.start_kst) === day);
+    if (day === "past") rows = rows.filter(isPast);
+    else if (day !== "all") rows = rows.filter(g => dateKey(g.start_kst) === day);
+    else rows = rows.filter(g => !isPast(g));
     if (query) rows = rows.filter(g => (g.home + " " + g.away + " " + g.league).toLowerCase().includes(query));
     if (sortGap) rows = [...rows].sort((a, b) => (b.power ? Math.abs(b.power[0] - b.power[1]) : -1) - (a.power ? Math.abs(a.power[0] - a.power[1]) : -1));
+    else if (day === "past") rows = [...rows].sort((a, b) => dateKey(b.start_kst).localeCompare(dateKey(a.start_kst)) || (Date.parse(a.start_kst) || 0) - (Date.parse(b.start_kst) || 0));   // 최근 날짜부터
     else rows = [...rows].sort((a, b) => (Date.parse(a.start_kst) || 0) - (Date.parse(b.start_kst) || 0));   // 날짜·시간 순
     return rows;
   }
   function renderList(){
     const pins = getPins();
     const sports = ["축구", "야구", "농구"].filter(s => games.some(g => g.sport === s));
-    const opts = [["전체", "전체"], ["NEW", `NEW ${games.filter(isNew).length}`]]
-      .concat(sports.map(s => [s, `${s} ${games.filter(g => g.sport === s).length}`]))
+    const scope = games.filter(g => day === "past" ? isPast(g) : day === "all" ? !isPast(g) : dateKey(g.start_kst) === day);   // 지금 보는 날짜 기준 개수
+    const opts = [["전체", "전체"], ["NEW", `NEW ${scope.filter(isNew).length}`]]
+      .concat(sports.map(s => [s, `${s} ${scope.filter(g => g.sport === s).length}`]))
       .concat([["관심", `관심 ${[...pins].filter(k => games.some(g => g.key === k)).length}`]])
       .concat(games.some(g => g.national) ? [["A매치", "A매치"]] : []);
     const dayBar = $("days"); dayBar.textContent = "";
-    const keys = [...new Set(games.map(g => dateKey(g.start_kst)).filter(Boolean))].sort();
-    if (day !== "all" && !keys.includes(day)) day = "all";
-    [["all", "전체 날짜", games.length]].concat(keys.map(k => { const g = games.find(x => dateKey(x.start_kst) === k); return [k, dayChip(g.start_kst), games.filter(x => dateKey(x.start_kst) === k).length]; }))
-      .forEach(([id, label, n]) => { const b = el("button", "dchip"); b.type = "button"; b.setAttribute("aria-pressed", String(day === id));
-        b.append(el("span", null, label), el("small", "num", n)); b.onclick = () => { day = id; renderList(); }; dayBar.append(b); });
+    const keys = [...new Set(games.filter(g => !isPast(g) && dayDiff(g.start_kst) >= 0).map(g => dateKey(g.start_kst)).filter(Boolean))].sort();
+    const pastN = games.filter(isPast).length;
+    if (day !== "all" && day !== "past" && !keys.includes(day)) day = "all";
+    if (day === "past" && !pastN) day = "all";
+    [["all", "전체 날짜", games.filter(g => !isPast(g)).length]].concat(keys.map(k => { const g = games.find(x => dateKey(x.start_kst) === k); return [k, dayChip(g.start_kst), games.filter(x => dateKey(x.start_kst) === k).length]; }))
+      .concat(pastN ? [["past", "지난 경기", pastN]] : [])
+      .forEach(([id, label, n]) => { const b = el("button", "dchip" + (id === "past" ? " pastchip" : "")); b.type = "button"; b.setAttribute("aria-pressed", String(day === id));
+        b.append(el("span", null, label), el("small", "num", n)); b.onclick = () => { day = id; renderList(); scrollTo(0, 0); }; dayBar.append(b); });
     const chips = $("chips"); chips.textContent = "";
     opts.forEach(([id, label]) => { const b = el("button", "chip", label); b.type = "button"; b.setAttribute("aria-pressed", String(filter === id)); b.onclick = () => { filter = id; renderList(); }; chips.append(b); });
     view = filtered();
     const box = $("list"); box.textContent = "";
-    if (!view.length){ box.append(el("p", "empty", filter === "관심" ? "★를 누르면 여기에 모여요." : "표시할 경기가 없습니다.")); return; }
+    if (!view.length){
+      const past = [...new Set(games.filter(isPast).map(g => dateKey(g.start_kst)))].sort();
+      if (day === "all" && filter === "전체" && !query && past.length){
+        const e = el("div", "empty"); e.append(el("p", null, "오늘 이후 경기가 아직 없어요."));
+        const bt = el("button", "chip", "지난 경기 보기"); bt.type = "button"; bt.setAttribute("aria-pressed", "false");
+        bt.onclick = () => { day = "past"; renderList(); }; e.append(bt); box.append(e);
+      } else box.append(el("p", "empty", filter === "관심" ? "★를 누르면 여기에 모여요." : "표시할 경기가 없습니다."));
+      return;
+    }
     if (isPC()) box.append(listTable(pins)); else box.append(listCards(pins));
   }
   function listCards(pins){
