@@ -590,6 +590,16 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
       add("Elo", H.elo, A.elo, H.elo, A.elo, "World Football Elo 대표팀 점수");
       add("라인업 계수", H.q, A.q, Math.round(H.q * 100) + "%", Math.round(A.q * 100) + "%", "전력 보존율 60% + 오늘 선발의 득점·도움 지분 40%");
       add("오늘 Elo", H.today_elo, A.today_elo, H.today_elo, A.today_elo, "레이팅 − 로테이션 감점(완전 2군이면 −200)");
+    } else if (pw && pw.mode === "model"){
+      const B = pw.basis || {};
+      const gd = B.gd || [], ev = B.elo || [];
+      const sg = (v) => v == null ? "-" : (v > 0 ? "+" : "") + Number(v).toFixed(1);
+      add("팀 체급 (득실차)", gd[0], gd[1], sg(gd[0]), sg(gd[1]), "이번 시즌 리그 경기당 득실차 (백테스트에서 승점보다 잘 맞음)");
+      add("Elo", ev[0], ev[1], ev[0] ?? "-", ev[1] ?? "-", "이번·지난 시즌 리그 결과로 계산한 점수 (강팀을 이기면 많이 오름)");
+      const he = B.home_edge;
+      const word = he == null ? "보통" : he >= 0.15 ? "강함" : he >= 0.03 ? "조금 강함" : he > -0.05 ? "보통" : he > -0.12 ? "약함" : "거의 없음";
+      const x = el("div", "b"); x.dataset.tip = "리그마다 다른 홈 이점 (백테스트: 라리가가 가장 크고 K리그가 가장 작음)";
+      x.append(el("span", "k", "홈 이점"), el("b", null, `${g.league} ${word}`)); x.onclick = () => showNote(x, x.dataset.tip); basis.append(x);
     } else if (pw && pw.mode === "mlb"){
       const P = (s) => (T[s].pitching || {});
       add("선발 ERA", P("home").sp && P("home").sp.era, P("away").sp && P("away").sp.era, fmt(P("home").sp && P("home").sp.era), fmt(P("away").sp && P("away").sp.era), "선발투수 시즌 평균자책 (낮을수록 좋음)", true);
@@ -845,6 +855,10 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
       gl.append(st);
     });
     const Gh = T.home.goals, Ga = T.away.goals;
+    if (d.power && d.power.league_over != null){
+      const o = d.power.league_over; const lean = o >= 58 ? "오버 많은 리그" : o <= 48 ? "언더 많은 리그" : "보통";
+      const c = el("div", "callout"); c.innerHTML = `<b>${esc(g.league)} 성향: 2.5골 이상 ${o}%</b> · ${lean}`; gl.append(c);
+    }
     if (Gh && Ga){ const c = el("div", "callout"); c.innerHTML = `<b>경기당 총${g.sport === "야구" ? "득점" : "득점"} ${esc(g.home)} ${fmt(Gh.total_avg, 1)} · ${esc(g.away)} ${fmt(Ga.total_avg, 1)}</b>`; gl.append(c); }
     w.append(gl);
     return w;
