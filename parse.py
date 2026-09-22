@@ -745,7 +745,7 @@ def naver_kst(text):
     return dt.replace(tzinfo=KST) if dt.tzinfo is None else dt.astimezone(KST)
 
 
-def parse_naver_games(data, categories):
+def parse_naver_games(data, categories, sport="축구"):
     """경기 목록 -> 우리 형식. categories: {categoryId: 리그 이름}"""
     out = []
     for g in _l(_d(_d(data).get("result")).get("games")):
@@ -763,7 +763,7 @@ def parse_naver_games(data, categories):
         }
         status = _s(g.get("statusCode")).upper()
         out.append({
-            "key": f"축구:naver.{cat}:{gid}", "sport": "축구", "league": categories[cat], "league_slug": f"naver.{cat}",
+            "key": f"{sport}:naver.{cat}:{gid}", "sport": sport, "league": categories[cat], "league_slug": f"naver.{cat}",
             "event_id": gid, "start_kst": kst.isoformat(), "state": NAVER_STATE.get(status, "in" if status else "pre"),
             "home": side("home"), "away": side("away"), "source": "naver", "category": cat,
         })
@@ -946,3 +946,73 @@ def parse_espn_team_schedule(data, team_id):
                     "gf": _score(mine.get("score")) if done else None,
                     "ga": _score(_d(other).get("score")) if (done and other) else None})
     return out
+
+
+
+# ---------------------------------------------------------------- 네이버 KBO (8차 소스 점검에서 확인한 모양)
+#  preview: result.previewData.{home,away}TeamLineUp.fullLineUp[] {positionName, playerCode, playerName, batsThrows, backnum}
+#           result.previewData.{home,away}Starter {playerInfo{name, pCode, hitType}, currentSeasonStats{era, whip, inn, gameCount, kk, bb, hr}}
+#           result.previewData.{home,away}Standings {era, hra, w, l, d, rank}
+#  record : result.recordData.battersBoxscore.{home,away}[] {batOrder, playerCode, name?, pos}
+#           result.recordData.pitchersBoxscore.{home,away}[] {pcode, name, inn, er, bf, ...}  (첫 투수 = 선발)
+
+def _kbo_hand(text):
+    t = _s(text)
+    return "L" if "좌" in t[:2] else ("R" if "우" in t[:2] else "")
+
+
+def parse_kbo_preview(data, side):
+    pv = _d(_d(_d(data).get("result")).get("previewData"))
+    lu = _l(_d(pv.get(f"{side}TeamLineUp")).get("fullLineUp"))
+    batters = []
+    for p in lu:
+        p = _d(p)
+        if "투수" in _s(p.get("positionName")):
+            continue
+        pid = _s(p.get("playerCode"))
+        if pid:
+            bats = _s(p.get("batsThrows"))
+            batters.append({"id": pid, "name": _s(p.get("playerName")), "pos": _s(p.get("positionName")),
+                            "jersey": _s(p.get("backnum")), "bats": "L" if "좌타" in bats else "S" if "양타" in bats else "R"})
+    st = _d(pv.get(f"{side}Starter"))
+    info, cs = _d(st.get("playerInfo")), _d(st.get("currentSeasonStats"))
+    sp = None
+    if info.get("name") or info.get("pCode"):
+        ip = ip_to_float(cs.get("inn"))
+        k, bb, hr = _num(cs.get("kk")), _num(cs.get("bb")), _num(cs.get("hr"))
+        gs = int(_num(cs.get("gameCount")))
+        sp = {"id": _s(info.get("pCode")), "name": _s(info.get("name")), "hand": _kbo_hand(info.get("hitType")),
+              "era": _num(cs.get("era")) if cs.get("era") not in (None, "", "-") else None,
+              "whip": _num(cs.get("whip")) if cs.get("whip") not in (None, "", "-") else None,
+              "fip": round((13 * hr + 3 * bb - 2 * k) / ip + FIP_CONST, 2) if ip >= 10 else None,
+              "ip": round(ip, 1), "gs": gs, "ip_per_start": round(ip / gs, 2) if gs else None}
+    stand = _d(pv.get(f"{side}Standings"))
+    return {"lineup": batters[:9], "sp": sp,
+            "team_era": _num(stand.get("era")) if stand.get("era") not in (None, "", "-") else None}
+
+
+def parse_kbo_record(data, side):
+    """지난 경기 한 팀: 선발 타순(1~9번 첫 타자)·출전 타자·선발투수 기록·불펜 상대 타자 수."""
+    rd = _d(_d(_d(data).get("result")).get("recordData"))
+    bats = _l(_d(rd.get("battersBoxscore")).get(side))
+    first, played, names = {}, [], {}
+    for b in bats:
+        b = _d(b)
+        pid = _s(b.get("playerCode"))
+        if not pid:
+            continue
+        names[pid] = _s(b.get("name") or b.get("playerName"))
+        o = _int(b.get("batOrder"))
+        if o and 1 <= o <= 9 and o not in first:
+            first[o] = pid
+        if pid not in played:
+            played.append(pid)
+    pits = [_d(p) for p in _l(_d(rd.get("pitchersBoxscore")).get(side))]
+    sp = None
+    if pits:
+        p0 = pits[0]
+        sp = {"id": _s(p0.get("pcode")), "ip": round(ip_to_float(p0.get("inn")), 1), "er": _int(p0.get("er"))}
+    pen_bf = sum(_int(p.get("bf")) for p in pits[1:])
+    pen_ids = [_s(p.get("pcode")) for p in pits[1:] if p.get("pcode")]
+    return {"starters": [first[o] for o in sorted(first)], "played": played, "names": names,
+            "sp": sp, "pen_bf": pen_bf, "pen_ids": pen_ids}
