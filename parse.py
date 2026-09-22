@@ -1130,3 +1130,78 @@ def parse_espn_team_ids(data):
                 if tid:
                     out.append(tid)
     return out
+
+
+# ---------------------------------------------------------------- 풋몹 컵대회 (12차 소스 점검: 일왕배 9011)
+#  목록: leagues[].{id, primaryId, name, matches[]} · matches[]: {id, home{id,name,score}, away{…}, status{utcTime, started, finished, cancelled}}
+#  상세: content.lineup.{lineupType('lastStarting11'=지난 경기 선발로 채운 예상, 그 외=발표), homeTeam, awayTeam}
+#        팀: {id, name, formation, starters[{id, name, positionId, shirtNumber}], subs[], unavailable[]}
+#  팀:  fixtures.allFixtures.fixtures[] {id, home{id,name,score}, away{…}, status{finished, utcTime}}
+
+def fotmob_pos(pid):
+    """풋몹 positionId → G/D/M/F (11 골키퍼, 30번대 수비, 50~80번대 미드필더, 90 이상 공격)"""
+    try:
+        v = int(pid)
+    except (TypeError, ValueError):
+        return ""
+    if v == 11:
+        return "G"
+    if 30 <= v < 50:
+        return "D"
+    if 50 <= v < 90:
+        return "M"
+    return "F" if v >= 90 else ""
+
+
+def parse_fotmob_league_matches(data, league_ids):
+    out = []
+    for lg in _l(_d(data).get("leagues")):
+        lg = _d(lg)
+        lid = lg.get("primaryId") if lg.get("primaryId") in league_ids else lg.get("id")
+        if lid not in league_ids:
+            continue
+        for m in _l(lg.get("matches")):
+            m = _d(m)
+            st = _d(m.get("status"))
+            if st.get("cancelled"):
+                continue
+            when = to_kst(st.get("utcTime"))
+            if not when:
+                continue
+            h, a = _d(m.get("home")), _d(m.get("away"))
+            out.append({"league_id": lid, "id": _idstr(m.get("id")), "start_kst": when.isoformat(),
+                        "state": "post" if st.get("finished") else ("in" if st.get("started") else "pre"),
+                        "home": {"id": _idstr(h.get("id")), "name": _s(h.get("name")), "score": h.get("score")},
+                        "away": {"id": _idstr(a.get("id")), "name": _s(a.get("name")), "score": a.get("score")}})
+    return out
+
+
+def parse_fotmob_lineups(data):
+    """{'confirmed': 발표 여부, 'home'/'away': {'lineup': [...], 'formation', 'team_id'}}"""
+    lu = _d(_d(_d(data).get("content")).get("lineup"))
+    out = {"confirmed": _s(lu.get("lineupType")) not in ("", "lastStarting11")}
+    for side, key in (("home", "homeTeam"), ("away", "awayTeam")):
+        t = _d(lu.get(key))
+        rows = []
+        for p in _l(t.get("starters")):
+            p = _d(p)
+            pid = _idstr(p.get("id"))
+            if pid:
+                rows.append({"id": pid, "name": _s(p.get("name")), "pos": fotmob_pos(p.get("positionId") or p.get("usualPlayingPositionId")),
+                             "jersey": _s(p.get("shirtNumber"))})
+        out[side] = {"lineup": rows, "formation": _s(t.get("formation")), "team_id": _idstr(t.get("id"))}
+    return out
+
+
+def parse_fotmob_team_fixtures(data):
+    fx = _d(_d(_d(data).get("fixtures")).get("allFixtures"))
+    out = []
+    for f in _l(fx.get("fixtures")):
+        f = _d(f)
+        st = _d(f.get("status"))
+        if not st.get("finished") or st.get("cancelled"):
+            continue
+        h, a = _d(f.get("home")), _d(f.get("away"))
+        out.append({"id": _idstr(f.get("id")), "utc": _s(st.get("utcTime")), "home_id": _idstr(h.get("id")), "away_id": _idstr(a.get("id")),
+                    "hg": h.get("score"), "ag": a.get("score")})
+    return out
