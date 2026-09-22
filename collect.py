@@ -20,13 +20,13 @@ import random
 import re
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import date as date_, datetime, timedelta, timezone
 
 import requests
 
 from names_ko import _key as team_key
 from names_ko import ko_team
-from grade import (ELO_HOME, add_bench, add_context, core_from_history, rotation_risk, add_periods, analyze_lineup, baseball_power, build_signals, compare_elo, compare_power,
+from grade import (ELO_HOME, add_bench, add_context, core_from_history, elo_table, model_power, rotation_risk, add_periods, analyze_lineup, baseball_power, build_signals, compare_elo, compare_power,
                    enrich, lineup_power, pick_ace, recent_era, strength, summarize, team_leaders)
 from parse import (
     KST,
@@ -34,6 +34,8 @@ from parse import (
     parse_elo_names,
     parse_elo_world,
     bullpen_usage,
+    parse_espn_schedule_events,
+    parse_espn_team_ids,
     parse_espn_team_schedule,
     mlb_history_from_stats,
     pitcher_season,
@@ -343,7 +345,9 @@ def espn_team_history(client, sport_root, league_slug, team_id, before_kst, extr
         ttl=6 * 3600,
     )
     events = []
-    for ev in (sched or {}).get("events", []) or []:
+    for ev in ((sched if isinstance(sched, dict) else {}).get("events") or []):
+        if not isinstance(ev, dict):
+            continue
         comps = ev.get("competitions") or []
         if not comps:
             continue
@@ -401,7 +405,9 @@ def domestic_slug(client, team_id, game_slug, cfg):
         sched = client.get_json(f"{ESPN_SITE}/soccer/{slug}/teams/{team_id}/schedule",
                                 cache_key=f"sched_{slug}_{team_id}", ttl=6 * 3600)
         done = 0
-        for ev in (sched or {}).get("events", []) or []:
+        for ev in ((sched if isinstance(sched, dict) else {}).get("events") or []):
+            if not isinstance(ev, dict):
+                continue
             comps = ev.get("competitions") or []
             if comps and ((comps[0].get("status") or {}).get("type") or {}).get("completed"):
                 done += 1
@@ -426,7 +432,9 @@ def national_history(client, team_id, before_kst, cfg, extractor):
     for slug in national_slugs(cfg):
         sched = client.get_json(f"{ESPN_SITE}/soccer/{slug}/teams/{team_id}/schedule",
                                 cache_key=f"sched_{slug}_{team_id}", ttl=6 * 3600)
-        for ev in (sched or {}).get("events", []) or []:
+        for ev in ((sched if isinstance(sched, dict) else {}).get("events") or []):
+            if not isinstance(ev, dict):
+                continue
             comps = ev.get("competitions") or []
             if not comps or not ((comps[0].get("status") or {}).get("type") or {}).get("completed"):
                 continue
@@ -464,6 +472,106 @@ def load_elo(client):
 
 
 EURO_COMPS = ("uefa.champions", "uefa.europa", "uefa.europa.conf")
+
+# ------------------------------------------------------------------ 새 전력 계산 (백테스트 model.json) · 리그 Elo
+_MODEL = {}
+CALENDAR_LEAGUES = {"jpn.1", "kor.1", "usa.1", "bra.1", "chn.1", "arg.1", "nor.1", "swe.1"}
+
+
+def get_model():
+    """model.json (백테스트가 만든 사이트용 계산값). 없으면 None → 예전 방식."""
+    if "m" not in _MODEL:
+        path = os.path.join(ROOT, "model.json")
+        try:
+            with open(path, encoding="utf-8") as f:
+                _MODEL["m"] = json.load(f)
+        except (OSError, ValueError):
+            _MODEL["m"] = None
+    return _MODEL["m"]
+
+
+_ELO_MEMO = {}
+
+
+def _elo_params():
+    m = get_model() or {}
+    e = m.get("elo") or {}
+    return {"k": e.get("k", 20), "home": e.get("home", 60), "regress": e.get("season_regress", 1 / 3)}
+
+
+def espn_league_elo(client, slug, start, must=()):
+    """리그 전체 팀의 이번 시즌 + 지난 시즌 결과로 Elo (팀 일정은 캐시, 지난 시즌은 영구 저장)."""
+    key = ("espn", slug, start.date())
+    if key in _ELO_MEMO:
+        return _ELO_MEMO[key]
+    teams = client.get_json(f"{ESPN_SITE}/soccer/{slug}/teams", cache_key=f"teams_{slug}", ttl=7 * 86400)
+    ids = list(dict.fromkeys(parse_espn_team_ids(teams or {}) + [t for t in must if t]))
+    prev = start.year - 1 if (slug in CALENDAR_LEAGUES or start.month >= 7) else start.year - 2
+    evs = {}
+    for tid in ids:
+        if getattr(client, "out_of_time", False):
+            break
+        url = f"{ESPN_SITE}/soccer/{slug}/teams/{tid}/schedule"
+        for label, params, ck, ttl in (("c", None, f"sched_{slug}_{tid}", 6 * 3600),
+                                       ("p", {"season": prev}, f"schedp_{slug}_{tid}_{prev}", -1)):
+            data = client.get_json(url, params=params, cache_key=ck, ttl=ttl)
+            for e in parse_espn_schedule_events(data or {}):
+                if e["completed"] and e["hg"] is not None and to_kst(e["date"]) < start:
+                    evs[e["id"]] = (e["date"], label, e["home_id"], e["away_id"], e["hg"], e["ag"])
+    # 지난 시즌 경기가 먼저 오도록 시즌 표시를 날짜 순서와 맞춤
+    rows = [(d, "0" if s == "p" else "1", h, a, hg, ag) for d, s, h, a, hg, ag in evs.values()]
+    table = elo_table(rows, **_elo_params())
+    _ELO_MEMO[key] = table
+    return table
+
+
+def naver_league_elo(client, cfg, cat, start):
+    key = ("naver", cat, start.date())
+    if key in _ELO_MEMO:
+        return _ELO_MEMO[key]
+    today = start.date()
+    this_start = datetime.fromisoformat(cfg.get("naver_season_start", f"{today.year}-02-01")).date()
+    spans = [("0", date_(this_start.year - 1, 2, 1), date_(this_start.year - 1, 12, 20)), ("1", this_start, today)]
+    rows, seen = [], set()
+    for label, frm, end in spans:
+        d = frm
+        while d <= end and not getattr(client, "out_of_time", False):
+            to = min(d + timedelta(days=NAVER_CHUNK_DAYS - 1), end)
+            data = naver_schedule(client, "kfootball", d, to, today)
+            for g in (((data or {}).get("result") or {}).get("games") or []):
+                if g.get("categoryId") != cat or str(g.get("statusCode")).upper() != "RESULT" or g.get("gameId") in seen:
+                    continue
+                try:
+                    hg, ag = int(g.get("homeTeamScore")), int(g.get("awayTeamScore"))
+                except (TypeError, ValueError):
+                    continue
+                seen.add(g["gameId"])
+                rows.append((str(g.get("gameDateTime") or g.get("gameDate")), label, g.get("homeTeamCode"), g.get("awayTeamCode"), hg, ag))
+            d = to + timedelta(days=1)
+    table = elo_table(rows, **_elo_params())
+    _ELO_MEMO[key] = table
+    return table
+
+
+def model_side(history):
+    """팀 체급 입력: 이번 시즌 리그 경기당 득실차·득점·실점 (경기 적으면 0 쪽으로 조금 당김)"""
+    rs = [m for m in history if m.get("gf") is not None and m.get("ga") is not None]
+    n = len(rs)
+    if not n:
+        return {"gd": 0.0, "gf_pg": 1.35, "ga_pg": 1.35, "n": 0}
+    gd = sum(m["gf"] - m["ga"] for m in rs) / n
+    return {"gd": gd * n / (n + 2), "gf_pg": sum(m["gf"] for m in rs) / n, "ga_pg": sum(m["ga"] for m in rs) / n, "n": n}
+
+
+def model_signals(power, names):
+    sig = []
+    if not power or power.get("mode") != "model":
+        return sig
+    if power.get("confident") and power.get("fav"):
+        sig.append([f"{names[power['fav']]} 우세 · 확신 높음", "good"])
+    if (power.get("exp_goals") or 9) < 2.2:
+        sig.append(["무승부 가능성 ↑ · 저득점 예상", "warn"])
+    return sig
 
 # ------------------------------------------------------------------ 풋몹: 부상·징계 결장자 (라인업 발표 전에도 있음)
 FOTMOB = "https://www.fotmob.com/api/data"
@@ -680,7 +788,10 @@ def build_espn_detail(client, game, now):
     if not sides or not any((s or {}).get("lineup") for s in sides.values()):
         out = {"lineup_ready": False, "note": "아직 선발 라인업이 나오지 않았습니다."}
         if game["sport"] == "축구":
-            out.update(espn_pre_lineup(client, game, now, extractor))
+            try:
+                out.update(espn_pre_lineup(client, game, now, extractor))
+            except Exception as exc:                   # 발표 전 분석이 실패해도 '라인업 대기'는 그대로 보여준다
+                print(f"  ! 발표 전 분석 실패: {exc}", file=sys.stderr)
         return out
 
     start = to_kst(game["start_kst"]) or now
@@ -714,6 +825,7 @@ def build_espn_detail(client, game, now):
         if game["sport"] == "축구":
             lineup_power(result, history, shape=position_shape)
             add_context(result, history, "축구")
+            result["model_in"] = model_side(history)
             if team_id:
                 if national:
                     sl = national_slugs(cfg)
@@ -738,7 +850,15 @@ def build_espn_detail(client, game, now):
         fh = fa = 1.0
         if slugs["home"] != slugs["away"]:   # 리그가 다를 때만 리그 수준 보정
             fh, fa = ls.get(slugs["home"], ls.get("default", 0.8)), ls.get(slugs["away"], ls.get("default", 0.8))
-        power = compare_power(teams["home"], teams["away"], game["home"]["name"], game["away"]["name"], fh, fa)
+        model = get_model()
+        same_league = slugs["home"] == slugs["away"] and league_slug not in EURO_COMPS
+        if model and same_league and teams["home"].get("model_in") and teams["away"].get("model_in"):
+            elo = espn_league_elo(client, slugs["home"], start, must=(game["home"]["id"], game["away"]["id"]))
+            h = dict(teams["home"]["model_in"], elo=elo.get(game["home"]["id"], 1500.0))
+            a = dict(teams["away"]["model_in"], elo=elo.get(game["away"]["id"], 1500.0))
+            power = model_power(model, slugs["home"], h, a, game["home"]["name"], game["away"]["name"], teams)
+        else:                                     # 챔스처럼 리그가 다른 팀끼리 · model.json 없을 때: 예전 방식
+            power = compare_power(teams["home"], teams["away"], game["home"]["name"], game["away"]["name"], fh, fa)
     names = {s: game[s]["name"] for s in ("home", "away")}
     extra = []
     if game["sport"] == "축구":
@@ -747,7 +867,7 @@ def build_espn_detail(client, game, now):
         except Exception as exc:                 # 풋몹이 막혀도 판정은 그대로
             print(f"  ! 풋몹 결장자 실패: {exc}", file=sys.stderr)
     return {"lineup_ready": True, "teams": teams, "power": power, "national": bool(game.get("national")),
-            "signals": (extra + build_signals(names, teams, game["sport"]))[:4],
+            "signals": (extra + model_signals(power, names) + build_signals(names, teams, game["sport"]))[:4],
             "summary": summarize(game["home"]["name"], game["away"]["name"], teams, game["sport"])}
 
 
@@ -887,7 +1007,10 @@ def build_naver_detail(client, game, now):
     sides = parse_naver_lineup(data or {})
     if not any((sides.get(s) or {}).get("lineup") for s in ("home", "away")):
         out = {"lineup_ready": False, "note": "아직 선발 라인업이 나오지 않았습니다."}
-        out.update(naver_pre_lineup(client, game, now))
+        try:
+            out.update(naver_pre_lineup(client, game, now))
+        except Exception as exc:
+            print(f"  ! 발표 전 분석 실패: {exc}", file=sys.stderr)
         return out
     start = to_kst(game["start_kst"]) or now
     teams = {}
@@ -906,15 +1029,23 @@ def build_naver_detail(client, game, now):
         result["ace"] = pick_ace(result)
         lineup_power(result, history, shape=position_shape)
         add_context(result, history, "축구")
+        result["model_in"] = model_side(history)
         result["schedule"] = naver_schedule_context(client, game, side, history, start)
         result["team_name"] = game[side]["name"]
         result["formation"] = info.get("formation") or ""
         result["league"] = game.get("league_slug")
         teams[side] = result
-    power = compare_power(teams["home"], teams["away"], game["home"]["name"], game["away"]["name"])
+    model = get_model()
+    if model and teams["home"].get("model_in") and teams["away"].get("model_in"):
+        elo = naver_league_elo(client, load_config(), game.get("category"), start)
+        h = dict(teams["home"]["model_in"], elo=elo.get(game["home"]["id"], 1500.0))
+        a = dict(teams["away"]["model_in"], elo=elo.get(game["away"]["id"], 1500.0))
+        power = model_power(model, game.get("category"), h, a, game["home"]["name"], game["away"]["name"], teams)
+    else:
+        power = compare_power(teams["home"], teams["away"], game["home"]["name"], game["away"]["name"])
     names = {s: game[s]["name"] for s in ("home", "away")}
     return {"lineup_ready": True, "teams": teams, "power": power, "national": False,
-            "signals": build_signals(names, teams, "축구"),
+            "signals": (model_signals(power, names) + build_signals(names, teams, "축구"))[:4],
             "summary": summarize(game["home"]["name"], game["away"]["name"], teams, "축구")}
 
 
