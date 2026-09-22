@@ -367,6 +367,15 @@ def summarize(home_name, away_name, teams, sport="축구"):
     if focus is None:   # 등급이 같으면 주전이 더 많이 빠진 쪽
         mh, ma = len(h.get("missing") or []), len(a.get("missing") or [])
         focus = "home" if mh > ma else "away" if ma > mh else None
+    if focus is None and (h.get("missing") or a.get("missing")):
+        # 등급·빠진 인원이 같으면 어느 한쪽만 말할 수 없으니 양 팀을 같이 말한다
+        mh, ma = len(h.get("missing") or []), len(a.get("missing") or [])
+        if h.get("grade") == a.get("grade") and h.get("grade") != "1군":
+            headline = f"양 팀 모두 {h.get('grade')}"
+        else:
+            headline = "양 팀 사실상 베스트" if h.get("grade") == "1군" else f"{home_name} {h.get('grade')} · {away_name} {a.get('grade')}"
+        return {"headline": headline, "insight": f"양 팀 주전 {mh}명·{ma}명 빠짐",
+                "points": [[f"{home_name} 주전 {mh}명, {away_name} 주전 {ma}명이 선발에서 빠짐", ""]], "focus": None}
     ft = teams[focus] if focus else h
     other = "away" if focus == "home" else "home"
     ot = teams[other] if focus else a
@@ -761,3 +770,173 @@ def baseball_power(home, away, home_name, away_name):
                 "allowed_home": round(allowed(home), 2), "allowed_away": round(allowed(away), 2)})
     out["note"] = ""       # 축구식 '2군이지만…' 문구는 야구에 맞지 않아 뺀다
     return out
+
+
+# ---------------------------------------------------------------- 경기 맥락: 로테이션 성적 · 비슷한 라인업 · 득실 흐름
+
+def _core_ids(result):
+    return {p["id"] for p in result.get("players") or [] if p.get("core")} | {m["id"] for m in result.get("missing") or []}
+
+
+def rotation_record(result, season):
+    """이번 시즌 경기마다 그날 선발이 몇 군이었는지(오늘 기준 주전으로 셈)와 결과."""
+    core, size = _core_ids(result), result.get("size") or 11
+    out = {g: [0, 0, 0] for g in ("1군", "1.5군", "2군")}
+    if not core:
+        return out
+    for m in season:
+        res = m.get("res")
+        if res not in ("W", "D", "L"):
+            continue
+        n = sum(1 for pid in (m.get("starters") or []) if pid in core)
+        out[grade_label(n, size)]["WDL".index(res)] += 1
+    return out
+
+
+def similar_record(result, season, need=None):
+    """오늘 선발 중 need명 이상(축구 8명, 야구 6명)이 같이 선발로 나온 지난 경기 성적."""
+    size = result.get("size") or 11
+    need = need or (size - 3)
+    ids = {p["id"] for p in result.get("players") or []}
+    w = d = l = 0
+    for m in season:
+        res = m.get("res")
+        if res not in ("W", "D", "L"):
+            continue
+        if len(ids & set(m.get("starters") or [])) >= need:
+            if res == "W":
+                w += 1
+            elif res == "D":
+                d += 1
+            else:
+                l += 1
+    return {"w": w, "d": d, "l": l, "n": w + d + l, "need": need}
+
+
+def goals_flow(season, n=10, over_line=3):
+    """최근 n경기 득실 (최신순). over_line: 이 점수 이상이면 '오버' (축구 3 = 2.5골 이상)."""
+    rows = [m for m in season if m.get("res") in ("W", "D", "L") and m.get("gf") is not None and m.get("ga") is not None][:n]
+    if not rows:
+        return None
+    gf = [int(m["gf"]) for m in rows]
+    ga = [int(m["ga"]) for m in rows]
+    k = len(rows)
+    return {"n": k, "gf": gf, "ga": ga, "gf_avg": round(sum(gf) / k, 2), "ga_avg": round(sum(ga) / k, 2),
+            "total_avg": round((sum(gf) + sum(ga)) / k, 2),
+            "over_pct": round(100 * sum(1 for a, b in zip(gf, ga) if a + b >= over_line) / k),
+            "clean": sum(1 for b in ga if b == 0), "over_line": over_line}
+
+
+def add_context(result, season, sport="축구"):
+    result["rotation"] = rotation_record(result, season)
+    result["similar"] = similar_record(result, season, need=None if sport != "야구" else 6)
+    result["goals"] = goals_flow(season, over_line=9 if sport == "야구" else 3)
+    return result
+
+
+BIG_COMPS = ("챔스", "챔피언스", "유로파", "컨퍼런스", "ACL", "컵", "FA", "코파", "Champions", "Europa", "Conference")
+
+
+def build_signals(names, teams, sport="축구"):
+    """신호등: [문구, 종류(bad/warn/good)] — 에이스 결장, 2군, 곧 큰 경기, 풀전력, 불펜 과부하."""
+    out = []
+    for side in ("home", "away"):
+        t = teams.get(side) or {}
+        nm = names[side]
+        ace = t.get("ace") or {}
+        if ace.get("status") and ace["status"] != "선발":
+            out.append([f"{nm} 에이스 {'벤치' if ace['status'] == '벤치' else '결장'}", "bad"])
+        if t.get("grade") == "2군":
+            out.append([f"{nm} 2군", "warn"])
+        nx = (t.get("schedule") or {}).get("next") or {}
+        if nx.get("in_days") is not None and nx["in_days"] <= 4 and any(k in (nx.get("comp") or "") for k in BIG_COMPS):
+            out.append([f"{nm} {nx['in_days']}일 뒤 {nx['comp']}", "warn"])
+        pen = (t.get("pitching") or {}).get("pen") or {}
+        if (pen.get("pitches_3d") or 0) >= 500 or (pen.get("b2b") or 0) >= 3:
+            out.append([f"{nm} 불펜 과부하", "warn"])
+        sp = (t.get("pitching") or {}).get("sp") or {}
+        if sp.get("recent_era") is not None and sp["recent_era"] >= 6:
+            out.append([f"{nm} 선발 최근 부진", "warn"])
+    for side in ("home", "away"):
+        t = teams.get(side) or {}
+        if t.get("grade") == "1군" and t.get("core_in") == t.get("size"):
+            out.append([f"{names[side]} 풀전력", "good"])
+    order = {"bad": 0, "warn": 1, "good": 2}
+    out.sort(key=lambda s: order[s[1]])
+    return out[:4]
+
+
+# ---------------------------------------------------------------- 라인업 발표 전: 로테이션 가능성
+
+def core_from_history(recent, size):
+    """최근 경기 선발 기록만으로 주전(평소 베스트) 목록 — 라인업 발표 전에 쓴다."""
+    return analyze_lineup([], recent, size).get("missing") or []
+
+
+def _situation(gap_days, next_comp, rest_days):
+    big = next_comp and any(k in next_comp for k in BIG_COMPS)
+    if big and gap_days is not None and gap_days <= 4:
+        return "big"
+    if (gap_days is not None and gap_days <= 3) or (rest_days is not None and rest_days <= 3):
+        return "short"
+    return "normal"
+
+
+SITUATION_TEXT = {"big": "큰 경기 앞", "short": "짧은 휴식", "normal": "평소"}
+
+
+def rotation_risk(history, events, core, size, today_next, today_rest):
+    """history: 이번 시즌 경기(최신순, starters·date·minutes) · events: 팀 전체 일정 [{"date", "comp", "completed"}]
+    today_next: {"in_days", "comp"} · today_rest: 지난 경기 후 휴식일"""
+    from datetime import datetime as _dt
+    core_ids = {m["id"] for m in core}
+    names = {m["id"]: m.get("name") for m in core}
+    if not core_ids or not history:
+        return None
+    ev = sorted((e for e in events if e.get("date")), key=lambda e: e["date"])
+
+    def parse(d):
+        try:
+            return _dt.fromisoformat(str(d).replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    buckets = {"big": [], "short": [], "normal": []}
+    for i, m in enumerate(history):
+        md = parse(m.get("date"))
+        if not md or not m.get("starters"):
+            continue
+        changes = size - sum(1 for pid in m["starters"] if pid in core_ids)
+        nxt = next((e for e in ev if parse(e["date"]) and (parse(e["date"]) - md).total_seconds() > 3600), None)
+        gap = (parse(nxt["date"]).date() - md.date()).days if nxt else None
+        prev = history[i + 1] if i + 1 < len(history) else None
+        rest = (md.date() - parse(prev["date"]).date()).days if prev and parse(prev.get("date")) else None
+        buckets[_situation(gap, (nxt or {}).get("comp"), rest)].append(changes)
+
+    today = _situation((today_next or {}).get("in_days"), (today_next or {}).get("comp"), today_rest)
+    rows = buckets[today]
+    base = buckets["normal"]
+    stat = lambda xs: {"n": len(xs), "avg": round(sum(xs) / len(xs), 1) if xs else None,
+                       "rot": sum(1 for x in xs if x >= 3)}
+    s_today, s_base = stat(rows), stat(base)
+    level = None
+    if s_today["n"] >= 3:
+        if s_today["avg"] >= 3 or s_today["rot"] / s_today["n"] >= 0.5:
+            level = "높음"
+        elif s_today["avg"] >= 1.5:
+            level = "보통"
+        else:
+            level = "낮음"
+    # 최근 3경기에서 거의 풀타임 뛴 주전 (쉬게 할 후보)
+    recent3 = history[:3]
+    tired = []
+    for pid in core_ids:
+        mins = [((m.get("minutes") or {}).get(pid) or 0) for m in recent3]
+        if len(recent3) == 3 and all(x >= 80 for x in mins):
+            tired.append(names.get(pid) or pid)
+    reason = ""
+    if today_next and today_next.get("in_days") is not None:
+        reason = f"다음 경기 {today_next['in_days']}일 뒤 {today_next.get('comp') or ''}".strip()
+    if today_rest is not None:
+        reason = (reason + " · " if reason else "") + f"지난 경기 후 {today_rest}일 휴식"
+    return {"level": level, "situation": today, "situation_text": SITUATION_TEXT[today], "today": s_today,
+            "base": s_base, "tired": sorted(tired)[:4], "reason": reason, "size": size}
