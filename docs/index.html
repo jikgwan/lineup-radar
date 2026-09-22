@@ -586,7 +586,7 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
       c.append(crest(g[s + "_logo"], g[s], s === "home" ? "var(--home)" : "var(--away)", 48), hn);
       if (ready) c.append(pips(T[s].grade));
       const sr = ready && T[s].season_record;
-      if (sr && sr.matches) c.append(el("div", "hrec", `${NAT ? "최근 " + sr.matches + "경기" : "시즌"} ${sr.w}승 ${sr.d}무 ${sr.l}패`));
+      if (sr && sr.matches) c.append(el("div", "hrec", `${NAT || (d && d.record_recent) ? "최근 " + sr.matches + "경기" : "시즌"} ${sr.w}승 ${sr.d}무 ${sr.l}패`));
       tm.append(c);
       if (i === 0) tm.append(el("div", "vs", "vs"));
     });
