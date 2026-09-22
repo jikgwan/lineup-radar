@@ -242,7 +242,7 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     <p class="foot">라인업은 보통 경기 1시간 전에 나오고, 나오면 등급이 켜집니다. 전력 비율은 승률이 아니라 오늘 라인업의 무게 비교예요.<br>
     <b>개인이 경기 분석에 참고하려고 만든 무료 사이트</b>를 같이 보시라고 공유한 거예요. 공식 서비스가 아니라 기록이 틀리거나 잠시 멈출 수 있어요.
     특정 경기의 베팅을 권유하지 않으며, 판단과 책임은 이용자 본인에게 있습니다. 만 19세 이상 <b>합법 스포츠토토(베트맨)</b> 참고용이에요.<br>
-    데이터 출처: 축구·농구 ESPN · K리그 네이버 스포츠 · 야구 MLB · 대표팀 World Football Elo. 각 데이터의 권리는 해당 제공처에 있으며, 요청이 있으면 즉시 내립니다.</p>
+    데이터 출처: 축구·농구 ESPN · K리그·KBO 네이버 스포츠 · 야구 MLB · 부상·징계 FotMob · 대표팀 World Football Elo. 각 데이터의 권리는 해당 제공처에 있으며, 요청이 있으면 즉시 내립니다.</p>
   </aside>
   <main id="detailPane" hidden><div id="emptyDetail">왼쪽에서 경기를 고르세요</div><div id="detail"></div></main>
 </div>
@@ -507,7 +507,11 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     box.append(hero(g, d, ready));
     if (!ready){
       box.append(el("p", "msg", g.state === "post" ? "라인업을 받기 전에 끝난 경기라 판정 기록이 없어요." : `아직 선발 라인업이 나오지 않았어요. ${announce(g.start_kst)}쯤 발표 예정이에요.`));
-      if (d && d.risk && Object.keys(d.risk).length && g.state !== "post") box.append(riskBlock(d.risk, g));
+      if (d && d.risk && Object.keys(d.risk).length && g.state !== "post"){
+        const rb = riskBlock(d.risk, g); if (rb) box.append(rb);
+        const H = d.risk.home || {}, A = d.risk.away || {};
+        const ab = absentBlock(H.absent, A.absent, g, H.core_absent, A.core_absent); if (ab) box.append(ab);
+      }
       if (g.state !== "post"){ const r = el("button", "retry", "다시 확인"); r.type = "button"; r.onclick = () => openGame(g); box.append(r); }
       return;
     }
@@ -580,12 +584,30 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
   }
   function showNote(x, tip){ const n = $("basisNote"); if (n) n.textContent = x.querySelector(".k").textContent + ": " + tip; }
 
+  // ----- 부상·징계 명단 (풋몹)
+  function absentBlock(home, away, g, coreH, coreA){
+    if (!(home || []).length && !(away || []).length) return null;
+    const b = block("부상·징계", "복귀 예정");
+    [["home", home, "var(--home)", coreH || []], ["away", away, "var(--away)", coreA || []]].forEach(([s, rows, col, core]) => {
+      const t = el("div", "mt", `${g[s]} ${(rows || []).length}명`); t.style.color = col; b.append(t);
+      const chips = el("div", "mchips");
+      if (!(rows || []).length) chips.append(el("span", "note", "없음"));
+      (rows || []).forEach(x => { const c = el("span", "mchip"); c.append(el("b", null, x.name));
+        if (core.includes(x.name)) c.append(el("em", "warn", "주전"));
+        c.append(el("em", "bad", x.type), el("small", null, x.return === "미정" ? "복귀 미정" : `${x.return} 복귀`)); chips.append(c); });
+      const wrap = el("div", "mteam"); wrap.append(chips); b.append(wrap);
+    });
+    return b;
+  }
+
   // ----- 라인업 발표 전: 로테이션 가능성
   function riskBlock(risk, g){
     const b = block("로테이션 가능성", "지난 경기 패턴으로 본 예상");
     const LV = {"높음": "var(--bad)", "보통": "var(--acc)", "낮음": "var(--good)"};
+    let any = false;
     ["home", "away"].forEach(s => {
-      const r = risk[s]; if (!r) return;
+      const r = risk[s]; if (!r || (!r.level && !(r.today || {}).n && !(r.base || {}).n && !r.reason)) return;
+      any = true;
       const t = el("div", "rteam"); t.style.color = s === "home" ? "var(--home)" : "var(--away)"; t.append(document.createTextNode(g[s] + " "));
       const lv = el("span", "grade", r.level ? `돌릴 가능성 ${r.level}` : "기록 부족"); lv.style.color = LV[r.level] || "var(--mute)"; t.append(lv);
       b.append(t);
@@ -597,7 +619,7 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
       b.append(line);
       if ((r.tired || []).length) b.append(el("div", "note", "최근 3경기 연속 풀타임: " + r.tired.join(" · ")));
     });
-    return b;
+    return any ? b : null;
   }
 
   // ----- 축구 요약
@@ -689,6 +711,7 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
       if (!ms.length) chips.append(el("span", "note", "없음 · 주전 그대로"));
       ms.forEach(x => { const c = el("span", "mchip"); c.append(el("b", null, x.name || "이름 없음"));
         if (x.status) c.append(el("em", x.status === "벤치" ? "warn" : "bad", x.status));
+        if (x.reason) c.append(el("em", "bad", x.reason + (x.return && x.return !== "미정" ? ` · ${x.return} 복귀` : "")));
         if (g.sport !== "야구" && (x.goals || x.assists)) c.append(el("small", null, `${x.goals || 0}골 ${x.assists || 0}도움`));
         chips.append(c); });
       m.append(chips); w.append(m);
@@ -726,6 +749,8 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
       w.append(b);
     }
     const m = block("빠진 주전", "벤치 · 명단 제외"); m.append(missBlock(T, g)); w.append(m);
+    const ab = absentBlock(T.home.absent, T.away.absent, g);
+    if (ab) w.append(ab);
     const pl = block("선발 선수", NAT ? "대표팀 골·도움" : "시즌 골·도움");
     const seg = el("div", "seg"); const thumb = el("span", "thumb");
     const lists = el("div", "plists");
