@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""11차 소스 점검 (읽기만 함): 일왕배 — ESPN 대회 코드가 있는지, 풋몹 라인업 모양.
+"""12차 소스 점검 (읽기만 함): 일왕배(풋몹 9011) — 경기 목록, 라인업 모양, 팀의 지난 경기 목록.
 
 1) KBO: 끝난 경기·오늘 경기에서 라인업·타순·선발투수·선수 기록이 어디서 어떤 모양으로 오는지
 2) 풋몹: 결장자(unavailable) 항목 모양, 라인업 발표 전에도 결장자 명단이 있는지, 팀 이름 표기
@@ -114,39 +114,48 @@ def emperor_espn():
 
 
 def emperor_fotmob():
-    head("2) 풋몹 — 일왕배(Emperor Cup) 경기와 라인업 모양")
+    head("일왕배 (풋몹 대회 번호 9011) — 경기 목록 · 라인업 모양 · 팀 정보")
     found = []
-    for back in (0, 1, -1, 2):
+    for back in (0, 1, -1):
         d = (TODAY + timedelta(days=back)).strftime("%Y%m%d")
         body, st = jget("https://www.fotmob.com/api/data/matches", {"date": d}, FH)
         for lg in (body or {}).get("leagues") or []:
-            name = str(lg.get("name") or "")
-            if "emperor" in name.lower() or (lg.get("ccode") == "JPN"):
-                print(f"  {d} 리그: {name} (id {lg.get('primaryId') or lg.get('id')}, ccode {lg.get('ccode')}) · {len(lg.get('matches') or [])}경기")
-                if "emperor" in name.lower():
-                    for m in lg.get("matches") or []:
-                        found.append((d, name, m))
-    print(f"  일왕배 경기 {len(found)}개")
-    for d, name, m in found[:6]:
-        print(f"   - {d} {(m.get('home') or {}).get('name')} vs {(m.get('away') or {}).get('name')} · {(m.get('status') or {}).get('utcTime')} · id {m.get('id')}")
+            if lg.get("primaryId") == 9011 or lg.get("id") == 9011:
+                print(f"  {d} {lg.get('name')} · {len(lg.get('matches') or [])}경기 · 리그 키: {list(lg.keys())[:10]}")
+                for m in lg.get("matches") or []:
+                    found.append(m)
+    if found:
+        print(f"  경기 한 줄: {json.dumps(found[0], ensure_ascii=False)[:500]}")
+    for m in found[:8]:
+        st = m.get("status") or {}
+        print(f"   - {(m.get('home') or {}).get('name')} (id {(m.get('home') or {}).get('id')}) vs {(m.get('away') or {}).get('name')} · {st.get('utcTime')} · 시작 {st.get('started')} · 끝 {st.get('finished')}")
     shown = 0
-    for d, name, m in found:
+    for m in found:
         body, st = jget("https://www.fotmob.com/api/data/matchDetails", {"matchId": m.get("id")}, FH)
         lu = ((body or {}).get("content") or {}).get("lineup") or {}
         ht = lu.get("homeTeam") or {}
-        if not ht.get("starters"):
-            continue
-        print(f"\n  ▶ {(m.get('home') or {}).get('name')} vs {(m.get('away') or {}).get('name')} · 라인업 유형 {lu.get('lineupType')} · 선발 {len(ht.get('starters') or [])} · 교체 {len(ht.get('subs') or [])}")
-        print(f"     팀 키: {list(ht.keys())[:14]}")
-        for p in (ht.get("starters") or [])[:2]:
-            print(f"     선발 예: {json.dumps(p, ensure_ascii=False)[:420]}")
-        for p in (ht.get("subs") or [])[:1]:
-            print(f"     교체 예: {json.dumps(p, ensure_ascii=False)[:300]}")
-        shown += 1
+        print(f"\n  ▶ {(m.get('home') or {}).get('name')} vs {(m.get('away') or {}).get('name')} · 상세 HTTP {st} · 라인업 유형 {lu.get('lineupType')} · 선발 {len(ht.get('starters') or [])} · 교체 {len(ht.get('subs') or [])} · 결장 {len(ht.get('unavailable') or [])}")
+        if ht.get("starters"):
+            print(f"     팀 키: {list(ht.keys())[:16]}")
+            for p in (ht.get("starters") or [])[:2]:
+                print(f"     선발 예: {json.dumps(p, ensure_ascii=False)[:450]}")
+            for p in (ht.get("subs") or [])[:1]:
+                print(f"     교체 예: {json.dumps(p, ensure_ascii=False)[:300]}")
+            shown += 1
         if shown >= 2:
             break
     if not shown:
-        print("  - 라인업이 나온 일왕배 경기를 아직 못 찾음 (경기 1시간 전쯤 발표)")
+        print("  - 아직 라인업이 나온 경기가 없어요 (경기 1시간 전쯤 발표)")
+    # 팀 정보 (최근 경기 목록이 있는지: 몇 군 판정용)
+    if found:
+        tid = (found[0].get("home") or {}).get("id")
+        body, st = jget("https://www.fotmob.com/api/data/teams", {"id": tid}, FH)
+        print(f"\n  팀 정보 HTTP {st} · 키: {list((body or {}).keys())[:14]}")
+        fx = (body or {}).get("fixtures") or {}
+        print(f"  fixtures 키: {list(fx.keys())[:10] if isinstance(fx, dict) else type(fx).__name__}")
+        allf = (((fx.get("allFixtures") or {}) if isinstance(fx, dict) else {}).get("fixtures")) or []
+        done = [f for f in allf if (f.get("status") or {}).get("finished")]
+        print(f"  지난 경기 {len(done)}개 · 예: {json.dumps(done[-1], ensure_ascii=False)[:300] if done else '-'}")
 
 
 def safe(fn):
@@ -157,7 +166,6 @@ def safe(fn):
 
 
 def main():
-    safe(emperor_espn)
     safe(emperor_fotmob)
     print()
     print("점검 끝. 위 내용을 그대로 복사해서 보내주면 됩니다.")
