@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""10차 소스 점검 (읽기만 함): 네이버 MLB — 팀 이름 표기와 라인업의 한국어 선수 이름.
+"""11차 소스 점검 (읽기만 함): 일왕배 — ESPN 대회 코드가 있는지, 풋몹 라인업 모양.
 
 1) KBO: 끝난 경기·오늘 경기에서 라인업·타순·선발투수·선수 기록이 어디서 어떤 모양으로 오는지
 2) 풋몹: 결장자(unavailable) 항목 모양, 라인업 발표 전에도 결장자 명단이 있는지, 팀 이름 표기
@@ -84,38 +84,69 @@ def kbo():
 
 
 # ---------------------------------------------------------------- 풋몹
-def mlb_naver():
-    head("1) 네이버 MLB — 팀 이름 표기 · 라인업(한국어 선수 이름) 모양")
-    body, st = jget(f"{NAVER}/schedule/games", {"fields": "basic,superCategoryId,categoryName", "upperCategoryId": "wbaseball",
-                                                "fromDate": (TODAY - timedelta(days=2)).isoformat(), "toDate": (TODAY + timedelta(days=1)).isoformat(),
-                                                "size": 500}, NH)
-    games = [g for g in ((body or {}).get("result") or {}).get("games") or [] if g.get("categoryId") == "mlb"]
-    print(f"  목록 HTTP {st} · MLB {len(games)}경기")
-    teams = sorted({(g.get("homeTeamCode"), g.get("homeTeamName")) for g in games} | {(g.get("awayTeamCode"), g.get("awayTeamName")) for g in games})
-    print("  팀 표기(코드, 이름):", teams[:40])
-    if games:
-        print(f"  목록 한 줄: {json.dumps(games[0], ensure_ascii=False)[:420]}")
-    done = next((g for g in reversed(games) if g.get("statusCode") == "RESULT"), None)
-    soon = next((g for g in games if g.get("statusCode") in ("BEFORE", "READY", "STARTED")), None)
-    for label, g in (("끝난 경기", done), ("예정·진행 경기", soon)):
-        if not g:
-            print(f"\n  - {label} 없음")
+ESPN_WEB = "https://site.web.api.espn.com/apis/site/v2/sports/soccer"
+ESPN_PARAMS = {"region": "us", "lang": "en", "contentorigin": "espn"}
+
+
+def emperor_espn():
+    head("1) ESPN — 일본 대회 코드 찾기 (일왕배가 있는지)")
+    body, st = jget("https://sports.core.api.espn.com/v2/sports/soccer/leagues", {"limit": 1000})
+    refs = [(i or {}).get("$ref", "") for i in ((body or {}).get("items") or [])]
+    slugs = sorted({r.split("/leagues/")[1].split("?")[0] for r in refs if "/leagues/" in r})
+    jp = [x for x in slugs if "jpn" in x or "japan" in x]
+    print(f"  리그 목록 HTTP {st} · 전체 {len(slugs)}개 · 일본 관련: {jp}")
+    cands = jp + ["jpn.emperors_cup", "jpn.emperor_cup", "jpn.cup", "jpn.emperors.cup", "jpn.league_cup"]
+    for slug in dict.fromkeys(cands):
+        for back in (0, 1, -1):
+            d = (TODAY + timedelta(days=back)).strftime("%Y%m%d")
+            b2, s2 = jget(f"{ESPN_WEB}/{slug}/scoreboard", dict(ESPN_PARAMS, dates=d))
+            evs = (b2 or {}).get("events") or []
+            if s2 == 200 and evs:
+                lg = ((b2.get("leagues") or [{}])[0]).get("name")
+                print(f"  O {slug} {d}: {lg} · {len(evs)}경기 · 예: {evs[0].get('name')}")
+                ev = evs[0]
+                b3, s3 = jget(f"{ESPN_WEB}/{slug}/summary", dict(ESPN_PARAMS, event=ev.get("id")))
+                ro = (b3 or {}).get("rosters") or []
+                print(f"     summary HTTP {s3} · 라인업 팀 {len(ro)} · 선수 {[len(r.get('roster') or []) for r in ro]}")
+                break
+        else:
+            print(f"  X {slug}: 경기 없음 또는 없는 코드")
+
+
+def emperor_fotmob():
+    head("2) 풋몹 — 일왕배(Emperor Cup) 경기와 라인업 모양")
+    found = []
+    for back in (0, 1, -1, 2):
+        d = (TODAY + timedelta(days=back)).strftime("%Y%m%d")
+        body, st = jget("https://www.fotmob.com/api/data/matches", {"date": d}, FH)
+        for lg in (body or {}).get("leagues") or []:
+            name = str(lg.get("name") or "")
+            if "emperor" in name.lower() or (lg.get("ccode") == "JPN"):
+                print(f"  {d} 리그: {name} (id {lg.get('primaryId') or lg.get('id')}, ccode {lg.get('ccode')}) · {len(lg.get('matches') or [])}경기")
+                if "emperor" in name.lower():
+                    for m in lg.get("matches") or []:
+                        found.append((d, name, m))
+    print(f"  일왕배 경기 {len(found)}개")
+    for d, name, m in found[:6]:
+        print(f"   - {d} {(m.get('home') or {}).get('name')} vs {(m.get('away') or {}).get('name')} · {(m.get('status') or {}).get('utcTime')} · id {m.get('id')}")
+    shown = 0
+    for d, name, m in found:
+        body, st = jget("https://www.fotmob.com/api/data/matchDetails", {"matchId": m.get("id")}, FH)
+        lu = ((body or {}).get("content") or {}).get("lineup") or {}
+        ht = lu.get("homeTeam") or {}
+        if not ht.get("starters"):
             continue
-        gid = g["gameId"]
-        print(f"\n  ▶ {label}: {g.get('awayTeamName')} @ {g.get('homeTeamName')} ({g.get('gameDateTime')}) gameId={gid}")
-        b2, s2 = jget(f"{NAVER}/schedule/games/{gid}/preview", headers=NH)
-        pv = ((b2 or {}).get("result") or {}).get("previewData") or {}
-        for side in ("home", "away"):
-            fl = ((pv.get(f"{side}TeamLineUp") or {}).get("fullLineUp") or [])
-            stn = ((pv.get(f"{side}Starter") or {}).get("playerInfo") or {})
-            print(f"     preview {side}: 라인업 {len(fl)}명 · 선발 {stn.get('name')} ({stn.get('pCode')})")
-            for x in fl[:3]:
-                print(f"        {json.dumps(x, ensure_ascii=False)[:230]}")
-        b3, s3 = jget(f"{NAVER}/schedule/games/{gid}/record", headers=NH)
-        bx = (((b3 or {}).get("result") or {}).get("recordData") or {}).get("battersBoxscore") or {}
-        for side in ("home", "away"):
-            rows = bx.get(side) or []
-            print(f"     record {side}: 타자 {len(rows)}명 · 예: {json.dumps(rows[0], ensure_ascii=False)[:200] if rows else '-'}")
+        print(f"\n  ▶ {(m.get('home') or {}).get('name')} vs {(m.get('away') or {}).get('name')} · 라인업 유형 {lu.get('lineupType')} · 선발 {len(ht.get('starters') or [])} · 교체 {len(ht.get('subs') or [])}")
+        print(f"     팀 키: {list(ht.keys())[:14]}")
+        for p in (ht.get("starters") or [])[:2]:
+            print(f"     선발 예: {json.dumps(p, ensure_ascii=False)[:420]}")
+        for p in (ht.get("subs") or [])[:1]:
+            print(f"     교체 예: {json.dumps(p, ensure_ascii=False)[:300]}")
+        shown += 1
+        if shown >= 2:
+            break
+    if not shown:
+        print("  - 라인업이 나온 일왕배 경기를 아직 못 찾음 (경기 1시간 전쯤 발표)")
 
 
 def safe(fn):
@@ -126,7 +157,8 @@ def safe(fn):
 
 
 def main():
-    safe(mlb_naver)
+    safe(emperor_espn)
+    safe(emperor_fotmob)
     print()
     print("점검 끝. 위 내용을 그대로 복사해서 보내주면 됩니다.")
     return 0
