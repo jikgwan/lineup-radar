@@ -1013,6 +1013,35 @@ def mlb_team_history(client, results):
     return history
 
 
+NAVER_MLB_FIX = {"시카고화이트삭스": "시카고w", "시카고컵스": "시카고컵스"}
+
+
+def _compact(name):
+    t = str(name or "").replace(" ", "").lower()
+    return NAVER_MLB_FIX.get(t, t)
+
+
+def naver_mlb_starters(client, game):
+    """네이버 MLB 미리보기의 한국어 선발투수 이름 {"home": "로돈", "away": "마르티네즈"} (못 찾으면 {})."""
+    start = to_kst(game["start_kst"])
+    if not start:
+        return {}
+    day = start.date()
+    data = naver_schedule(client, "wbaseball", day, day, kst_now().date())
+    for g in (((data or {}).get("result") or {}).get("games") or []):
+        if g.get("categoryId") != "mlb":
+            continue
+        if _compact(g.get("homeTeamName")) == _compact(game["home"]["name"]) and _compact(g.get("awayTeamName")) == _compact(game["away"]["name"]):
+            pv = client.get_json(f"{NAVER_API}/schedule/games/{g['gameId']}/preview", cache_key=f"nvpv_{g['gameId']}", ttl=3600)
+            out = {}
+            for side in ("home", "away"):
+                sp = parse_kbo_preview(pv or {}, side).get("sp") or {}
+                if sp.get("name"):
+                    out[side] = sp["name"]
+            return out
+    return {}
+
+
 def mlb_starter(client, pitcher, season, game_day):
     """선발투수: 시즌 기록·좌우·최근 3경기·휴식일."""
     if not pitcher:
@@ -1243,6 +1272,11 @@ def build_mlb_detail(client, game, now):
     if not (lineups.get("home") or lineups.get("away")):
         return {"lineup_ready": False, "note": "아직 선발 라인업이 나오지 않았습니다."}
 
+    try:
+        ko_sp = naver_mlb_starters(client, game)
+    except Exception as exc:                            # 네이버가 막혀도 영어 이름으로 계속
+        ko_sp = {}
+        print(f"  ! 네이버 MLB 선발 이름 실패: {exc}", file=sys.stderr)
     teams = {}
     for side in ("home", "away"):
         lineup = lineups.get(side) or []
@@ -1284,6 +1318,8 @@ def build_mlb_detail(client, game, now):
         result["pitcher"] = mlb_pitcher_card(client, (game.get("probables") or {}).get(side), season)
         game_day = (to_kst(game["start_kst"]) or now).date()
         sp = mlb_starter(client, (game.get("probables") or {}).get(side), season, game_day)
+        if sp and ko_sp.get(side):                      # 네이버의 한국어 선발 이름 (영어 원래 이름은 따로 보관)
+            sp["name_en"], sp["name"] = sp.get("name"), ko_sp[side]
         pen = mlb_bullpen(client, game[side]["id"], season, info.get("results") or [], game_day) if game[side]["id"] else {}
         bats = info.get("bats") or {}
         hands = [bats.get(p["id"], "") for p in lineup]
