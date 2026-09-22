@@ -172,6 +172,24 @@ button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
 .pwvs b.hi{color:var(--led)}
 .pwvs .vs{font-size:12px;color:var(--mute)}
 
+/* 야구 투수 */
+.sp{background:#0F1210;border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.sp .who{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--mute)}
+.sp .nm{font-family:var(--display);font-size:21px;line-height:1.15;overflow-wrap:anywhere}
+.hand{font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(92,200,255,.15);color:var(--g1);white-space:nowrap}
+.hand.L{background:rgba(255,178,62,.16);color:var(--led)}
+.sp .kv{display:grid;grid-template-columns:auto 1fr;gap:3px 8px;font-size:12px}
+.sp .kv span:nth-child(odd){color:var(--mute)}
+.sp .kv span:nth-child(even){font-family:var(--mono);font-weight:600}
+.starts{display:flex;flex-direction:column;gap:4px;margin-top:2px}
+.starts div{display:flex;justify-content:space-between;font-size:11px;font-family:var(--mono)}
+.starts div span:first-child{color:var(--mute)}
+.starts .bad{color:var(--loss)} .starts .good{color:var(--win)}
+.exp{display:flex;justify-content:space-between;align-items:baseline;margin-top:12px;padding:10px 12px;background:#0F1210;border:1px solid var(--line);border-radius:10px}
+.exp span{font-size:12px;color:var(--mute)}
+.exp b{font-family:var(--mono);font-size:18px}
+.bats{font-size:12px;color:var(--mute);margin-top:8px;line-height:1.6}
+
 /* 에이스 */
 .aces{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .ace{background:#0F1210;border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;min-width:0}
@@ -510,6 +528,9 @@ button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
       });
       view.append(s);
     }
+    if (g.sport === "야구"){
+      mlbCards(d, T, g).forEach(c => view.append(c));
+    }
     const lpc = lineupPowerCard(d, T, g);
     if (lpc) view.append(lpc);
     const ac = aceCard(T, g);
@@ -692,6 +713,85 @@ button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
     return s;
   }
 
+  // ---------------------------------------------------------------- 야구: 선발 맞대결 · 불펜 · 오늘 전력
+  function mlbCards(d, T, g){
+    const out = [];
+    const P = (side) => (T[side] && T[side].pitching) || {};
+    const fmt = (v, n = 2) => (v == null || isNaN(v)) ? "-" : Number(v).toFixed(n);
+
+    // 선발 맞대결
+    const s1 = section("PITCHING · 선발 맞대결", "시즌 기록 · 최근 3경기");
+    const grid = el("div","aces");
+    ["home","away"].forEach(side => {
+      const sp = P(side).sp;
+      const c = el("div","sp");
+      const who = el("div","who"); who.append(el("span", null, g[side]));
+      if (sp && sp.hand) who.append(el("span","hand " + sp.hand, sp.hand === "L" ? "좌완" : sp.hand === "R" ? "우완" : sp.hand));
+      c.append(who);
+      if (!sp || !sp.name){ c.append(el("div","nm","선발 미정")); grid.append(c); return; }
+      c.append(el("div","nm", sp.name));
+      const kv = el("div","kv");
+      [["ERA", fmt(sp.era)], ["FIP", fmt(sp.fip)], ["WHIP", fmt(sp.whip)],
+       ["선발", sp.gs ? `${sp.gs}경기 · ${fmt(sp.ip_per_start, 1)}이닝` : "-"],
+       ["휴식", sp.rest_days != null ? `${sp.rest_days}일` : "-"],
+       ["최근3", sp.recent_era != null ? `ERA ${fmt(sp.recent_era)}` : "-"]].forEach(([k, v]) => kv.append(el("span", null, k), el("span", null, v)));
+      c.append(kv);
+      const st = el("div","starts");
+      (sp.recent || []).forEach(r => {
+        const row = el("div");
+        row.append(el("span", null, `${r.date.slice(5).replace("-", "/")} ${r.opp || ""}`.slice(0, 18)));
+        row.append(el("span", r.er >= 4 ? "bad" : (r.ip >= 6 && r.er <= 2 ? "good" : null), `${r.ip}이닝 ${r.er}자책`));
+        st.append(row);
+      });
+      c.append(st);
+      grid.append(c);
+    });
+    s1.append(grid);
+    s1.append(el("p","note","FIP = 삼진·볼넷·홈런만으로 본 투수 실력(운 영향을 덜 받음) · 최근 3경기: 초록 6이닝 2자책 이하, 빨강 4자책 이상"));
+    out.push(s1);
+
+    // 불펜 상태
+    const s2 = section("BULLPEN · 불펜 상태", "낮을수록 좋음");
+    const nm = el("div","pw-names"); nm.append(el("span", null, g.home), el("span", null, g.away)); s2.append(nm);
+    const ph = P("home").pen || {}, pa = P("away").pen || {};
+    s2.append(mirrorRow("불펜 ERA", ph.era, pa.era, fmt(ph.era), fmt(pa.era), true));
+    s2.append(mirrorRow("최근 3일 투구수", ph.pitches_3d, pa.pitches_3d, ph.pitches_3d != null ? ph.pitches_3d + "구" : "-", pa.pitches_3d != null ? pa.pitches_3d + "구" : "-", true));
+    s2.append(mirrorRow("이틀 연속 등판", ph.b2b, pa.b2b, ph.b2b != null ? ph.b2b + "명" : "-", pa.b2b != null ? pa.b2b + "명" : "-", true));
+    const basis = [ph.basis, pa.basis].filter(Boolean);
+    s2.append(el("p","note", `평소 불펜은 3일에 약 420구를 던져요. 많이 던졌을수록 오늘 불펜이 지쳐 있어요.${basis.includes("팀 전체") ? " · 불펜 기록이 없는 팀은 팀 전체 평균자책을 씀" : ""}`));
+    out.push(s2);
+
+    // 오늘 전력 (투수 중심)
+    const pw = d.power;
+    if (pw && pw.mode === "mlb"){
+      const s3 = section("TODAY POWER · 오늘 전력", "선발·불펜·타선 합산");
+      const sh = el("div","lp-share");
+      sh.append(el("div","n h", pw.home), el("div","t", `${g.home} : ${g.away}`), el("div","n a", pw.away));
+      s3.append(sh);
+      const sp2 = el("div","lp-split"); const hi = el("i","h"); hi.style.width = pw.home + "%"; sp2.append(hi, el("i","a")); s3.append(sp2);
+      s3.append(el("div","lp-verdict", pw.verdict));
+      const ex = el("div","exp");
+      ex.append(el("span", null, "예상 득점"), el("b", null, `${fmt(pw.exp_home, 1)} : ${fmt(pw.exp_away, 1)}`), el("span", null, `합계 ${fmt(pw.exp_total, 1)}`));
+      s3.append(ex);
+      s3.append(el("div","sub","계산 근거"));
+      const nm2 = el("div","pw-names"); nm2.append(el("span", null, g.home), el("span", null, g.away)); s3.append(nm2);
+      s3.append(mirrorRow("타선 경기당 득점", P("home").off_rpg, P("away").off_rpg, fmt(P("home").off_rpg), fmt(P("away").off_rpg)));
+      s3.append(mirrorRow("9이닝 예상 실점", pw.allowed_home, pw.allowed_away, fmt(pw.allowed_home), fmt(pw.allowed_away), true));
+      s3.append(mirrorRow("선발 타선 주전", T.home.core_in, T.away.core_in, `${T.home.core_in}/9`, `${T.away.core_in}/9`));
+      const bt = (side, opp) => {
+        const b = P(side).bats || {}, sp = P(opp).sp || {};
+        if (!((b.L || 0) + (b.R || 0) + (b.S || 0))) return "";
+        const hand = sp.hand === "L" ? "좌완" : sp.hand === "R" ? "우완" : "";
+        return `${g[side]} 타선 좌${b.L || 0}·우${b.R || 0}${b.S ? "·양" + b.S : ""}${hand ? ` vs 상대 선발 ${hand}` : ""}`;
+      };
+      const btxt = [bt("home","away"), bt("away","home")].filter(Boolean).join(" · ");
+      if (btxt) s3.append(el("div","bats", btxt));
+      s3.append(el("p","note","예상 실점 = 선발 기록(시즌 FIP 50%·ERA 30%·최근 3경기 20%)을 선발 이닝만큼 + 불펜(피로하면 가산) · 비율은 야구 승률 공식과 홈 이점으로 계산한 참고값이에요. 승률과는 달라요"));
+      out.push(s3);
+    }
+    return out;
+  }
+
   // ---------------------------------------------------------------- 에이스 · 최근 분위기
   const ACE_STATUS = {"선발": ["오늘 선발","on"], "벤치": ["오늘 벤치","bench"], "명단 제외": ["명단 제외","out"]};
 
@@ -765,7 +865,7 @@ button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
     const sport = g.sport;
     const [gl, al] = labelsOf(t, sport);
 
-    if (t.pitcher){
+    if (t.pitcher && !t.pitching){
       const p = t.pitcher, bits = [];
       if (p.starts != null) bits.push(`시즌 ${p.starts}선발`);
       if (p.era != null) bits.push(`ERA ${p.era}`);
