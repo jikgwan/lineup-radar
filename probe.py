@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""15차 소스 점검 (읽기만 함): ESPN 축구 대회 전체 목록 — 배트맨 토토 대회를 설정에 넣기 위해.
+"""16차 소스 점검 (읽기만 함): 위키데이터에 선수 한국어 이름이 얼마나 있나 (리그별 표본 50명).
 
 1) KBO: 끝난 경기·오늘 경기에서 라인업·타순·선발투수·선수 기록이 어디서 어떤 모양으로 오는지
 2) 풋몹: 결장자(unavailable) 항목 모양, 라인업 발표 전에도 결장자 명단이 있는지, 팀 이름 표기
@@ -84,65 +84,48 @@ def kbo():
 
 
 # ---------------------------------------------------------------- 풋몹
-ESPN_WEB = "https://site.web.api.espn.com/apis/site/v2/sports/soccer"
-ESPN_PARAMS = {"region": "us", "lang": "en", "contentorigin": "espn"}
+SAMPLES = {
+    "유럽 주요 리그": ["Erling Haaland", "Bukayo Saka", "Jude Bellingham", "Lamine Yamal", "Rafael Leao",
+                   "Florian Wirtz", "Ousmane Dembele", "Virgil van Dijk", "Alexander Isak", "Pedri"],
+    "걸프·중동 대표팀": ["Aymen Hussein", "Ali Jasim", "Zaid Tahseen", "Issam Al-Sabhi", "Abdulaziz Al-Ghanim",
+                   "Salem Al-Dawsari", "Sultan Al-Ghannam", "Ali Al-Bulaihi", "Mohanad Ali", "Muhsen Al-Ghassani"],
+    "사우디 리그": ["Aleksandar Mitrovic", "Malcom", "Ruben Neves", "Karim Benzema", "Sadio Mane",
+                "Riyad Mahrez", "Roberto Firmino", "Ivan Toney", "Franck Kessie", "Moussa Diaby"],
+    "중국 슈퍼리그": ["Wu Lei", "Zhang Yuning", "Wei Shihao", "Oscar", "Cesar Aguilar",
+                 "Serginho", "Leonardo", "Fernandinho", "Wang Dalei", "Zhu Chenjie"],
+    "남미 리그": ["Pedro", "Gabriel Barbosa", "Hulk", "Paulinho", "Miguel Borja",
+               "Edinson Cavani", "Angel Di Maria", "Luis Suarez", "Everton Ribeiro", "Marcos Rojo"],
+}
 
 
-def emperor_espn():
-    head("1) ESPN — 일본 대회 코드 찾기 (일왕배가 있는지)")
-    body, st = jget("https://sports.core.api.espn.com/v2/sports/soccer/leagues", {"limit": 1000})
-    refs = [(i or {}).get("$ref", "") for i in ((body or {}).get("items") or [])]
-    slugs = sorted({r.split("/leagues/")[1].split("?")[0] for r in refs if "/leagues/" in r})
-    jp = [x for x in slugs if "jpn" in x or "japan" in x]
-    print(f"  리그 목록 HTTP {st} · 전체 {len(slugs)}개 · 일본 관련: {jp}")
-    cands = jp + ["jpn.emperors_cup", "jpn.emperor_cup", "jpn.cup", "jpn.emperors.cup", "jpn.league_cup"]
-    for slug in dict.fromkeys(cands):
-        for back in (0, 1, -1):
-            d = (TODAY + timedelta(days=back)).strftime("%Y%m%d")
-            b2, s2 = jget(f"{ESPN_WEB}/{slug}/scoreboard", dict(ESPN_PARAMS, dates=d))
-            evs = (b2 or {}).get("events") or []
-            if s2 == 200 and evs:
-                lg = ((b2.get("leagues") or [{}])[0]).get("name")
-                print(f"  O {slug} {d}: {lg} · {len(evs)}경기 · 예: {evs[0].get('name')}")
-                ev = evs[0]
-                b3, s3 = jget(f"{ESPN_WEB}/{slug}/summary", dict(ESPN_PARAMS, event=ev.get("id")))
-                ro = (b3 or {}).get("rosters") or []
-                print(f"     summary HTTP {s3} · 라인업 팀 {len(ro)} · 선수 {[len(r.get('roster') or []) for r in ro]}")
-                break
-        else:
-            print(f"  X {slug}: 경기 없음 또는 없는 코드")
-
-
-ESPN_WEB = "https://site.web.api.espn.com/apis/site/v2/sports/soccer"
-ESPN_PARAMS = {"region": "us", "lang": "en", "contentorigin": "espn"}
-KEYS = ("gulf", "arab", "asian", "cup", "copa", "coupe", "pokal", "league", "liga", "serie", "division",
-        "primera", "super", "champion", "eredivisie", "bundesliga", "premier")
-
-
-def espn_all_leagues():
-    head("ESPN 축구 대회 전체 목록 (배트맨 토토에 올라오는 대회를 고르기 위해)")
-    body, st = jget("https://sports.core.api.espn.com/v2/sports/soccer/leagues", {"limit": 1000})
-    refs = [(i or {}).get("$ref", "") for i in ((body or {}).get("items") or [])]
-    slugs = sorted({r.split("/leagues/")[1].split("?")[0] for r in refs if "/leagues/" in r})
-    print(f"  목록 HTTP {st} · {len(slugs)}개")
-    print("\n  [전체 코드]")
-    for i in range(0, len(slugs), 6):
-        print("   ", " · ".join(slugs[i:i + 6]))
-    # 오늘·내일 경기가 있는 대회만 이름까지 확인 (돌아가는 대회 위주로 고르기)
-    print("\n  [오늘·내일 경기가 있는 대회]")
-    live = []
-    for slug in slugs:
-        for back in (0, 1):
-            d = (TODAY + timedelta(days=back)).strftime("%Y%m%d")
-            b2, s2 = jget(f"{ESPN_WEB}/{slug}/scoreboard", dict(ESPN_PARAMS, dates=d))
-            evs = (b2 or {}).get("events") or []
-            if s2 == 200 and evs:
-                name = ((b2.get("leagues") or [{}])[0]).get("name") or ""
-                live.append((slug, name, len(evs)))
-                break
-    for slug, name, n in live:
-        print(f"   {slug:28} {name}  ({n}경기)")
-    print(f"\n  경기가 있는 대회 {len(live)}개 · 요청 {len(slugs) * 1}건 안팎")
+def wikidata_names():
+    head("위키데이터 — 선수 이름이 한국어로 얼마나 있나 (리그별 표본)")
+    api = "https://www.wikidata.org/w/api.php"
+    total_ok = total_n = 0
+    for group, names in SAMPLES.items():
+        ok, lines = 0, []
+        for name in names:
+            body, st = jget(api, {"action": "wbsearchentities", "search": name, "language": "en",
+                                  "uselang": "ko", "type": "item", "limit": 3, "format": "json"})
+            hits = (body or {}).get("search") or []
+            player = next((h for h in hits if "football" in str(h.get("description") or "").lower()
+                           or "축구" in str(h.get("description") or "")), hits[0] if hits else None)
+            ko = None
+            if player:
+                b2, s2 = jget(api, {"action": "wbgetentities", "ids": player.get("id"), "props": "labels",
+                                    "languages": "ko", "format": "json"})
+                ent = ((b2 or {}).get("entities") or {}).get(player.get("id")) or {}
+                ko = ((ent.get("labels") or {}).get("ko") or {}).get("value")
+            if ko:
+                ok += 1
+            lines.append(f"     {name:24} → {ko or '(없음)'}")
+        total_ok += ok
+        total_n += len(names)
+        print(f"\n  ▶ {group}: {ok}/{len(names)} 한국어 이름 있음")
+        for line in lines:
+            print(line)
+    print(f"\n  전체: {total_ok}/{total_n} ({round(100 * total_ok / max(1, total_n))}%)")
+    print("  · 절반을 넘으면 붙일 만하고, 낮으면 네이버가 있는 리그만 한국어로 하는 게 나아요.")
 
 
 def safe(fn):
@@ -153,7 +136,7 @@ def safe(fn):
 
 
 def main():
-    safe(espn_all_leagues)
+    safe(wikidata_names)
     print()
     print("점검 끝. 위 내용을 그대로 복사해서 보내주면 됩니다.")
     return 0
