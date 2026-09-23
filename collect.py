@@ -68,7 +68,8 @@ from parse import (
 ROOT = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(ROOT, "docs", "data")
 GAME_DIR = os.path.join(DATA_DIR, "games")
-ARCHIVE_DIR = os.path.join(ROOT, "archive")    # 경기 전 판정 + 실제 결과 영구 기록 (백테스트·점수 조정용)
+ARCHIVE_DIR = os.path.join(ROOT, "archive")
+DETAIL_ARCHIVE = os.path.join(ARCHIVE_DIR, "details")   # 끝난 경기의 상세 판정 영구 보관 (나중에 xG·선수 기여도 분석용)    # 경기 전 판정 + 실제 결과 영구 기록 (백테스트·점수 조정용)
 CACHE_DIR = os.path.join(ROOT, "cache")
 
 # ESPN: 깃허브 서버에서는 site.api 주소가 막히고(403) site.web 주소는 열린다 (2026-09 소스 점검 결과).
@@ -1743,6 +1744,25 @@ def snapshot(game, detail):
     }
 
 
+def keep_detail(game, detail):
+    """끝난 경기의 상세를 월별 폴더에 보관한다. 화면용 파일은 3일 뒤 지워지지만 이건 남긴다."""
+    if game.get("state") != "post" or not detail or not detail.get("lineup_ready"):
+        return False
+    start = to_kst(game.get("start_kst"))
+    month = start.strftime("%Y-%m") if start else "unknown"
+    folder = os.path.join(DETAIL_ARCHIVE, month)
+    path = os.path.join(folder, game_filename(game["key"]))
+    if os.path.exists(path):
+        return False
+    os.makedirs(folder, exist_ok=True)
+    body = {"game": {k: game.get(k) for k in ("key", "sport", "league", "league_slug", "start_kst", "state", "national")},
+            "home": game["home"].get("name"), "away": game["away"].get("name"),
+            "score": [game["home"].get("score"), game["away"].get("score")],
+            "saved_at": kst_now().isoformat(), "detail": detail}
+    write_json(path, body)
+    return True
+
+
 def archive_path(start_kst):
     month = (start_kst or "")[:7] or "unknown"
     return os.path.join(ARCHIVE_DIR, f"{month}.jsonl")
@@ -1893,7 +1913,18 @@ def run(verbose=False):
     except Exception as exc:   # 기록장이 실패해도 화면 데이터는 계속 만든다
         print(f"  ! 기록장 저장 실패: {exc}", file=sys.stderr)
 
-    prune(GAME_DIR, 3)      # 3일 지난 경기 상세는 삭제
+    kept = 0
+    for g in games:                                  # 끝난 경기 상세는 영구 보관 (xG·선수 기여도 분석 대비)
+        d = details.get(g["key"])
+        try:
+            if d and keep_detail(g, d):
+                kept += 1
+        except Exception as exc:
+            print(f"  ! 상세 보관 실패: {exc}", file=sys.stderr)
+    if kept:
+        print(f"  · 끝난 경기 상세 {kept}개 보관", flush=True)
+
+    prune(GAME_DIR, 3)      # 3일 지난 경기 상세는 삭제 (보관본은 archive/details에 남음)
     prune(CACHE_DIR, 30)    # 30일 지난 캐시는 삭제
 
     write_json(
