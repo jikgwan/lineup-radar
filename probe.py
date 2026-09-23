@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""13차 소스 점검 (읽기만 함): 일왕배 — 발표된 라인업의 실제 표시값 확인 (왜 대기로 보이는지).
+"""14차 소스 점검 (읽기만 함): 일왕배 라인업을 풋몹 말고 어디서 더 빨리 받을 수 있나 (네이버·소파스코어·JFA 공식).
 
 1) KBO: 끝난 경기·오늘 경기에서 라인업·타순·선발투수·선수 기록이 어디서 어떤 모양으로 오는지
 2) 풋몹: 결장자(unavailable) 항목 모양, 라인업 발표 전에도 결장자 명단이 있는지, 팀 이름 표기
@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from datetime import date, timedelta
 
@@ -113,30 +114,65 @@ def emperor_espn():
             print(f"  X {slug}: 경기 없음 또는 없는 코드")
 
 
-def emperor_fotmob():
-    head("일왕배 — 발표된 라인업의 실제 표시(lineupType)와 우리 판정 기준 확인")
-    found = []
-    for back in (0, -1):
-        d = (TODAY + timedelta(days=back)).strftime("%Y%m%d")
-        body, st = jget("https://www.fotmob.com/api/data/matches", {"date": d}, FH)
-        for lg in (body or {}).get("leagues") or []:
-            if lg.get("primaryId") == 9011 or lg.get("id") == 9011:
-                for m in lg.get("matches") or []:
-                    found.append((d, m))
-    print(f"  일왕배 경기 {len(found)}개")
-    for d, m in found:
-        st2 = m.get("status") or {}
-        body, sc = jget("https://www.fotmob.com/api/data/matchDetails", {"matchId": m.get("id")}, FH)
-        content = (body or {}).get("content") or {}
-        lu = content.get("lineup") or {}
-        ht, at = lu.get("homeTeam") or {}, lu.get("awayTeam") or {}
-        print(f"\n  ▶ {(m.get('home') or {}).get('name')} vs {(m.get('away') or {}).get('name')} "
-              f"· 시작 {st2.get('started')} 끝 {st2.get('finished')} · 상세 HTTP {sc}")
-        print(f"     lineup 키: {list(lu.keys())[:12]}")
-        print(f"     lineupType = {lu.get('lineupType')!r} · usingEnrichedData={lu.get('usingEnrichedData')} · 선발 홈 {len(ht.get('starters') or [])} 원정 {len(at.get('starters') or [])}")
-        print(f"     우리 기준(lineupType이 'lastStarting11'이 아니면 발표)으로는: {'발표로 봄' if str(lu.get('lineupType')) not in ('', 'None', 'lastStarting11') else '아직 대기로 봄'}")
-        if not lu:
-            print(f"     content 키: {list(content.keys())[:12]}")
+def naver_cup():
+    head("1) 네이버 — 오늘·내일 축구 대회 목록에 일왕배가 있나")
+    for upper in ("kfootball", "wfootball"):
+        cats = {}
+        for back in (0, 1):
+            d = (TODAY + timedelta(days=back)).isoformat()
+            body, st = jget(f"{NAVER}/schedule/games", {"fields": "basic,categoryName", "upperCategoryId": upper,
+                                                        "fromDate": d, "toDate": d, "size": 500}, NH)
+            for g in ((body or {}).get("result") or {}).get("games") or []:
+                cats.setdefault((g.get("categoryId"), g.get("categoryName")), 0)
+                cats[(g.get("categoryId"), g.get("categoryName"))] += 1
+        print(f"  {upper} HTTP {st} · 대회: {sorted(cats.items(), key=lambda x: -x[1])[:14]}")
+
+
+def sofascore_cup():
+    head("2) 소파스코어 — 접속 가능한지 · 일왕배 라인업이 있는지")
+    d = TODAY.isoformat()
+    body, st = jget(f"https://api.sofascore.com/api/v1/sport/football/scheduled-events/{d}",
+                    headers={"Referer": "https://www.sofascore.com/"})
+    evs = (body or {}).get("events") or []
+    print(f"  일정 HTTP {st} · 경기 {len(evs)}개")
+    cup = [e for e in evs if "emperor" in str(((e.get("tournament") or {}).get("name") or "")).lower()
+           or "天皇" in str(((e.get("tournament") or {}).get("name") or ""))]
+    print(f"  일왕배로 보이는 경기 {len(cup)}개")
+    for e in cup[:3]:
+        eid = e.get("id")
+        print(f"   - {((e.get('homeTeam') or {}).get('name'))} vs {((e.get('awayTeam') or {}).get('name'))} (id {eid}) · 상태 {((e.get('status') or {}).get('description'))}")
+        b2, s2 = jget(f"https://api.sofascore.com/api/v1/event/{eid}/lineups", headers={"Referer": "https://www.sofascore.com/"})
+        if s2 == 200 and b2:
+            hp = ((b2.get("home") or {}).get("players") or [])
+            print(f"     라인업 HTTP {s2} · 확정 {b2.get('confirmed')} · 홈 선수 {len(hp)} · 예: {json.dumps(hp[0], ensure_ascii=False)[:260] if hp else '-'}")
+        else:
+            print(f"     라인업 HTTP {s2}")
+
+
+def jfa_cup():
+    head("3) JFA 공식 — 경기 페이지에 선발 명단이 있나")
+    url = "https://www.jfa.jp/match/emperorscup_2026/schedule_result/"
+    try:
+        r = requests.get(url, headers=H, timeout=20)
+        html = r.text if r.status_code == 200 else ""
+        print(f"  일정 페이지 HTTP {r.status_code} · {len(html)}자")
+    except Exception as exc:
+        print(f"  일정 페이지 실패: {type(exc).__name__}")
+        return
+    links = sorted(set(re.findall(r'href="(/match/emperorscup_2026/[^"]*?(?:match|result)[^"]*?)"', html)))
+    print(f"  경기 링크 {len(links)}개 · 예: {links[:5]}")
+    for link in links[:3]:
+        try:
+            r2 = requests.get("https://www.jfa.jp" + link, headers=H, timeout=20)
+            t = r2.text if r2.status_code == 200 else ""
+        except Exception as exc:
+            print(f"   - {link}: 실패 {type(exc).__name__}")
+            continue
+        has = [k for k in ("スターティングメンバー", "先発", "出場選手", "メンバー", "控え") if k in t]
+        print(f"   - {link} HTTP {r2.status_code} · {len(t)}자 · 라인업 관련 표시: {has}")
+        if "スターティングメンバー" in t:
+            i = t.index("スターティングメンバー")
+            print("     주변:", re.sub(r"<[^>]+>", " ", t[i:i + 400]).split())
 
 
 def safe(fn):
@@ -147,7 +183,9 @@ def safe(fn):
 
 
 def main():
-    safe(emperor_fotmob)
+    safe(naver_cup)
+    safe(sofascore_cup)
+    safe(jfa_cup)
     print()
     print("점검 끝. 위 내용을 그대로 복사해서 보내주면 됩니다.")
     return 0
