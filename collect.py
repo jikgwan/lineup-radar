@@ -26,7 +26,7 @@ import requests
 
 from names_ko import _key as team_key
 from names_ko import ko_team
-from grade import (ELO_HOME, add_bench, add_context, core_from_history, elo_table, model_power, rotation_risk, add_periods, analyze_lineup, baseball_power, build_signals, compare_elo, compare_power,
+from grade import (ELO_HOME, add_bench, add_context, core_from_history, elo_table, mark_returning, model_power, rotation_risk, add_periods, analyze_lineup, baseball_power, build_signals, compare_elo, compare_power,
                    enrich, lineup_power, pick_ace, recent_era, strength, summarize, team_leaders)
 from parse import (
     KST,
@@ -259,9 +259,15 @@ def date_strings(now, days=(-1, 0, 1)):
     return [(now + timedelta(days=d)).strftime("%Y%m%d") for d in days]
 
 
+IDLE_TTL = 3 * 3600          # 경기가 없던 대회는 이만큼 건너뛴다 (대회가 많아서 목록 요청을 아낀다)
+
+
 def collect_espn_games(client, now, leagues):
     games = []
     for lg in leagues:
+        if cache_read(f"idle_{lg['slug']}", IDLE_TTL) is not None:
+            continue
+        found = 0
         for date in date_strings(now):
             data = client.get_json(
                 f"{ESPN_SITE}/{lg['path']}/scoreboard",
@@ -274,6 +280,9 @@ def collect_espn_games(client, now, leagues):
             for g in parse_espn_scoreboard(data, lg["sport"], lg["slug"], lg["name"]):
                 g["national"] = bool(lg.get("national"))
                 games.append(g)
+                found += 1
+        if not found and not getattr(client, "out_of_time", False):
+            cache_write(f"idle_{lg['slug']}", {"idle": True})     # 이번엔 경기가 없었음
     return games
 
 
@@ -818,6 +827,7 @@ def build_espn_detail(client, game, now):
         slugs[side] = hist_slug
         recent = history[:HISTORY_MATCHES]
         result = analyze_lineup(lineup, recent, size)
+        mark_returning(result, recent, history, size)          # 장기 결장 후 복귀한 주전 인정
         formation = info.get("formation") or ""
         enrich(result, lineup, recent, season=history, formation=formation,
                shape=position_shape if game["sport"] == "축구" else None)
@@ -1023,6 +1033,7 @@ def build_naver_detail(client, game, now):
         history = naver_team_history(client, cfg, game, side, start)
         recent = history[:HISTORY_MATCHES]
         result = analyze_lineup(lineup, recent, 11)
+        mark_returning(result, recent, history, 11)
         enrich(result, lineup, recent, season=history, formation=info.get("formation") or "", shape=None)
         result["rows"] = info.get("rows") or []
         result["leaders"]["labels"] = ["최다 득점", "최다 도움"]
@@ -1342,6 +1353,7 @@ def build_kbo_detail(client, game, now):
         hist = kbo_team_history(client, season, code, KBO_LOOKBACK)
         recent = hist[:KBO_RECENT]
         result = analyze_lineup(lineup, recent, 9)
+        mark_returning(result, recent, hist, 9)                 # 부상자 명단에서 돌아온 주전 인정
         result["basis"] = "recent"
         for p in result.get("players") or []:
             p["season_games"] = None
@@ -1457,8 +1469,23 @@ def build_fotmob_detail(client, game, now):
     names = {s: game[s]["name"] for s in ("home", "away")}
     ab = parse_fotmob_unavailable(det) if det else None
     hist = {s: fotmob_team_history(client, game[s]["id"], start) if game[s]["id"] else [] for s in ("home", "away")}
-    if not lu.get("confirmed") or not all(len((lu.get(s) or {}).get("lineup") or []) >= 11 for s in ("home", "away")):
-        out = {"lineup_ready": False, "note": "아직 선발 라인업이 나오지 않았습니다."}
+    have = all(len((lu.get(s) or {}).get("lineup") or []) >= 11 for s in ("home", "away"))
+    # 풋몹이 '발표' 표시를 늦게 바꾸는 대회가 있어서, 다음 중 하나면 발표로 본다
+    changed = 0
+    for s in ("home", "away"):
+        last = (hist[s][0]["starters"] if hist[s] else []) or []
+        today_ids = [p["id"] for p in (lu.get(s) or {}).get("lineup") or []]
+        if last and today_ids:
+            changed = max(changed, len(set(today_ids) - set(last)))
+    near = (now - start).total_seconds() >= -30 * 60
+    why = ("발표 (풋몹)" if lu.get("confirmed") else
+           "지난 경기와 선발이 달라짐" if changed >= 3 else
+           "경기 임박 (30분 전 지남)" if near else "")
+    if not have or not why:
+        out = {"lineup_ready": False,
+               "note": "풋몹에 아직 라인업이 없어요." if not have else "아직 발표 전이라 예상 라인업만 있어요.",
+               "expected": ({s: {"name": game[s]["name"], "formation": (lu.get(s) or {}).get("formation") or "",
+                                 "players": (lu.get(s) or {}).get("lineup") or []} for s in ("home", "away")} if have else None)}
         risk, sig = {}, []
         for s in ("home", "away"):
             core = core_from_history(hist[s][:HISTORY_MATCHES], 11)
@@ -1470,12 +1497,14 @@ def build_fotmob_detail(client, game, now):
                 sig.append([f"{names[s]} 주전 {len(core_out)}명 부상·징계", "bad"])
         out.update({"risk": risk, "signals": sig})
         return out
+
     teams = {}
     for side in ("home", "away"):
         lineup = lu[side]["lineup"]
         h = hist[side]
         recent, season = h[:HISTORY_MATCHES], h
         result = analyze_lineup(lineup, recent, 11)
+        mark_returning(result, recent, season, 11)
         enrich(result, lineup, recent, season=season, formation=lu[side].get("formation") or "", shape=position_shape)
         add_bench(result, [], recent, season)
         strength(result, recent, season=season)
@@ -1490,7 +1519,7 @@ def build_fotmob_detail(client, game, now):
     extra = attach_absences(teams, ab, names) if ab else []
     summary = summarize(game["home"]["name"], game["away"]["name"], teams, "축구")
     return {"lineup_ready": True, "teams": teams, "power": None, "national": False, "summary": summary, "record_recent": True,
-            "signals": (extra + build_signals(names, teams, "축구"))[:4]}
+            "lineup_source": why, "signals": (extra + build_signals(names, teams, "축구"))[:4]}
 
 
 def build_mlb_detail(client, game, now):
