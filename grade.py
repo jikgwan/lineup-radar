@@ -945,7 +945,7 @@ def rotation_risk(history, events, core, size, today_next, today_rest):
     reason = ""
     if today_next and today_next.get("in_days") is not None:
         reason = f"다음 경기 {today_next['in_days']}일 뒤 {today_next.get('comp') or ''}".strip()
-    if today_rest is not None:
+    if today_rest is not None and today_rest <= 14:          # 대표팀 소집 간격(수십 일)은 휴식일로 의미가 없다
         reason = (reason + " · " if reason else "") + f"지난 경기 후 {today_rest}일 휴식"
     return {"level": level, "situation": today, "situation_text": SITUATION_TEXT[today], "today": s_today,
             "base": s_base, "tired": sorted(tired)[:4], "reason": reason, "size": size}
