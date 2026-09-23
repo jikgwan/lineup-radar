@@ -156,6 +156,139 @@ for _src in (MLB, CLUBS, NATIONS):
     for _en, _ko in _src.items():
         _TABLE.setdefault(_key(_en), _ko)
 
+# ---------------------------------------------------------------- 2026-09 추가: 새로 넣은 대회들의 팀·나라
+NATIONS.update({
+    "Sao Tome and Principe": "상투메 프린시페", "São Tomé and Príncipe": "상투메 프린시페", "Cape Verde": "카보베르데",
+    "Guinea-Bissau": "기니비사우", "Equatorial Guinea": "적도 기니", "Central African Republic": "중앙아프리카공화국",
+    "Congo DR": "콩고민주공화국", "DR Congo": "콩고민주공화국", "Congo": "콩고", "Eswatini": "에스와티니", "Lesotho": "레소토",
+    "Comoros": "코모로", "Djibouti": "지부티", "Eritrea": "에리트레아", "Seychelles": "세이셸", "Mauritius": "모리셔스",
+    "Madagascar": "마다가스카르", "Malawi": "말라위", "Botswana": "보츠와나", "Namibia": "나미비아", "Zimbabwe": "짐바브웨",
+    "Mozambique": "모잠비크", "Angola": "앙골라", "Gambia": "감비아", "Sierra Leone": "시에라리온", "Liberia": "라이베리아",
+    "Togo": "토고", "Benin": "베냉", "Niger": "니제르", "Chad": "차드", "Sudan": "수단", "South Sudan": "남수단",
+    "Somalia": "소말리아", "Mauritania": "모리타니", "Burundi": "부룬디", "Rwanda": "르완다", "Uganda": "우간다",
+    "Tanzania": "탄자니아", "Zambia": "잠비아", "Gabon": "가봉", "Guinea": "기니",
+    "Palestine": "팔레스타인", "Yemen": "예멘", "Bahrain": "바레인", "Kuwait": "쿠웨이트", "Oman": "오만",
+    "Turkmenistan": "투르크메니스탄", "Kyrgyzstan": "키르기스스탄", "Afghanistan": "아프가니스탄", "Maldives": "몰디브",
+    "Nepal": "네팔", "Bhutan": "부탄", "Bangladesh": "방글라데시", "Sri Lanka": "스리랑카", "Myanmar": "미얀마",
+    "Laos": "라오스", "Cambodia": "캄보디아", "Brunei": "브루나이", "Timor-Leste": "동티모르", "Macau": "마카오",
+    "Mongolia": "몽골", "Chinese Taipei": "대만", "Guam": "괌", "Northern Mariana Islands": "북마리아나제도",
+    "Papua New Guinea": "파푸아뉴기니", "Vanuatu": "바누아투", "New Caledonia": "뉴칼레도니아", "Solomon Islands": "솔로몬 제도",
+    "Fiji": "피지", "Tahiti": "타히티", "Samoa": "사모아", "American Samoa": "아메리칸사모아", "Tonga": "통가",
+    "Cook Islands": "쿡 제도", "Trinidad and Tobago": "트리니다드 토바고", "Suriname": "수리남", "Guyana": "가이아나",
+    "Curacao": "퀴라소", "Curaçao": "퀴라소", "Aruba": "아루바", "Barbados": "바베이도스", "Grenada": "그레나다",
+    "Saint Lucia": "세인트루시아", "Saint Kitts and Nevis": "세인트키츠 네비스", "Antigua and Barbuda": "앤티가 바부다",
+    "Dominican Republic": "도미니카공화국", "Dominica": "도미니카 연방", "Haiti": "아이티", "Nicaragua": "니카라과",
+    "Belize": "벨리즈", "Cayman Islands": "케이맨 제도", "Bermuda": "버뮤다", "Bahamas": "바하마", "Puerto Rico": "푸에르토리코",
+    "Montserrat": "몬트세랫", "Anguilla": "앵귈라", "British Virgin Islands": "영국령 버진아일랜드",
+    "US Virgin Islands": "미국령 버진아일랜드", "Turks and Caicos Islands": "터크스 케이커스 제도",
+    "Saint Vincent and the Grenadines": "세인트빈센트 그레나딘", "San Marino": "산마리노", "Liechtenstein": "리히텐슈타인",
+    "Andorra": "안도라", "Malta": "몰타", "Faroe Islands": "페로 제도", "Kosovo": "코소보", "Moldova": "몰도바",
+})
+
+CLUBS.update({
+    # 사우디
+    "Al Hilal": "알 힐랄", "Al Nassr": "알 나스르", "Al Ittihad": "알 이티하드", "Al Ahli": "알 아흘리", "Al Shabab": "알 샤밥",
+    "Al Ettifaq": "알 이티파크", "Al Taawoun": "알 타아운", "Al Fateh": "알 파테흐", "Al Fayha": "알 파이하", "Al Khaleej": "알 칼리지",
+    "Al Riyadh": "알 리야드", "Damac": "다막", "Al Wehda": "알 웨흐다", "Al Okhdood": "알 우크두드", "Al Raed": "알 라에드",
+    "Al Qadsiah": "알 카디시야", "Al Najma": "알 나즈마", "Neom SC": "네옴", "Al Kholood": "알 쿨루드",
+    # 중국
+    "Shanghai Port": "상하이 포트", "Shanghai Shenhua": "상하이 선화", "Beijing Guoan": "베이징 궈안", "Shandong Taishan": "산둥 타이산",
+    "Chengdu Rongcheng": "청두 룽청", "Zhejiang": "저장", "Wuhan Three Towns": "우한 싼전", "Tianjin Jinmen Tiger": "톈진 진먼 타이거",
+    "Henan": "허난", "Changchun Yatai": "창춘 야타이", "Meizhou Hakka": "메이저우 하카", "Qingdao West Coast": "칭다오 웨스트코스트",
+    "Yunnan Yukun": "윈난 위쿤", "Qingdao Hainiu": "칭다오 하이뉴", "Dalian Yingbo": "다롄 잉보", "Shenzhen Peng City": "선전 펑시티",
+    # 호주
+    "Melbourne Victory": "멜버른 빅토리", "Melbourne City": "멜버른 시티", "Sydney FC": "시드니 FC",
+    "Western Sydney Wanderers": "웨스턴 시드니", "Adelaide United": "애들레이드 유나이티드", "Brisbane Roar": "브리즈번 로어",
+    "Central Coast Mariners": "센트럴코스트 마리너스", "Perth Glory": "퍼스 글로리", "Wellington Phoenix": "웰링턴 피닉스",
+    "Macarthur FC": "맥아더", "Newcastle Jets": "뉴캐슬 제츠", "Western United": "웨스턴 유나이티드", "Auckland FC": "오클랜드 FC",
+    # 멕시코
+    "Club America": "클럽 아메리카", "América": "클럽 아메리카", "Guadalajara Chivas": "과달라하라", "Chivas Guadalajara": "과달라하라",
+    "Cruz Azul": "크루스 아술", "Pumas UNAM": "푸마스 UNAM", "UNAM": "푸마스 UNAM", "Tigres UANL": "티그레스",
+    "Monterrey": "몬테레이", "Toluca": "톨루카", "Santos Laguna": "산토스 라구나", "Leon": "레온", "León": "레온",
+    "Pachuca": "파추카", "Necaxa": "네카사", "Atlas": "아틀라스", "Puebla": "푸에블라", "Tijuana": "티후아나",
+    "Juarez": "후아레스", "Queretaro": "케레타로", "Mazatlan": "마사틀란", "Atletico San Luis": "산루이스",
+    # 브라질
+    "Flamengo": "플라멩구", "Palmeiras": "팔메이라스", "Corinthians": "코린치안스", "Sao Paulo": "상파울루", "Santos": "산투스",
+    "Gremio": "그레미우", "Internacional": "인테르나시오나우", "Cruzeiro": "크루제이루", "Atletico Mineiro": "아틀레치쿠 미네이루",
+    "Botafogo": "보타포구", "Fluminense": "플루미넨시", "Vasco da Gama": "바스쿠 다 가마", "Bahia": "바이아", "Fortaleza": "포르탈레자",
+    "Red Bull Bragantino": "브라간치누", "Juventude": "주벤투지", "Ceara": "세아라", "Vitoria": "비토리아", "Mirassol": "미라솔",
+    "Sport Recife": "스포르트 헤시피", "Athletico Paranaense": "아틀레치쿠 파라나엔시", "Coritiba": "코리치바", "Goias": "고이아스",
+    "Chapecoense": "샤페코엔시", "Novorizontino": "노보리존치누", "Remo": "레무", "Avai": "아바이",
+    # 아르헨티나
+    "Boca Juniors": "보카 주니어스", "River Plate": "리버 플레이트", "Racing Club": "라싱 클루브", "Independiente": "인데펜디엔테",
+    "San Lorenzo": "산 로렌소", "Estudiantes": "에스투디안테스", "Velez Sarsfield": "벨레스 사르스필드",
+    "Newell's Old Boys": "뉴웰스 올드 보이스", "Rosario Central": "로사리오 센트랄", "Talleres": "탈레레스", "Lanus": "라누스",
+    "Argentinos Juniors": "아르헨티노스 주니어스", "Defensa y Justicia": "데펜사 이 후스티시아", "Huracan": "우라칸",
+    "Banfield": "반필드", "Godoy Cruz": "고도이 크루스", "Instituto": "인스티투토", "Platense": "플라텐세", "Tigre": "티그레",
+    "Belgrano": "벨그라노", "Gimnasia La Plata": "힘나시아", "Barracas Central": "바라카스 센트랄", "Central Cordoba": "센트랄 코르도바",
+    # 콜롬비아·칠레·페루·우루과이·에콰도르
+    "Atletico Nacional": "아틀레티코 나시오날", "Millonarios": "미요나리오스", "America de Cali": "아메리카 데 칼리",
+    "Deportivo Cali": "데포르티보 칼리", "Junior": "후니오르", "Independiente Santa Fe": "산타페", "Once Caldas": "온세 칼다스",
+    "Deportes Tolima": "톨리마", "Independiente Medellin": "메데인", "Atletico Bucaramanga": "부카라망가",
+    "Colo Colo": "콜로콜로", "Universidad de Chile": "우니베르시다드 데 칠레", "Universidad Catolica": "우니베르시다드 카톨리카",
+    "Palestino": "팔레스티노", "Cobresal": "코브레살", "Huachipato": "우아치파토", "Audax Italiano": "아우닥스 이탈리아노",
+    "Everton de Vina": "에베르톤", "Universitario": "우니베르시타리오", "Alianza Lima": "알리안사 리마",
+    "Sporting Cristal": "스포르팅 크리스탈", "Melgar": "멜가르", "Cienciano": "시엔시아노",
+    "Penarol": "페냐롤", "Nacional": "나시오날", "Defensor Sporting": "데펜소르", "Liverpool Montevideo": "리베르풀 몬테비데오",
+    "Barcelona SC": "바르셀로나 SC", "LDU Quito": "LDU 키토", "Independiente del Valle": "인데펜디엔테 델 바예",
+    "Emelec": "에멜렉", "Aucas": "아우카스",
+    # 스코틀랜드·벨기에·오스트리아
+    "Hearts": "하츠", "Heart of Midlothian": "하츠", "Hibernian": "히버니언", "Aberdeen": "애버딘", "Dundee United": "던디 유나이티드",
+    "Motherwell": "머더웰", "St Mirren": "세인트 미렌", "Kilmarnock": "킬마녹", "Dundee": "던디", "Ross County": "로스 카운티",
+    "St Johnstone": "세인트 존스턴", "Falkirk": "폴커크", "Livingston": "리빙스턴",
+    "Anderlecht": "안더레흐트", "Genk": "헹크", "Standard Liege": "스탕다르 리에주", "Gent": "헨트", "Antwerp": "안트베르펜",
+    "Union Saint-Gilloise": "위니옹 생질루아즈", "Charleroi": "샤를루아", "Cercle Brugge": "세르클러 브뤼허", "Mechelen": "메헬렌",
+    "Westerlo": "베스테를로", "OH Leuven": "OH 뢰번", "Sint-Truiden": "신트트라위던", "Dender": "덴더", "Zulte Waregem": "쥘터 바레험",
+    "Red Bull Salzburg": "레드불 잘츠부르크", "Rapid Vienna": "라피트 빈", "Austria Vienna": "아우스트리아 빈", "Sturm Graz": "슈투름 그라츠",
+    "LASK": "LASK", "Wolfsberger AC": "볼프스베르거", "TSV Hartberg": "하르트베르크", "Blau-Weiss Linz": "블라우바이스 린츠",
+    "SCR Altach": "알타흐", "Austria Klagenfurt": "아우스트리아 클라겐푸르트", "Grazer AK": "그라처 AK", "SV Ried": "리트",
+    # 북유럽·그리스·러시아
+    "FC Copenhagen": "코펜하겐", "Midtjylland": "미트윌란", "Brondby": "브뢰네뷔", "AGF": "AGF", "Silkeborg": "실케보르",
+    "Nordsjaelland": "노르셸란", "Randers": "란데르스", "Viborg": "비보르", "Lyngby": "륑뷔", "Vejle": "바일레",
+    "AaB": "올보르", "Sonderjyske": "쇤데르위스케", "Fredericia": "프레데리시아",
+    "Bodo/Glimt": "보되/글림트", "Molde": "몰데", "Rosenborg": "로센보르그", "Brann": "브란", "Viking": "비킹",
+    "Lillestrom": "릴레스트룀", "Valerenga": "발레렝가", "Tromso": "트롬쇠", "Sarpsborg 08": "사르프스보르", "Haugesund": "헤우게순",
+    "Fredrikstad": "프레드릭스타드", "KFUM Oslo": "KFUM 오슬로", "Sandefjord": "산데피오르", "Stromsgodset": "스트룀스고드세트",
+    "Kristiansund": "크리스티안순", "Bryne": "브리네",
+    "Malmo FF": "말뫼", "AIK": "AIK", "Djurgarden": "유르고덴", "Hammarby": "함마르뷔", "IFK Goteborg": "예테보리",
+    "Elfsborg": "엘프스보리", "Hacken": "헤켄", "Norrkoping": "노르셰핑", "Mjallby": "미엘뷔", "Sirius": "시리우스",
+    "Varnamo": "베르나모", "Brommapojkarna": "브롬마포이카르나", "Degerfors": "데예르포르스", "Halmstad": "할름스타드",
+    "GAIS": "GAIS", "Osters": "외스테르스",
+    "Olympiacos": "올림피아코스", "Panathinaikos": "파나티나이코스", "AEK Athens": "AEK 아테네", "PAOK": "PAOK",
+    "Aris": "아리스", "OFI Crete": "OFI", "Volos": "볼로스", "Atromitos": "아트로미토스", "Panetolikos": "파네톨리코스",
+    "Levadiakos": "레바디아코스", "Asteras Tripolis": "아스테라스 트리폴리스", "Kifisia": "키피시아",
+    "Zenit St Petersburg": "제니트", "Spartak Moscow": "스파르타크 모스크바", "CSKA Moscow": "CSKA 모스크바",
+    "Lokomotiv Moscow": "로코모티프 모스크바", "Dynamo Moscow": "디나모 모스크바", "Krasnodar": "크라스노다르",
+    "Rubin Kazan": "루빈 카잔", "Rostov": "로스토프", "Akhmat Grozny": "아흐마트 그로즈니", "Krylia Sovetov": "크릴리야 소베토프",
+    "Akron Togliatti": "아크론", "Dynamo Makhachkala": "디나모 마하치칼라", "Orenburg": "오렌부르크", "Baltika": "발티카",
+    "Pari Nizhny Novgorod": "파리 NN", "Sochi": "소치",
+    # 인도
+    "Mohun Bagan": "모훈 바간", "East Bengal": "이스트 벵골", "Bengaluru FC": "벵갈루루", "Mumbai City": "뭄바이 시티",
+    "FC Goa": "고아", "Kerala Blasters": "케랄라 블래스터스", "Odisha FC": "오디샤", "Jamshedpur": "잠셰드푸르",
+    "Chennaiyin": "첸나이인", "NorthEast United": "노스이스트 유나이티드", "Punjab FC": "펀자브", "Hyderabad FC": "하이데라바드",
+    # 독일2·이탈리아2·프랑스2·네덜란드2 (자주 나오는 팀)
+    "Schalke 04": "샬케 04", "Hertha Berlin": "헤르타 베를린", "Fortuna Dusseldorf": "포르투나 뒤셀도르프",
+    "Karlsruher SC": "카를스루에", "Hannover 96": "하노버 96", "Nurnberg": "뉘른베르크", "Paderborn": "파더보른",
+    "Magdeburg": "마그데부르크", "Kaiserslautern": "카이저슬라우테른", "Darmstadt": "다름슈타트", "Greuther Furth": "그로이터 퓌르트",
+    "Elversberg": "엘버스베르크", "Eintracht Braunschweig": "브라운슈바이크", "Preussen Munster": "프로이센 뮌스터",
+    "Arminia Bielefeld": "아르미니아 빌레펠트", "Dynamo Dresden": "디나모 드레스덴", "Bochum": "보훔",
+    "Palermo": "팔레르모", "Sampdoria": "삼프도리아", "Venezia": "베네치아", "Monza": "몬차", "Empoli": "엠폴리",
+    "Spezia": "스페치아", "Frosinone": "프로시노네", "Bari": "바리", "Catanzaro": "카탄차로", "Cesena": "체세나",
+    "Modena": "모데나", "Reggiana": "레지아나", "Sudtirol": "쉬트티롤", "Juve Stabia": "유베 스타비아", "Avellino": "아벨리노",
+    "Pescara": "페스카라", "Mantova": "만토바", "Padova": "파도바", "Virtus Entella": "엔텔라", "Carrarese": "카라레세",
+    "Troyes": "트루아", "Guingamp": "갱강", "Amiens": "아미앵", "Bastia": "바스티아", "Clermont Foot": "클레르몽",
+    "Dunkerque": "덩케르크", "Grenoble": "그르노블", "Laval": "라발", "Le Mans": "르망", "Montpellier": "몽펠리에",
+    "Pau FC": "포", "Red Star FC": "레드스타", "Rodez": "로데즈", "Annecy": "안시", "Boulogne": "불로뉴",
+    "FC Eindhoven": "에인트호번 FC", "De Graafschap": "더 그라프스합", "Cambuur": "캄뷔르", "Roda JC": "로다 JC",
+    "Emmen": "엠멘", "VVV-Venlo": "VVV 펜로", "Den Bosch": "덴 보스", "Dordrecht": "도르드레흐트", "Helmond Sport": "헬몬트",
+    "MVV Maastricht": "MVV", "TOP Oss": "TOP 오스", "Jong Ajax": "융 아약스", "Jong PSV": "융 PSV", "Jong AZ": "융 AZ",
+    "Jong Utrecht": "융 위트레흐트", "Willem II": "빌럼 II", "Telstar": "텔스타르", "Volendam": "폴렌담",
+})
+
+for _src in (CLUBS, NATIONS):                       # 새로 넣은 이름도 찾을 수 있게 다시 만든다
+    for _en, _ko in _src.items():
+        _TABLE.setdefault(_key(_en), _ko)
+
 _WOMEN = re.compile(r"\s*(women|womens|w)$")
 
 
