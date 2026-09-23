@@ -9,9 +9,9 @@ on:
   workflow_dispatch:
     inputs:
       rounds:
-        description: "몇 번 반복할지 (1 = 한 번만)"
+        description: "몇 번 반복할지 — 그대로 두면 32번(약 5시간 20분, 10분 간격). 한 번만 확인하려면 1"
         required: false
-        default: "1"
+        default: "32"
 
 permissions:
   contents: write
