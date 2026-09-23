@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""14차 소스 점검 (읽기만 함): 일왕배 라인업을 풋몹 말고 어디서 더 빨리 받을 수 있나 (네이버·소파스코어·JFA 공식).
+"""15차 소스 점검 (읽기만 함): ESPN 축구 대회 전체 목록 — 배트맨 토토 대회를 설정에 넣기 위해.
 
 1) KBO: 끝난 경기·오늘 경기에서 라인업·타순·선발투수·선수 기록이 어디서 어떤 모양으로 오는지
 2) 풋몹: 결장자(unavailable) 항목 모양, 라인업 발표 전에도 결장자 명단이 있는지, 팀 이름 표기
@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import json
-import re
 import sys
 from datetime import date, timedelta
 
@@ -114,65 +113,36 @@ def emperor_espn():
             print(f"  X {slug}: 경기 없음 또는 없는 코드")
 
 
-def naver_cup():
-    head("1) 네이버 — 오늘·내일 축구 대회 목록에 일왕배가 있나")
-    for upper in ("kfootball", "wfootball"):
-        cats = {}
+ESPN_WEB = "https://site.web.api.espn.com/apis/site/v2/sports/soccer"
+ESPN_PARAMS = {"region": "us", "lang": "en", "contentorigin": "espn"}
+KEYS = ("gulf", "arab", "asian", "cup", "copa", "coupe", "pokal", "league", "liga", "serie", "division",
+        "primera", "super", "champion", "eredivisie", "bundesliga", "premier")
+
+
+def espn_all_leagues():
+    head("ESPN 축구 대회 전체 목록 (배트맨 토토에 올라오는 대회를 고르기 위해)")
+    body, st = jget("https://sports.core.api.espn.com/v2/sports/soccer/leagues", {"limit": 1000})
+    refs = [(i or {}).get("$ref", "") for i in ((body or {}).get("items") or [])]
+    slugs = sorted({r.split("/leagues/")[1].split("?")[0] for r in refs if "/leagues/" in r})
+    print(f"  목록 HTTP {st} · {len(slugs)}개")
+    print("\n  [전체 코드]")
+    for i in range(0, len(slugs), 6):
+        print("   ", " · ".join(slugs[i:i + 6]))
+    # 오늘·내일 경기가 있는 대회만 이름까지 확인 (돌아가는 대회 위주로 고르기)
+    print("\n  [오늘·내일 경기가 있는 대회]")
+    live = []
+    for slug in slugs:
         for back in (0, 1):
-            d = (TODAY + timedelta(days=back)).isoformat()
-            body, st = jget(f"{NAVER}/schedule/games", {"fields": "basic,categoryName", "upperCategoryId": upper,
-                                                        "fromDate": d, "toDate": d, "size": 500}, NH)
-            for g in ((body or {}).get("result") or {}).get("games") or []:
-                cats.setdefault((g.get("categoryId"), g.get("categoryName")), 0)
-                cats[(g.get("categoryId"), g.get("categoryName"))] += 1
-        print(f"  {upper} HTTP {st} · 대회: {sorted(cats.items(), key=lambda x: -x[1])[:14]}")
-
-
-def sofascore_cup():
-    head("2) 소파스코어 — 접속 가능한지 · 일왕배 라인업이 있는지")
-    d = TODAY.isoformat()
-    body, st = jget(f"https://api.sofascore.com/api/v1/sport/football/scheduled-events/{d}",
-                    headers={"Referer": "https://www.sofascore.com/"})
-    evs = (body or {}).get("events") or []
-    print(f"  일정 HTTP {st} · 경기 {len(evs)}개")
-    cup = [e for e in evs if "emperor" in str(((e.get("tournament") or {}).get("name") or "")).lower()
-           or "天皇" in str(((e.get("tournament") or {}).get("name") or ""))]
-    print(f"  일왕배로 보이는 경기 {len(cup)}개")
-    for e in cup[:3]:
-        eid = e.get("id")
-        print(f"   - {((e.get('homeTeam') or {}).get('name'))} vs {((e.get('awayTeam') or {}).get('name'))} (id {eid}) · 상태 {((e.get('status') or {}).get('description'))}")
-        b2, s2 = jget(f"https://api.sofascore.com/api/v1/event/{eid}/lineups", headers={"Referer": "https://www.sofascore.com/"})
-        if s2 == 200 and b2:
-            hp = ((b2.get("home") or {}).get("players") or [])
-            print(f"     라인업 HTTP {s2} · 확정 {b2.get('confirmed')} · 홈 선수 {len(hp)} · 예: {json.dumps(hp[0], ensure_ascii=False)[:260] if hp else '-'}")
-        else:
-            print(f"     라인업 HTTP {s2}")
-
-
-def jfa_cup():
-    head("3) JFA 공식 — 경기 페이지에 선발 명단이 있나")
-    url = "https://www.jfa.jp/match/emperorscup_2026/schedule_result/"
-    try:
-        r = requests.get(url, headers=H, timeout=20)
-        html = r.text if r.status_code == 200 else ""
-        print(f"  일정 페이지 HTTP {r.status_code} · {len(html)}자")
-    except Exception as exc:
-        print(f"  일정 페이지 실패: {type(exc).__name__}")
-        return
-    links = sorted(set(re.findall(r'href="(/match/emperorscup_2026/[^"]*?(?:match|result)[^"]*?)"', html)))
-    print(f"  경기 링크 {len(links)}개 · 예: {links[:5]}")
-    for link in links[:3]:
-        try:
-            r2 = requests.get("https://www.jfa.jp" + link, headers=H, timeout=20)
-            t = r2.text if r2.status_code == 200 else ""
-        except Exception as exc:
-            print(f"   - {link}: 실패 {type(exc).__name__}")
-            continue
-        has = [k for k in ("スターティングメンバー", "先発", "出場選手", "メンバー", "控え") if k in t]
-        print(f"   - {link} HTTP {r2.status_code} · {len(t)}자 · 라인업 관련 표시: {has}")
-        if "スターティングメンバー" in t:
-            i = t.index("スターティングメンバー")
-            print("     주변:", re.sub(r"<[^>]+>", " ", t[i:i + 400]).split())
+            d = (TODAY + timedelta(days=back)).strftime("%Y%m%d")
+            b2, s2 = jget(f"{ESPN_WEB}/{slug}/scoreboard", dict(ESPN_PARAMS, dates=d))
+            evs = (b2 or {}).get("events") or []
+            if s2 == 200 and evs:
+                name = ((b2.get("leagues") or [{}])[0]).get("name") or ""
+                live.append((slug, name, len(evs)))
+                break
+    for slug, name, n in live:
+        print(f"   {slug:28} {name}  ({n}경기)")
+    print(f"\n  경기가 있는 대회 {len(live)}개 · 요청 {len(slugs) * 1}건 안팎")
 
 
 def safe(fn):
@@ -183,9 +153,7 @@ def safe(fn):
 
 
 def main():
-    safe(naver_cup)
-    safe(sofascore_cup)
-    safe(jfa_cup)
+    safe(espn_all_leagues)
     print()
     print("점검 끝. 위 내용을 그대로 복사해서 보내주면 됩니다.")
     return 0
