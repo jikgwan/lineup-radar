@@ -311,12 +311,6 @@
     },
     {
       "sport": "축구",
-      "slug": "ned.cup",
-      "path": "soccer/ned.cup",
-      "name": "KNVB 베이커"
-    },
-    {
-      "sport": "축구",
       "slug": "por.taca.portugal",
       "path": "soccer/por.taca.portugal",
       "name": "타사 드 포르투갈"
