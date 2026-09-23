@@ -684,6 +684,12 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     return b;
   }
 
+  // "1~2주 뒤" → " · 1~2주 뒤 복귀", "훈련 복귀 중" → " · 훈련 복귀 중" (말 겹침 방지)
+  function retText(v){
+    if (!v || v === "미정") return "";
+    return ` · ${v}${/복귀|아웃|불투명/.test(v) ? "" : " 복귀"}`;
+  }
+
   // ----- 부상·징계 명단 (풋몹)
   function absentBlock(home, away, g, coreH, coreA){
     if (!(home || []).length && !(away || []).length) return null;
@@ -694,7 +700,7 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
       if (!(rows || []).length) chips.append(el("span", "note", "없음"));
       (rows || []).forEach(x => { const c = el("span", "mchip"); c.append(el("b", null, x.name));
         if (core.includes(x.name)) c.append(el("em", "warn", "주전"));
-        c.append(el("em", "bad", x.type), el("small", null, x.return === "미정" ? "복귀 미정" : `${x.return} 복귀`)); chips.append(c); });
+        c.append(el("em", "bad", x.type), el("small", null, x.return === "미정" ? "복귀 미정" : retText(x.return).trim().replace(/^· /, ""))); chips.append(c); });
       const wrap = el("div", "mteam"); wrap.append(chips); b.append(wrap);
     });
     return b;
@@ -819,7 +825,7 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
       if (!ms.length) chips.append(el("span", "note", "없음 · 주전 그대로"));
       ms.forEach(x => { const c = el("span", "mchip"); c.append(el("b", null, x.name || "이름 없음"));
         if (x.status) c.append(el("em", x.status === "벤치" ? "warn" : "bad", x.status));
-        if (x.reason) c.append(el("em", "bad", x.reason + (x.return && x.return !== "미정" ? ` · ${x.return} 복귀` : "")));
+        if (x.reason) c.append(el("em", "bad", x.reason + retText(x.return)));
         if (g.sport !== "야구" && (x.goals || x.assists)) c.append(el("small", null, `${x.goals || 0}골 ${x.assists || 0}도움`));
         chips.append(c); });
       m.append(chips); w.append(m);
