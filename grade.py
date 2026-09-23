@@ -864,6 +864,10 @@ def build_signals(names, teams, sport="축구"):
             out.append([f"{nm} 선발 최근 부진", "warn"])
     for side in ("home", "away"):
         t = teams.get(side) or {}
+        back = t.get("returning") or []
+        if back:
+            who = back[0]["name"] if len(back) == 1 else f"{back[0]['name']} 등 {len(back)}명"
+            out.append([f"{names[side]} {who} 복귀", "good"])
         if t.get("grade") == "1군" and t.get("core_in") == t.get("size"):
             out.append([f"{names[side]} 풀전력", "good"])
     order = {"bad": 0, "warn": 1, "good": 2}
@@ -1023,3 +1027,47 @@ def elo_table(matches, k=20, home=60, regress=1 / 3):
         sc = 1.0 if hg > ag else 0.5 if hg == ag else 0.0
         elo[hid], elo[aid] = eh + k * (sc - exp), ea - k * (sc - exp)
     return elo
+
+
+# ---------------------------------------------------------------- 장기 결장 후 복귀 선수
+
+RETURN_SEASON_RATE = 0.4     # 시즌 선발 비율이 이만큼 넘고
+RETURN_RECENT_MAX = 1        # 최근 경기 선발이 이 이하면 '복귀'로 본다
+RETURN_MIN_SEASON = 8        # 시즌 경기가 이만큼은 있어야 판단
+
+
+def mark_returning(result, recent, season, size):
+    """장기 부상·결장으로 최근엔 못 나왔지만 시즌 내내 주전이던 선수가 오늘 선발이면 '복귀'로 보고 주전으로 센다.
+    (그대로 두면 팀이 강해졌는데 등급이 내려가는 거꾸로 결과가 나온다)"""
+    season = season or recent
+    n = len(season or [])
+    if n < RETURN_MIN_SEASON:
+        return result
+    s_starts, r_starts = {}, {}
+    for m in season:
+        for pid in m.get("starters") or []:
+            s_starts[pid] = s_starts.get(pid, 0) + 1
+    for m in recent or []:
+        for pid in m.get("starters") or []:
+            r_starts[pid] = r_starts.get(pid, 0) + 1
+    back = []
+    for p in result.get("players") or []:
+        if p.get("core"):
+            continue
+        if s_starts.get(p["id"], 0) / n >= RETURN_SEASON_RATE and r_starts.get(p["id"], 0) <= RETURN_RECENT_MAX:
+            p["core"] = True
+            p["returning"] = True
+            p["role"] = "주전"
+            p["season_starts"] = s_starts.get(p["id"], 0)
+            back.append(p)
+    if not back:
+        return result
+    # 복귀 선수가 들어온 만큼, 최근에만 주전이던 선수(시즌 선발이 가장 적은 쪽)를 '빠진 주전'에서 뺀다
+    miss = sorted(result.get("missing") or [], key=lambda m: s_starts.get(m["id"], 0))
+    drop = {m["id"] for m in miss[:len(back)]}
+    result["missing"] = [m for m in (result.get("missing") or []) if m["id"] not in drop]
+    result["core_in"] = sum(1 for p in result["players"] if p.get("core"))
+    result["returning"] = [{"id": p["id"], "name": p["name"], "season_starts": p.get("season_starts", 0), "of": n} for p in back]
+    if result.get("grade") != "판단불가":
+        result["grade"] = grade_label(result["core_in"], size)
+    return result
