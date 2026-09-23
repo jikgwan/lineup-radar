@@ -108,20 +108,6 @@
     },
     {
       "sport": "축구",
-      "slug": "fifa.wwc",
-      "path": "soccer/fifa.wwc",
-      "name": "여자 월드컵",
-      "national": true
-    },
-    {
-      "sport": "축구",
-      "slug": "fifa.friendly.w",
-      "path": "soccer/fifa.friendly.w",
-      "name": "여자 A매치 친선",
-      "national": true
-    },
-    {
-      "sport": "축구",
       "slug": "eng.1",
       "path": "soccer/eng.1",
       "name": "EPL"
@@ -301,12 +287,5 @@
   "naver_season_start": "2026-02-01",
   "show_logos": false,
   "_show_logos_설명": "팀 로고(구단 상표) 표시 여부. 여러 사람에게 공유할 땐 false 권장 → 팀 색 동그라미+이니셜로 표시",
-  "naver_baseball_season_start": "2026-03-01",
-  "fotmob_leagues": [
-    {
-      "id": 9011,
-      "name": "일왕배"
-    }
-  ],
-  "_fotmob_leagues_설명": "ESPN·네이버에 없는 컵대회를 풋몹으로 (번호는 풋몹 대회 번호). 전력 숫자 없이 라인업·몇 군·결장만"
+  "naver_baseball_season_start": "2026-03-01"
 }
