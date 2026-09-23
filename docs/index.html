@@ -85,8 +85,9 @@ h1{margin:0;font-size:24px;font-weight:900;letter-spacing:-0.03em}
 .gside .score{font-family:'Inter','Noto Sans KR',sans-serif;font-size:20px;font-weight:800;min-width:24px;text-align:right}
 .gside .score.lose{color:var(--mute)}
 .fin{font-size:11px;font-weight:700;color:var(--mute);background:var(--s2);padding:1px 6px;border-radius:4px}
-.nowline{display:flex;align-items:center;gap:10px;margin:4px 2px;color:var(--bad);font-size:12px;font-weight:800}
-.nowline::before,.nowline::after{content:"";flex:1;height:1px;background:var(--bad);opacity:.6}
+.fold{margin:2px 0 4px}
+.foldbt{width:100%;padding:9px 12px;border-radius:12px;background:var(--s1);color:var(--mute);font-size:13px;font-weight:700;text-align:center}
+.fold > div > .gcard{margin-top:10px}
 .ltable tr.done td{opacity:.5}
 .ltable tr.nowrow td{padding:6px 4px;border-bottom:0;cursor:default}
 .gtop{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--mute);margin-bottom:10px;padding-right:34px}
@@ -227,7 +228,8 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
 .kv{display:grid;grid-template-columns:auto 1fr;gap:3px 8px;font-size:12px}
 .kv span:nth-child(odd){color:var(--mute)} .kv span:nth-child(even){font-family:var(--num);font-weight:700}
 .starts{display:flex;flex-direction:column;gap:3px;margin-top:2px;font-size:11px;font-family:var(--num)}
-.starts div{display:flex;justify-content:space-between} .starts span:first-child{color:var(--mute)}
+.starts div{display:flex;justify-content:space-between;gap:8px}
+.starts span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .starts span:first-child{color:var(--mute)}
 .starts .bad{color:var(--bad)} .starts .good{color:var(--good)}
 .order{list-style:none;margin:0;padding:0}
 .order li{display:flex;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
@@ -282,6 +284,7 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     if (ch >= "가" && ch <= "힣") return (ch.charCodeAt(0) - 0xAC00) % 28 ? a : b; return /[lmnr0136789]/i.test(ch) ? a : b; }
 
   let games = [], view = [], filter = "전체", query = "", current = null, sortGap = false, day = "all";
+  const openDone = new Set();        // 끝난 경기를 펼쳐 둔 날짜
   let NAT = false;
 
   // ---------- 관심 경기 (이 기기에만 저장)
@@ -453,20 +456,31 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     const wrap = el("div", "glist");
     const pinned = filter === "전체" ? view.filter(g => pins.has(g.key)) : [];
     if (pinned.length){ wrap.append(el("div", "group", "관심 경기")); pinned.forEach(g => wrap.append(card(g, pins))); wrap.append(el("div", "group", "전체")); }
-    let last = null, sawStarted = false, nowDone = false;
-    view.filter(g => !pinned.includes(g)).forEach(g => {
+    let last = null;
+    const rows = view.filter(g => !pinned.includes(g));
+    rows.forEach((g, i) => {
       const k = dateKey(g.start_kst);
-      if (k !== last){ last = k; sawStarted = false; nowDone = false;
-        const n = view.filter(x => dateKey(x.start_kst) === k && !pinned.includes(x)).length;
-        const h = el("div", "dgroup"); h.append(el("span", null, dayTitle(g.start_kst)), el("small", null, `${n}경기`)); wrap.append(h); }
-      if (g.state !== "pre") sawStarted = true;
-      else if (sawStarted && !nowDone){ nowDone = true; wrap.append(nowLine()); }
+      if (k !== last){
+        last = k;
+        const sameDay = rows.filter(x => dateKey(x.start_kst) === k);
+        const h = el("div", "dgroup"); h.append(el("span", null, dayTitle(g.start_kst)), el("small", null, `${sameDay.length}경기`)); wrap.append(h);
+        // 오늘 이미 끝난 경기는 접어두고, 아직 안 한 경기부터 보여준다
+        const done = sameDay.filter(x => x.state === "post");
+        if (day === "all" && done.length && done.length < sameDay.length){
+          const fold = el("div", "fold");
+          const bt = el("button", "foldbt"); bt.type = "button";
+          const box = el("div"); box.hidden = !openDone.has(k);
+          done.forEach(x => box.append(card(x, pins)));
+          const label = () => { bt.textContent = box.hidden ? `끝난 경기 ${done.length}개 보기 ▼` : `끝난 경기 ${done.length}개 접기 ▲`; };
+          bt.onclick = () => { box.hidden = !box.hidden; box.hidden ? openDone.delete(k) : openDone.add(k); label(); };
+          label();
+          fold.append(bt, box); wrap.append(fold);
+        }
+      }
+      if (day === "all" && g.state === "post" && rows.some(x => dateKey(x.start_kst) === k && x.state !== "post")) return;  // 접은 쪽에 이미 넣었음
       wrap.append(card(g, pins));
     });
     return wrap;
-  }
-  function nowLine(){
-    const d = el("div", "nowline"); d.append(el("span", null, `지금 ${hhmm(new Date().toISOString())} · 여기부터 시작 전`)); return d;
   }
   function card(g, pins){
     const c = el("div", "gcard" + (current && current.key === g.key ? " sel" : "") + (g.state === "post" ? " done" : "") + (g.state === "in" ? " playing" : ""));
@@ -507,15 +521,26 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     [["시간"], ["리그"], ["홈"], ["등급"], ["원정"], ["등급"], ["전력"], ["차이 " + (sortGap ? "▼" : "↕"), "sort"]].forEach(([h, c]) => { const th = el("th", c || null, h); if (c) th.onclick = () => { sortGap = !sortGap; renderList(); }; head.append(th); });
     const thead = el("thead"); thead.append(head); t.append(thead);
     const tb = el("tbody");
-    let lastDay = null, sawStarted = false, nowDone = false;
+    let lastDay = null;
+    const hidden = new Set();          // 오늘 이미 끝난 경기 (접어둠)
     view.forEach(g => {
       const k = dateKey(g.start_kst);
-      if (!sortGap && k !== lastDay){ lastDay = k; sawStarted = false; nowDone = false; const gr = el("tr", "grow"); const td = el("td"); td.colSpan = 8;
-        td.append(el("span", null, dayTitle(g.start_kst)), el("small", null, ` · ${view.filter(x => dateKey(x.start_kst) === k).length}경기`)); gr.append(td); tb.append(gr); }
-      if (!sortGap){
-        if (g.state !== "pre") sawStarted = true;
-        else if (sawStarted && !nowDone){ nowDone = true; const nr = el("tr", "nowrow"); const td = el("td"); td.colSpan = 8; td.append(nowLine()); nr.append(td); tb.append(nr); }
+      if (!sortGap && k !== lastDay){
+        lastDay = k;
+        const sameDay = view.filter(x => dateKey(x.start_kst) === k);
+        const gr = el("tr", "grow"); const td = el("td"); td.colSpan = 8;
+        td.append(el("span", null, dayTitle(g.start_kst)), el("small", null, ` · ${sameDay.length}경기`)); gr.append(td); tb.append(gr);
+        const done = sameDay.filter(x => x.state === "post");
+        if (day === "all" && done.length && done.length < sameDay.length){
+          const open = openDone.has(k);
+          if (!open) done.forEach(x => hidden.add(x.key));
+          const fr = el("tr", "nowrow"); const ftd = el("td"); ftd.colSpan = 8;
+          const bt = el("button", "foldbt", open ? `끝난 경기 ${done.length}개 접기 ▲` : `끝난 경기 ${done.length}개 보기 ▼`); bt.type = "button";
+          bt.onclick = () => { open ? openDone.delete(k) : openDone.add(k); renderList(); };
+          ftd.append(bt); fr.append(ftd); tb.append(fr);
+        }
       }
+      if (hidden.has(g.key)) return;
       const tr = el("tr", [current && current.key === g.key ? "sel" : "", g.state === "post" ? "done" : ""].join(" ").trim() || null);
       const tt = el("td"); if (sortGap) tt.append(el("small", "num", md(g.start_kst) + " ")); tt.append(el("b", "num", hhmm(g.start_kst))); if (pins.has(g.key)){ const s = el("span", null, " ★"); s.style.color = "var(--acc)"; tt.append(s); } tr.append(tt);
       const lg = el("td", "lg", g.league + (g.state === "in" ? " · LIVE" : "")); if (isNew(g)){ lg.append(document.createTextNode(" ")); lg.append(el("span", "new", "NEW")); } tr.append(lg);
@@ -928,7 +953,7 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
       c.append(el("div", "nm", x.name));
       const kv = el("div", "kv"); [["ERA", fmt(x.era)], ["FIP", fmt(x.fip)], ["WHIP", fmt(x.whip)], ["선발", x.gs ? `${x.gs}경기 · ${fmt(x.ip_per_start, 1)}이닝` : "-"], ["휴식", x.rest_days != null ? x.rest_days + "일" : "-"], ["최근3", x.recent_era != null ? "ERA " + fmt(x.recent_era) : "-"]].forEach(([k, v]) => kv.append(el("span", null, k), el("span", null, v)));
       c.append(kv);
-      const st = el("div", "starts"); (x.recent || []).forEach(r => { const row = el("div"); row.append(el("span", null, `${r.date.slice(5).replace("-", "/")} ${r.opp || ""}`.slice(0, 18)), el("span", r.er >= 4 ? "bad" : (r.ip >= 6 && r.er <= 2 ? "good" : null), `${r.ip}이닝 ${r.er}자책`)); st.append(row); });
+      const st = el("div", "starts"); (x.recent || []).forEach(r => { const row = el("div"); row.append(el("span", null, `${r.date.slice(5).replace("-", "/")} ${r.opp || ""}`), el("span", r.er >= 4 ? "bad" : (r.ip >= 6 && r.er <= 2 ? "good" : null), `${r.ip}이닝 ${r.er}자책`)); st.append(row); });
       c.append(st); grid.append(c); });
     sp.append(grid); w.append(sp);
     const pen = block("불펜 상태", "낮을수록 여유"); pen.append(teamKey(g));
