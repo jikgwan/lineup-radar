@@ -183,6 +183,7 @@ NATIONS.update({
     "US Virgin Islands": "미국령 버진아일랜드", "Turks and Caicos Islands": "터크스 케이커스 제도",
     "Saint Vincent and the Grenadines": "세인트빈센트 그레나딘", "San Marino": "산마리노", "Liechtenstein": "리히텐슈타인",
     "Andorra": "안도라", "Malta": "몰타", "Faroe Islands": "페로 제도", "Kosovo": "코소보", "Moldova": "몰도바",
+    "St. Martin": "세인트마틴", "Saint Martin": "세인트마틴", "Sint Maarten": "신트마르턴", "Saint Barthelemy": "생바르텔레미", "Guadeloupe": "과들루프", "Martinique": "마르티니크", "French Guiana": "프랑스령 기아나", "Bonaire": "보네르", "Ivory Coast": "코트디부아르", "Cote d'Ivoire": "코트디부아르", "Congo-Brazzaville": "콩고", "Swaziland": "에스와티니", "North Macedonia": "북마케도니아", "Macedonia": "북마케도니아", "Bosnia and Herzegovina": "보스니아 헤르체고비나", "Bosnia & Herzegovina": "보스니아 헤르체고비나", "Trinidad & Tobago": "트리니다드 토바고", "Antigua & Barbuda": "앤티가 바부다", "St. Kitts & Nevis": "세인트키츠 네비스", "St. Vincent & Grenadines": "세인트빈센트 그레나딘", "Turks & Caicos Islands": "터크스 케이커스 제도", "British Virgin Isles": "영국령 버진아일랜드", "US Virgin Isles": "미국령 버진아일랜드", "Sao Tome & Principe": "상투메 프린시페", "Cabo Verde": "카보베르데",
 })
 
 CLUBS.update({
