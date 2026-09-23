@@ -196,6 +196,7 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
 .prow{display:grid;grid-template-columns:10px 1fr auto 44px;gap:10px;align-items:center;width:100%;padding:10px 0;border-bottom:1px solid var(--line)}
 .prow .rd{width:7px;height:7px;border-radius:50%}
 .pn{font-size:14px;font-weight:600;min-width:0} .pn small{margin-left:5px;font-family:var(--num);font-size:10px;color:var(--mute)}
+.pn .backtag{font-size:10px;font-weight:700;color:#0B0D0C;background:var(--good);padding:0 5px;border-radius:3px;margin-left:5px;vertical-align:1px}
 .pn .acetag{font-family:var(--num);font-size:9px;font-weight:700;letter-spacing:1px;color:#1A1204;background:#FFE066;padding:0 4px;border-radius:3px;margin-left:5px;vertical-align:1px}
 .prow > b{text-align:right;font-size:13px;color:var(--dim);font-family:var(--num)} .prow > b.hit{color:var(--acc)}
 .prow .more{grid-column:2 / 5;display:flex;flex-wrap:wrap;gap:4px 8px;font-size:12px;color:var(--mute)} .prow .more em{font-style:normal;font-weight:700}
@@ -551,6 +552,7 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     box.append(hero(g, d, ready));
     if (!ready){
       box.append(el("p", "msg", g.state === "post" ? "라인업을 받기 전에 끝난 경기라 판정 기록이 없어요." : `아직 선발 라인업이 나오지 않았어요. ${announce(g.start_kst)}쯤 발표 예정이에요.`));
+      if (d && d.expected) box.append(expectedBlock(d.expected, g));
       if (d && d.risk && Object.keys(d.risk).length && g.state !== "post"){
         const rb = riskBlock(d.risk, g); if (rb) box.append(rb);
         const H = d.risk.home || {}, A = d.risk.away || {};
@@ -634,9 +636,28 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     if (pw && pw.mode === "mlb"){ const ex = el("div", "exp"); ex.append(el("span", null, "예상 득점"), el("b", null, `${fmt(pw.exp_home, 1)} : ${fmt(pw.exp_away, 1)}`), el("span", null, `합계 ${fmt(pw.exp_total, 1)}`)); h.append(ex); }
     const s = sigs(d.signals, true); if (s) h.append(s);
     if (d.summary && d.summary.headline) h.append(el("p", "headline", d.summary.headline));
+    if (d.lineup_source) h.append(el("div", "vnote", `라인업 판단: ${d.lineup_source}`));
     return h;
   }
   function showNote(x, tip){ const n = $("basisNote"); if (n) n.textContent = x.querySelector(".k").textContent + ": " + tip; }
+
+  // ----- 예상 라인업 (아직 발표 전: 지난 경기 선발 기준) — 판정은 하지 않음
+  function expectedBlock(exp, g){
+    const b = block("예상 라인업", "지난 경기 선발 기준 · 판정 안 함");
+    ["home", "away"].forEach(s => {
+      const t = exp[s] || {};
+      const head = el("div", "mt", `${g[s]}${t.formation ? " · " + t.formation : ""}`);
+      head.style.color = s === "home" ? "var(--home)" : "var(--away)";
+      b.append(head);
+      const box = el("div", "mchips");
+      (t.players || []).forEach(p => { const c = el("span", "mchip"); c.append(el("b", null, p.name));
+        if (p.pos) c.append(el("small", null, p.pos)); box.append(c); });
+      if (!(t.players || []).length) box.append(el("span", "note", "없음"));
+      const w = el("div", "mteam"); w.append(box); b.append(w);
+    });
+    b.append(el("div", "note", "발표된 라인업이 아니에요. 실제 발표되면 자동으로 판정 화면으로 바뀝니다."));
+    return b;
+  }
 
   // ----- 부상·징계 명단 (풋몹)
   function absentBlock(home, away, g, coreH, coreA){
@@ -684,7 +705,15 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     const w = el("div");
     const sm = d.summary || {};
     const pts = block("핵심 포인트"); const ul = el("ul", "pts");
-    (sm.points || []).slice(1, 3).forEach(([a, b]) => { const li = el("li"); li.append(el("b", null, a)); if (b) li.append(el("span", null, b)); ul.append(li); });
+    const backs = ["home", "away"].filter(s => (T[s].returning || []).length);
+    (sm.points || []).slice(1, backs.length ? 2 : 3).forEach(([a, b]) => { const li = el("li"); li.append(el("b", null, a)); if (b) li.append(el("span", null, b)); ul.append(li); });
+    backs.forEach(s => {
+      const r = T[s].returning, li = el("li"), b = el("b");
+      const tm = el("span", null, `${g[s]} `); tm.style.color = s === "home" ? "var(--home)" : "var(--away)";
+      b.append(tm, el("em", "good", `${r.map(x => x.name).join(" · ")} 복귀 선발`)); li.append(b);
+      li.append(el("span", null, `장기 결장 뒤 복귀 (${NAT ? "대표팀" : "시즌"} ${r[0].season_starts}/${r[0].of}경기 선발)`));
+      ul.append(li);
+    });
     aceLines(T, g).forEach(li => ul.append(li));
     if (!ul.children.length && (sm.points || [])[0]){ const [a, b] = sm.points[0]; const li = el("li"); li.append(el("b", null, a)); if (b) li.append(el("span", null, b)); ul.append(li); }
     pts.append(ul); w.append(pts);
@@ -783,6 +812,7 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
       const nm = el("span", "pn", p.name); nm.append(el("small", null, p.pos || ""));
       if (aceId && p.id === aceId) nm.append(el("span", "acetag", "ACE"));
       if (bench && p.core) nm.append(el("small", null, "주전"));
+      if (p.returning) nm.append(el("span", "backtag", "복귀"));
       r.append(nm, last5(p));
       const ga = el("b", (s.goals || s.assists) ? "hit" : null, `${s.goals || 0}·${s.assists || 0}`); r.append(ga);
       const [ml, mc] = mood(p, g.sport);
