@@ -1038,11 +1038,30 @@ _MONTH_KO = {m: i for i, m in enumerate(["January", "February", "March", "April"
                                           "September", "October", "November", "December"], 1)}
 
 
+_RETURN_PHRASES = [
+    ("back in training", "훈련 복귀 중"), ("in training", "훈련 복귀 중"), ("doubtful", "출전 불투명"),
+    ("out for season", "시즌 아웃"), ("season", "시즌 아웃"), ("unknown", "미정"), ("few days", "며칠 내"),
+    ("this week", "이번 주"), ("next week", "다음 주"),
+]
+
+
 def fotmob_return_text(text):
-    """'Late September 2026' → '9월 말', 'Mid October 2026' → '10월 중순', 'Early January 2027' → '1월 초'"""
+    """'Late September 2026' → '9월 말', 'About 1-2 weeks' → '1~2주 뒤', 'Back in training' → '훈련 복귀 중'"""
     t = _s(text)
-    if not t or t.lower().startswith("unknown"):
+    if not t:
         return "미정"
+    low = t.lower()
+    m = re.search(r"(\d+)\s*-\s*(\d+)\s*(week|month|day)", low)
+    if m:
+        unit = {"week": "주", "month": "개월", "day": "일"}[m.group(3)]
+        return f"{m.group(1)}~{m.group(2)}{unit} 뒤"
+    m = re.search(r"(\d+)\s*(week|month|day)", low)
+    if m:
+        unit = {"week": "주", "month": "개월", "day": "일"}[m.group(2)]
+        return f"{m.group(1)}{unit} 뒤"
+    for key, ko in _RETURN_PHRASES:
+        if key in low:
+            return ko
     part = {"Early": "초", "Mid": "중순", "Late": "말"}
     words = t.split()
     when = part.get(words[0]) if words else None
