@@ -494,6 +494,10 @@ def parse_mlb_schedule(data):
                     "event_id": str(g.get("gamePk") or ""),
                     "start_kst": kst.isoformat() if kst else "",
                     "state": {"preview": "pre", "live": "in", "final": "post"}.get(state, "pre"),
+                    # 더블헤더 1·2차전과 연기 여부 (같은 팀 카드가 하루에 두 번 나올 때 구분)
+                    "game_no": _int(g.get("gameNumber")) if _s(g.get("doubleHeader")).upper() in ("Y", "S") else None,
+                    "postponed": "postpon" in _s(_d(g.get("status")).get("detailedState")).lower(),
+                    "resume": _s(_d(g.get("status")).get("detailedState")),
                     "home": {
                         "id": str(_d(_d(home).get("team")).get("id") or ""),
                         "name": _s(_d(_d(home).get("team")).get("name")),
