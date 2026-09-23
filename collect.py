@@ -330,7 +330,7 @@ def dedupe(games):
 
 
 def needs_detail(game, now):
-    if not game.get("start_kst"):
+    if not game.get("start_kst") or game.get("postponed"):
         return False
     start = to_kst(game["start_kst"])
     if not start:
@@ -1845,6 +1845,8 @@ def run(verbose=False):
             "home_logo": g["home"].get("logo", ""),
             "away_logo": g["away"].get("logo", ""),
             "national": bool(g.get("national")),
+            "game_no": g.get("game_no"),            # 더블헤더 1·2차전
+            "postponed": bool(g.get("postponed")),  # 연기된 경기
             "lineup_ready": False,
             "grade_home": "",
             "grade_away": "",
