@@ -56,7 +56,13 @@ button{background:none;border:0;padding:0;cursor:pointer;text-align:left}
 .lhead{display:flex;justify-content:space-between;align-items:flex-end;padding:18px 18px 10px}
 .brand{font-family:var(--num);font-size:11px;letter-spacing:2px;color:var(--acc)}
 h1{margin:0;font-size:24px;font-weight:900;letter-spacing:-0.03em}
+.updbox{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
 .upd{font-size:11px;color:var(--mute);text-align:right}
+.upd.stale{color:var(--acc);font-weight:700}
+.reload{font-size:12px;font-weight:700;color:var(--ink);background:var(--s1);padding:7px 12px;border-radius:999px}
+.reload.busy{opacity:.5}
+.stalebox{margin:0 18px 10px;padding:10px 12px;border-radius:12px;background:var(--s1);font-size:12px;color:var(--mute);line-height:1.6}
+.stalebox a{color:var(--acc);font-weight:700}
 .search{display:none}
 @media (min-width:1100px){ .search{display:block;margin:0 18px 10px} .search input{width:100%;background:var(--s1);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--ink)} .keys{display:block!important} }
 .keys{display:none;font-size:11px;color:var(--mute);padding:0 18px 8px}
@@ -247,7 +253,7 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
 <body>
 <div id="app">
   <aside id="listPane">
-    <header class="lhead"><div><div class="brand">LINEUP RADAR</div><h1>오늘의 라인업</h1></div><div class="upd num" id="updated">불러오는 중</div></header>
+    <header class="lhead"><div><div class="brand">LINEUP RADAR</div><h1>오늘의 라인업</h1></div><div class="updbox"><button type="button" id="reload" class="reload" aria-label="새로 불러오기">↻ 새로 불러오기</button><div class="upd num" id="updated">불러오는 중</div></div></header>
     <div class="search"><input id="q" type="search" placeholder="팀 이름 검색  ( / )" aria-label="팀 이름 검색"></div>
     <div class="keys">↑↓ 경기 이동 · Enter 열기 · / 검색</div>
     <nav class="days" id="days" aria-label="날짜"></nav>
@@ -393,8 +399,8 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     try {
       const data = await getJSON("data/games.json");
       games = data.games || [];
-      const k = kst(data.updated);
-      $("updated").textContent = k ? `${String(k.m).padStart(2, "0")}.${String(k.d).padStart(2, "0")} · ${hhmm(data.updated)} 갱신` : "";
+      updatedAt = Date.parse(data.updated) || 0;
+      showUpdated();
       renderList();
       if (isPC() && !current && view.length) openGame(view[0]);
     } catch (e) {
@@ -402,6 +408,32 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
       $("list").textContent = ""; $("list").append(el("p", "empty", "데이터를 불러오지 못했습니다. 잠시 후 다시 열어 주세요."));
     }
   }
+
+  // ---------- 갱신 시각
+  let updatedAt = 0, reloadTimer = null;
+  function showUpdated(){
+    const box = $("updated");
+    if (!updatedAt){ box.textContent = ""; return; }
+    const min = Math.max(0, Math.round((Date.now() - updatedAt) / 60000));
+    const ago = min < 1 ? "방금" : min < 60 ? `${min}분 전` : `${Math.floor(min / 60)}시간 ${min % 60}분 전`;
+    box.textContent = `${ago} 갱신 · ${hhmm(new Date(updatedAt).toISOString())}`;
+    box.classList.toggle("stale", min >= 45);
+    const old = $("staleBox");
+    if (old) old.remove();
+    if (min >= 45){                       // 오래됐으면 깃허브에서 직접 돌릴 수 있게 안내
+      const b = el("div", "stalebox"); b.id = "staleBox";
+      b.innerHTML = `수집이 ${ago}에 멈춰 있어요. <a href="https://github.com/jikgwan/lineup-radar/actions/workflows/update.yml" target="_blank" rel="noopener">깃허브에서 수집 실행하기</a> 후 1~2분 뒤 새로 불러오세요.`;
+      $("chips").insertAdjacentElement("afterend", b);
+    }
+  }
+  async function reload(){
+    const bt = $("reload");
+    bt.classList.add("busy"); bt.disabled = true;
+    try { await load(); if (current) await openGame(current); } finally { bt.classList.remove("busy"); bt.disabled = false; }
+  }
+  $("reload").onclick = reload;
+  setInterval(showUpdated, 30000);                       // 표시만 30초마다 갱신
+  setInterval(() => { if (!document.hidden) load(); }, 120000);   // 2분마다 저장된 데이터 자동으로 다시 읽기
 
   // ---------- 목록
   function filtered(){
@@ -583,7 +615,7 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
         const H = d.risk.home || {}, A = d.risk.away || {};
         const ab = absentBlock(H.absent, A.absent, g, H.core_absent, A.core_absent); if (ab) box.append(ab);
       }
-      if (g.state !== "post"){ const r = el("button", "retry", "다시 확인"); r.type = "button"; r.onclick = () => openGame(g); box.append(r); }
+      if (g.state !== "post"){ const r = el("button", "retry", "↻ 새로 불러오기"); r.type = "button"; r.onclick = () => reload(); box.append(r); }
       return;
     }
     const T = d.teams;
