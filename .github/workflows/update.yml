@@ -2,8 +2,16 @@ name: 라인업 수집
 
 on:
   schedule:
-    - cron: "7,17,27,37,47,57 * * * *"   # 10분마다 (정각 근처는 깃허브가 붐벼서 자주 밀리므로 7분 단위로)
-  workflow_dispatch:          # Actions 탭에서 수동 실행 가능
+    # 한 번 시작하면 5시간 20분 동안 10분 간격으로 계속 돈다.
+    # 예약이 밀려도 덮이도록 시작 지점을 두 군데 둔다 (하나가 돌고 있으면 다른 하나는 대기했다가 이어받음)
+    - cron: "3 * * * *"
+    - cron: "33 * * * *"
+  workflow_dispatch:
+    inputs:
+      rounds:
+        description: "몇 번 반복할지 (1 = 한 번만)"
+        required: false
+        default: "1"
 
 permissions:
   contents: write
@@ -15,7 +23,7 @@ concurrency:
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 15       # 안전장치: 15분 넘으면 깃허브가 멈춤
+    timeout-minutes: 345      # 10분 간격 32번 + 여유 (깃허브 한도 6시간)
     steps:
       - uses: actions/checkout@v4
 
@@ -32,8 +40,34 @@ jobs:
 
       - run: pip install requests
 
-      - name: 수집 실행
-        run: python collect.py
+      - name: 수집 실행 (10분 간격 반복)
+        env:
+          ROUNDS: ${{ github.event.inputs.rounds || '32' }}
+        run: |
+          git config user.name "lineup-bot"
+          git config user.email "actions@github.com"
+          START=$(date +%s)
+          for i in $(seq 1 "$ROUNDS"); do
+            echo "===== $i/$ROUNDS 회차 ($(date -u '+%H:%M UTC')) ====="
+            python collect.py || echo "이번 회차 실패 — 다음 회차에서 다시 시도"
+            mkdir -p archive docs/data
+            git add -A docs/data archive
+            if git diff --cached --quiet; then
+              echo "변경 없음"
+            else
+              git commit -m "data: $(date -u '+%Y-%m-%d %H:%M UTC')"
+              git pull --rebase --autostash origin "${GITHUB_REF_NAME}" || true
+              git push || echo "올리기 실패 — 다음 회차에서 다시 시도"
+            fi
+            # 5시간 20분이 넘으면 멈춘다 (대기 중인 다음 실행이 이어받는다)
+            if [ $(( $(date +%s) - START )) -ge 19200 ]; then
+              echo "시간이 다 되어 멈춥니다"
+              break
+            fi
+            if [ "$i" -lt "$ROUNDS" ]; then
+              sleep 540
+            fi
+          done
 
       # 받은 기록은 실행이 실패하거나 멈춰도 저장 (다음 실행에서 이어받기)
       - name: 캐시 저장
@@ -42,17 +76,3 @@ jobs:
         with:
           path: cache
           key: lineup-cache-${{ github.run_id }}
-
-      - name: 결과 커밋
-        run: |
-          git config user.name "lineup-bot"
-          git config user.email "actions@github.com"
-          mkdir -p archive docs/data
-          git add -A docs/data archive
-          if git diff --cached --quiet; then
-            echo "변경 없음"
-          else
-            git commit -m "data: $(date -u '+%Y-%m-%d %H:%M UTC')"
-            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" || true
-            git push
-          fi
