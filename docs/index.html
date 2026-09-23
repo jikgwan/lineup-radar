@@ -91,6 +91,8 @@ h1{margin:0;font-size:24px;font-weight:900;letter-spacing:-0.03em}
 .gside .score{font-family:'Inter','Noto Sans KR',sans-serif;font-size:20px;font-weight:800;min-width:24px;text-align:right}
 .gside .score.lose{color:var(--mute)}
 .fin{font-size:11px;font-weight:700;color:var(--mute);background:var(--s2);padding:1px 6px;border-radius:4px}
+.gno{font-size:11px;font-weight:800;color:var(--ink);background:var(--s2);padding:1px 6px;border-radius:4px}
+.pp{font-size:11px;font-weight:800;color:#1A1204;background:var(--acc);padding:1px 6px;border-radius:4px}
 .fold{margin:2px 0 4px}
 .foldbt{width:100%;padding:9px 12px;border-radius:12px;background:var(--s1);color:var(--mute);font-size:13px;font-weight:700;text-align:center}
 .fold > div > .gcard{margin-top:10px}
@@ -506,7 +508,10 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
           const bt = el("button", "foldbt"); bt.type = "button";
           const box = el("div"); box.hidden = !openDone.has(k);
           done.forEach(x => box.append(card(x, pins)));
-          const label = () => { bt.textContent = box.hidden ? `끝난 경기 ${done.length}개 보기 ▼` : `끝난 경기 ${done.length}개 접기 ▲`; };
+          const who = done.map(x => `${x.home} ${x.score ? x.score[0] + ":" + x.score[1] : ""} ${x.away}`.replace(/\s+/g, " ").trim());
+          const label = () => { bt.textContent = box.hidden
+            ? `끝난 경기 ${done.length}개 보기 ▼ · ${who[0]}${done.length > 1 ? ` 외 ${done.length - 1}경기` : ""}`
+            : `끝난 경기 ${done.length}개 접기 ▲`; };
           bt.onclick = () => { box.hidden = !box.hidden; box.hidden ? openDone.delete(k) : openDone.add(k); label(); };
           label();
           fold.append(bt, box); wrap.append(fold);
@@ -524,6 +529,8 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     const left = untilText(g); if (left) top.append(el("span", "until", left));
     top.append(el("span", "lg", g.league));
     if (g.state === "in") top.append(el("span", "live", "LIVE"));
+    if (g.game_no) top.append(el("span", "gno", `${g.game_no}차전`));
+    if (g.postponed) top.append(el("span", "pp", "연기"));
     if (g.state === "post") top.append(el("span", "fin", "종료"));
     if (isNew(g)) top.append(el("span", "new", "NEW"));
     c.append(top);
@@ -570,7 +577,9 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
           const open = openDone.has(k);
           if (!open) done.forEach(x => hidden.add(x.key));
           const fr = el("tr", "nowrow"); const ftd = el("td"); ftd.colSpan = 8;
-          const bt = el("button", "foldbt", open ? `끝난 경기 ${done.length}개 접기 ▲` : `끝난 경기 ${done.length}개 보기 ▼`); bt.type = "button";
+          const who = done.map(x => `${x.home} ${x.score ? x.score[0] + ":" + x.score[1] : ""} ${x.away}`.replace(/\s+/g, " ").trim());
+          const bt = el("button", "foldbt", open ? `끝난 경기 ${done.length}개 접기 ▲`
+            : `끝난 경기 ${done.length}개 보기 ▼ · ${who[0]}${done.length > 1 ? ` 외 ${done.length - 1}경기` : ""}`); bt.type = "button";
           bt.onclick = () => { open ? openDone.delete(k) : openDone.add(k); renderList(); };
           ftd.append(bt); fr.append(ftd); tb.append(fr);
         }
@@ -578,7 +587,7 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
       if (hidden.has(g.key)) return;
       const tr = el("tr", [current && current.key === g.key ? "sel" : "", g.state === "post" ? "done" : ""].join(" ").trim() || null);
       const tt = el("td"); if (sortGap) tt.append(el("small", "num", md(g.start_kst) + " ")); tt.append(el("b", "num", hhmm(g.start_kst))); if (pins.has(g.key)){ const s = el("span", null, " ★"); s.style.color = "var(--acc)"; tt.append(s); } tr.append(tt);
-      const lg = el("td", "lg", g.league + (g.state === "in" ? " · LIVE" : "")); if (isNew(g)){ lg.append(document.createTextNode(" ")); lg.append(el("span", "new", "NEW")); } tr.append(lg);
+      const lg = el("td", "lg", g.league + (g.game_no ? ` ${g.game_no}차전` : "") + (g.postponed ? " · 연기" : "") + (g.state === "in" ? " · LIVE" : "")); if (isNew(g)){ lg.append(document.createTextNode(" ")); lg.append(el("span", "new", "NEW")); } tr.append(lg);
       [["home", "grade_home", "var(--home)"], ["away", "grade_away", "var(--away)"]].forEach(([s, gk, col]) => {
         const td = el("td"); const d = el("div", "tm"); const dot = el("span"); dot.style.cssText = `width:3px;height:14px;border-radius:2px;background:${col};flex:none`;
         d.append(g[s + "_logo"] ? crest(g[s + "_logo"], g[s], col, 20) : dot, document.createTextNode(g[s])); td.append(d); tr.append(td);
@@ -640,6 +649,8 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     const h = el("section", "hero");
     const meta = el("div", "hmeta"); meta.append(el("span", null, `${g.league} · ${dayWord(g.start_kst)} ${hhmm(g.start_kst)}`));
     if (g.state === "in") meta.append(el("span", "live", "LIVE"));
+    if (g.game_no) meta.append(el("span", "gno", `더블헤더 ${g.game_no}차전`));
+    if (g.postponed) meta.append(el("span", "pp", "연기"));
     if (g.state === "post") meta.append(el("span", "fin", "종료"));
     h.append(meta);
     const tm = el("div", "hteams");
