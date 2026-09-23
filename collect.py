@@ -714,6 +714,7 @@ def espn_pre_lineup(client, game, now, extractor):
         if r:
             r["schedule"] = ctx
             r["core_names"] = [m.get("name") for m in core]
+            r["tired"] = [ko_player(x) for x in r.get("tired") or []]
             risk[side] = r
     names = {s: game[s]["name"] for s in ("home", "away")}
     sig = []
@@ -1041,6 +1042,7 @@ def naver_pre_lineup(client, game, now):
         r = rotation_risk(history, events, core, 11, ctx.get("next"), (ctx.get("last") or {}).get("days_ago"))
         if r:
             r["schedule"] = ctx
+            r["tired"] = [ko_player(x) for x in r.get("tired") or []]
             risk[side] = r
     names = {s: game[s]["name"] for s in ("home", "away")}
     return {"risk": risk, "signals": _risk_signals(names, risk)}
