@@ -690,7 +690,8 @@ def _risk_signals(names, risk):
 
 
 def espn_pre_lineup(client, game, now, extractor):
-    """라인업 발표 전: 양 팀의 로테이션 가능성 (지난 경기 패턴 + 오늘 일정)."""
+    """라인업 발표 전: 양 팀의 로테이션 가능성 (지난 경기 패턴 + 오늘 일정).
+    대표팀은 소집마다 명단이 바뀌어 '로테이션'으로 볼 수 없어서 이 계산을 하지 않는다 (부상·징계만 보여준다)."""
     start = to_kst(game["start_kst"]) or now
     cfg = load_config()
     risk = {}
@@ -710,12 +711,16 @@ def espn_pre_lineup(client, game, now, extractor):
         events = espn_team_events(client, "soccer", slugs, team_id)
         ctx = espn_schedule_context(client, "soccer", slugs, team_id, start, events=events)
         core = core_from_history(history[:HISTORY_MATCHES], 11)
-        r = rotation_risk(history, events, core, 11, ctx.get("next"), (ctx.get("last") or {}).get("days_ago"))
+        r = None if game.get("national") else rotation_risk(history, events, core, 11, ctx.get("next"),
+                                                            (ctx.get("last") or {}).get("days_ago"))
         if r:
             r["schedule"] = ctx
             r["core_names"] = [m.get("name") for m in core]
             r["tired"] = [ko_player(x) for x in r.get("tired") or []]
             risk[side] = r
+        elif game.get("national"):
+            risk[side] = {"level": None, "situation": "normal", "situation_text": "평소", "today": {"n": 0}, "base": {"n": 0},
+                          "tired": [], "reason": "", "size": 11, "core_names": [m.get("name") for m in core]}
     names = {s: game[s]["name"] for s in ("home", "away")}
     sig = []
     try:
