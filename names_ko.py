@@ -651,7 +651,35 @@ PLAYERS = {
     "Hugo Lloris": "위고 요리스",
     "Thomas Muller": "토마스 뮐러",
     "Marco Reus": "마르코 로이스",
-    "Lorenzo Insigne": "로렌초 인시녜"
+    "Lorenzo Insigne": "로렌초 인시녜",
+    "Kim Min-Jae": "김민재",
+    "Kim Minjae": "김민재",
+    "Lee Kang-In": "이강인",
+    "Lee Kangin": "이강인",
+    "Hwang Hee-Chan": "황희찬",
+    "Hwang Heechan": "황희찬",
+    "Lee Jae-Sung": "이재성",
+    "Hwang In-Beom": "황인범",
+    "Oh Hyeon-Gyu": "오현규",
+    "Cho Gue-Sung": "조규성",
+    "Yang Min-Hyeok": "양민혁",
+    "Bae Jun-Ho": "배준호",
+    "Seol Young-Woo": "설영우",
+    "Hong Hyun-Seok": "홍현석",
+    "Jeong Woo-Yeong": "정우영",
+    "Kim Ji-Soo": "김지수",
+    "Um Ji-Sung": "엄지성",
+    "Kwon Hyeok-Kyu": "권혁규",
+    "Paik Seung-Ho": "백승호",
+    "Kim Seung-Gyu": "김승규",
+    "Jo Hyeon-Woo": "조현우",
+    "Kim Young-Gwon": "김영권",
+    "Kim Jin-Su": "김진수",
+    "Park Yong-Woo": "박용우",
+    "Lee Dong-Gyeong": "이동경",
+    "Kim Moon-Hwan": "김문환",
+    "Na Sang-Ho": "나상호",
+    "Jung Sang-Bin": "정상빈"
 }
 
 _PLAYER_TABLE = {}
@@ -659,18 +687,20 @@ for _en, _ko in PLAYERS.items():
     _PLAYER_TABLE.setdefault(_key(_en), _ko)
 
 _PLAYER_LAST = {}
-for _en, _ko in PLAYERS.items():                      # 성만 있는 표기도 맞추되, 성이 겹치면 쓰지 않는다
-    _last = _key(_en).split()[-1] if _key(_en) else ""
-    if not _last:
+for _en, _ko in PLAYERS.items():                      # 성으로도 맞추되, 성이 겹치면 쓰지 않는다
+    _w = _key(_en).split()
+    if not _w:
         continue
-    if _last in _PLAYER_LAST and _PLAYER_LAST[_last] != _ko:
-        _PLAYER_LAST[_last] = None
+    _last, _first = _w[-1], (_w[0][0] if len(_w) > 1 else "")
+    if _last in _PLAYER_LAST and (_PLAYER_LAST[_last] or ("", ""))[0] != _ko:
+        _PLAYER_LAST[_last] = None                    # 같은 성이 둘 이상 → 쓰지 않음
     else:
-        _PLAYER_LAST.setdefault(_last, _ko)
+        _PLAYER_LAST.setdefault(_last, (_ko, _first))
 
 
 def ko_player(name):
-    """영어 선수 이름 -> 한국어 (사전에 없으면 원래 이름). 이미 한국어면 그대로."""
+    """영어 선수 이름 -> 한국어 (사전에 없으면 원래 이름). 이미 한국어면 그대로.
+    철자가 조금 달라도(Aymen/Ayman) 성이 하나뿐이고 이름 첫 글자가 같으면 바꾼다."""
     raw = str(name or "")
     if not raw or re.search(r"[가-힣]", raw):
         return raw
@@ -678,8 +708,11 @@ def ko_player(name):
     if k in _PLAYER_TABLE:
         return _PLAYER_TABLE[k]
     words = k.split()
-    if len(words) == 1:                               # "Haaland"처럼 성만 온 경우
-        ko = _PLAYER_LAST.get(words[0])
-        if ko:
+    if not words:
+        return raw
+    hit = _PLAYER_LAST.get(words[-1])
+    if hit:
+        ko, first = hit
+        if len(words) == 1 or not first or words[0][0] == first:
             return ko
     return raw
