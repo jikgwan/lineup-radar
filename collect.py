@@ -1397,6 +1397,8 @@ def build_kbo_detail(client, game, now):
             if h.get("sp") and sp.get("id") and h["sp"]["id"] == sp["id"]:
                 starts.append({"date": str(h["date"])[:10], "opp": h.get("opp"), "ip": h["sp"]["ip"], "er": h["sp"]["er"],
                                "pitches": h["sp"].get("pitches")})
+        for r in starts[:3]:                                   # 상대 팀 이름도 한국어로
+            r["opp"] = ko_team(r.get("opp"))
         sp["recent"] = starts[:3]
         sp["recent_era"] = recent_era(starts)
         if starts:
@@ -1613,6 +1615,8 @@ def build_mlb_detail(client, game, now):
         result["pitcher"] = mlb_pitcher_card(client, (game.get("probables") or {}).get(side), season)
         game_day = (to_kst(game["start_kst"]) or now).date()
         sp = mlb_starter(client, (game.get("probables") or {}).get(side), season, game_day)
+        for r in (sp or {}).get("recent") or []:
+            r["opp"] = ko_team(r.get("opp"))
         if sp and ko_sp.get(side):                      # 네이버의 한국어 선발 이름 (영어 원래 이름은 따로 보관)
             sp["name_en"], sp["name"] = sp.get("name"), ko_sp[side]
         pen = mlb_bullpen(client, game[side]["id"], season, info.get("results") or [], game_day) if game[side]["id"] else {}
