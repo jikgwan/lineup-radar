@@ -57,6 +57,8 @@ button{background:none;border:0;padding:0;cursor:pointer;text-align:left}
 .brand{font-family:var(--num);font-size:11px;letter-spacing:2px;color:var(--acc)}
 h1{margin:0;font-size:24px;font-weight:900;letter-spacing:-0.03em}
 .updbox{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.clock{font-family:'Inter','Noto Sans KR',sans-serif;font-size:19px;font-weight:800;letter-spacing:-.02em;line-height:1}
+.clock small{font-size:11px;color:var(--mute);font-weight:700;margin-left:5px}
 .upd{font-size:11px;color:var(--mute);text-align:right}
 .upd.stale{color:var(--acc);font-weight:700}
 .reload{font-size:12px;font-weight:700;color:var(--ink);background:var(--s1);padding:7px 12px;border-radius:999px}
@@ -258,7 +260,7 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
 <body>
 <div id="app">
   <aside id="listPane">
-    <header class="lhead"><div><div class="brand">LINEUP RADAR</div><h1>오늘의 라인업</h1></div><div class="updbox"><button type="button" id="reload" class="reload" aria-label="새로 불러오기">↻ 새로 불러오기</button><div class="upd num" id="updated">불러오는 중</div></div></header>
+    <header class="lhead"><div><div class="brand">LINEUP RADAR</div><h1>오늘의 라인업</h1></div><div class="updbox"><div class="clock num" id="clock">--:--</div><button type="button" id="reload" class="reload" aria-label="새로 불러오기">↻ 새로 불러오기</button><div class="upd num" id="updated">불러오는 중</div></div></header>
     <div class="search"><input id="q" type="search" placeholder="팀 이름 검색  ( / )" aria-label="팀 이름 검색"></div>
     <div class="keys">↑↓ 경기 이동 · Enter 열기 · / 검색</div>
     <nav class="days" id="days" aria-label="날짜"></nav>
@@ -308,14 +310,18 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     return {y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate(), h: d.getUTCHours(), mi: d.getUTCMinutes(), w: d.getUTCDay()}; }
   const hhmm = (iso) => { const k = iso && kst(iso); return k ? String(k.h).padStart(2, "0") + ":" + String(k.mi).padStart(2, "0") : "--:--"; };
   const md = (iso) => { const k = iso && kst(iso); return k ? `${k.m}/${k.d}` : ""; };
-  function dayDiff(iso){ const k = kst(iso), n = kst(new Date().toISOString()); if (!k) return null; return Date.UTC(k.y, k.m - 1, k.d) / 864e5 - Date.UTC(n.y, n.m - 1, n.d) / 864e5; }
+  // 하루의 시작은 새벽 6시 — 새벽 2시 경기는 '어젯밤 경기'로 묶어 다음 날 아침까지 오늘 목록에 남긴다
+  const DAY_START_HOUR = 6;
+  function sportsDay(iso){ const t = Date.parse(iso); if (isNaN(t)) return null; return kst(new Date(t - DAY_START_HOUR * 3600e3).toISOString()); }
+  function dayDiff(iso){ const k = sportsDay(iso), n = sportsDay(new Date().toISOString()); if (!k || !n) return null;
+    return Date.UTC(k.y, k.m - 1, k.d) / 864e5 - Date.UTC(n.y, n.m - 1, n.d) / 864e5; }
   const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
   // 전날(한국 시간 기준 오늘 이전 날짜) 경기는 전부 '지난 경기'로
   const isPast = (g) => dayDiff(g.start_kst) < 0;
-  const dateKey = (iso) => { const k = iso && kst(iso); return k ? `${k.y}-${String(k.m).padStart(2, "0")}-${String(k.d).padStart(2, "0")}` : ""; };
+  const dateKey = (iso) => { const k = iso && sportsDay(iso); return k ? `${k.y}-${String(k.m).padStart(2, "0")}-${String(k.d).padStart(2, "0")}` : ""; };
   function relWord(iso){ const d = dayDiff(iso); return {"-1": "어제", "0": "오늘", "1": "내일", "2": "모레"}[String(d)] || ""; }
-  function dayTitle(iso){ const k = kst(iso); if (!k) return ""; const r = relWord(iso); return `${r ? r + " · " : ""}${k.m}월 ${k.d}일 ${WEEK[k.w]}요일`; }
-  function dayChip(iso){ const k = kst(iso); const r = relWord(iso); return r ? `${r} ${k.m}/${k.d}` : `${k.m}/${k.d} ${WEEK[k.w]}`; }
+  function dayTitle(iso){ const k = sportsDay(iso); if (!k) return ""; const r = relWord(iso); return `${r ? r + " · " : ""}${k.m}월 ${k.d}일 ${WEEK[k.w]}요일`; }
+  function dayChip(iso){ const k = sportsDay(iso); const r = relWord(iso); return r ? `${r} ${k.m}/${k.d}` : `${k.m}/${k.d} ${WEEK[k.w]}`; }
   const dayWord = (iso) => { const d = dayDiff(iso); return d === 0 ? "오늘" : d === 1 ? "내일" : d === -1 ? "어제" : md(iso); };
   const announce = (iso) => { const t = Date.parse(iso); return isNaN(t) ? "" : hhmm(new Date(t - 3600e3).toISOString()); };
   function untilText(g){
@@ -437,6 +443,13 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     try { await load(); if (current) await openGame(current); } finally { bt.classList.remove("busy"); bt.disabled = false; }
   }
   $("reload").onclick = reload;
+  function tick(){
+    const k = kst(new Date().toISOString());
+    const day = sportsDay(new Date().toISOString());
+    $("clock").innerHTML = `${String(k.h).padStart(2, "0")}:${String(k.mi).padStart(2, "0")}` +
+      `<small>${day.m}/${day.d} ${WEEK[day.w]} 기준</small>`;
+  }
+  tick(); setInterval(tick, 20000);                      // 시계 (하루는 새벽 6시에 바뀜)
   setInterval(showUpdated, 30000);                       // 표시만 30초마다 갱신
   setInterval(() => { if (!document.hidden) load(); }, 120000);   // 2분마다 저장된 데이터 자동으로 다시 읽기
 
