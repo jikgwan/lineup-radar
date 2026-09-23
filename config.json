@@ -231,6 +231,293 @@
       "slug": "nba",
       "path": "basketball/nba",
       "name": "NBA"
+    },
+    {
+      "sport": "축구",
+      "slug": "global.gulf_cup",
+      "path": "soccer/global.gulf_cup",
+      "name": "걸프컵",
+      "national": true
+    },
+    {
+      "sport": "축구",
+      "slug": "aff.championship",
+      "path": "soccer/aff.championship",
+      "name": "동남아 선수권",
+      "national": true
+    },
+    {
+      "sport": "축구",
+      "slug": "afc.cupq",
+      "path": "soccer/afc.cupq",
+      "name": "아시안컵 예선",
+      "national": true
+    },
+    {
+      "sport": "축구",
+      "slug": "caf.nations_qual",
+      "path": "soccer/caf.nations_qual",
+      "name": "아프리카 네이션스컵 예선",
+      "national": true
+    },
+    {
+      "sport": "축구",
+      "slug": "concacaf.nations.league",
+      "path": "soccer/concacaf.nations.league",
+      "name": "북중미 네이션스리그",
+      "national": true
+    },
+    {
+      "sport": "축구",
+      "slug": "fifa.cwc",
+      "path": "soccer/fifa.cwc",
+      "name": "클럽 월드컵"
+    },
+    {
+      "sport": "축구",
+      "slug": "fifa.intercontinental.cup",
+      "path": "soccer/fifa.intercontinental.cup",
+      "name": "인터컨티넨탈컵"
+    },
+    {
+      "sport": "축구",
+      "slug": "eng.fa",
+      "path": "soccer/eng.fa",
+      "name": "FA컵"
+    },
+    {
+      "sport": "축구",
+      "slug": "esp.copa_del_rey",
+      "path": "soccer/esp.copa_del_rey",
+      "name": "코파 델 레이"
+    },
+    {
+      "sport": "축구",
+      "slug": "ita.coppa_italia",
+      "path": "soccer/ita.coppa_italia",
+      "name": "코파 이탈리아"
+    },
+    {
+      "sport": "축구",
+      "slug": "ger.dfb_pokal",
+      "path": "soccer/ger.dfb_pokal",
+      "name": "DFB 포칼"
+    },
+    {
+      "sport": "축구",
+      "slug": "fra.coupe_de_france",
+      "path": "soccer/fra.coupe_de_france",
+      "name": "쿠프 드 프랑스"
+    },
+    {
+      "sport": "축구",
+      "slug": "ned.cup",
+      "path": "soccer/ned.cup",
+      "name": "KNVB 베이커"
+    },
+    {
+      "sport": "축구",
+      "slug": "por.taca.portugal",
+      "path": "soccer/por.taca.portugal",
+      "name": "타사 드 포르투갈"
+    },
+    {
+      "sport": "축구",
+      "slug": "sco.tennents",
+      "path": "soccer/sco.tennents",
+      "name": "스코틀랜드 리그컵"
+    },
+    {
+      "sport": "축구",
+      "slug": "uefa.champions_qual",
+      "path": "soccer/uefa.champions_qual",
+      "name": "챔스 예선"
+    },
+    {
+      "sport": "축구",
+      "slug": "uefa.europa_qual",
+      "path": "soccer/uefa.europa_qual",
+      "name": "유로파 예선"
+    },
+    {
+      "sport": "축구",
+      "slug": "uefa.europa.conf_qual",
+      "path": "soccer/uefa.europa.conf_qual",
+      "name": "컨퍼런스 예선"
+    },
+    {
+      "sport": "축구",
+      "slug": "uefa.super_cup",
+      "path": "soccer/uefa.super_cup",
+      "name": "UEFA 슈퍼컵"
+    },
+    {
+      "sport": "축구",
+      "slug": "ger.2",
+      "path": "soccer/ger.2",
+      "name": "분데스리가2"
+    },
+    {
+      "sport": "축구",
+      "slug": "ita.2",
+      "path": "soccer/ita.2",
+      "name": "세리에B"
+    },
+    {
+      "sport": "축구",
+      "slug": "fra.2",
+      "path": "soccer/fra.2",
+      "name": "리그2"
+    },
+    {
+      "sport": "축구",
+      "slug": "ned.2",
+      "path": "soccer/ned.2",
+      "name": "에레디비시2"
+    },
+    {
+      "sport": "축구",
+      "slug": "sco.1",
+      "path": "soccer/sco.1",
+      "name": "스코틀랜드"
+    },
+    {
+      "sport": "축구",
+      "slug": "bel.1",
+      "path": "soccer/bel.1",
+      "name": "벨기에"
+    },
+    {
+      "sport": "축구",
+      "slug": "aut.1",
+      "path": "soccer/aut.1",
+      "name": "오스트리아"
+    },
+    {
+      "sport": "축구",
+      "slug": "den.1",
+      "path": "soccer/den.1",
+      "name": "덴마크"
+    },
+    {
+      "sport": "축구",
+      "slug": "nor.1",
+      "path": "soccer/nor.1",
+      "name": "노르웨이"
+    },
+    {
+      "sport": "축구",
+      "slug": "swe.1",
+      "path": "soccer/swe.1",
+      "name": "스웨덴"
+    },
+    {
+      "sport": "축구",
+      "slug": "gre.1",
+      "path": "soccer/gre.1",
+      "name": "그리스"
+    },
+    {
+      "sport": "축구",
+      "slug": "rus.1",
+      "path": "soccer/rus.1",
+      "name": "러시아"
+    },
+    {
+      "sport": "축구",
+      "slug": "chn.1",
+      "path": "soccer/chn.1",
+      "name": "중국 슈퍼리그"
+    },
+    {
+      "sport": "축구",
+      "slug": "aus.1",
+      "path": "soccer/aus.1",
+      "name": "호주 A리그"
+    },
+    {
+      "sport": "축구",
+      "slug": "ksa.1",
+      "path": "soccer/ksa.1",
+      "name": "사우디"
+    },
+    {
+      "sport": "축구",
+      "slug": "ind.1",
+      "path": "soccer/ind.1",
+      "name": "인도 슈퍼리그"
+    },
+    {
+      "sport": "축구",
+      "slug": "mex.1",
+      "path": "soccer/mex.1",
+      "name": "멕시코"
+    },
+    {
+      "sport": "축구",
+      "slug": "bra.2",
+      "path": "soccer/bra.2",
+      "name": "브라질2"
+    },
+    {
+      "sport": "축구",
+      "slug": "arg.2",
+      "path": "soccer/arg.2",
+      "name": "아르헨티나2"
+    },
+    {
+      "sport": "축구",
+      "slug": "col.1",
+      "path": "soccer/col.1",
+      "name": "콜롬비아"
+    },
+    {
+      "sport": "축구",
+      "slug": "chi.1",
+      "path": "soccer/chi.1",
+      "name": "칠레"
+    },
+    {
+      "sport": "축구",
+      "slug": "per.1",
+      "path": "soccer/per.1",
+      "name": "페루"
+    },
+    {
+      "sport": "축구",
+      "slug": "uru.1",
+      "path": "soccer/uru.1",
+      "name": "우루과이"
+    },
+    {
+      "sport": "축구",
+      "slug": "ecu.1",
+      "path": "soccer/ecu.1",
+      "name": "에콰도르"
+    },
+    {
+      "sport": "축구",
+      "slug": "conmebol.libertadores",
+      "path": "soccer/conmebol.libertadores",
+      "name": "코파 리베르타도레스"
+    },
+    {
+      "sport": "축구",
+      "slug": "conmebol.sudamericana",
+      "path": "soccer/conmebol.sudamericana",
+      "name": "코파 수다메리카나"
+    },
+    {
+      "sport": "축구",
+      "slug": "concacaf.champions_cup",
+      "path": "soccer/concacaf.champions_cup",
+      "name": "북중미 챔피언스컵"
+    },
+    {
+      "sport": "축구",
+      "slug": "caf.champions",
+      "path": "soccer/caf.champions",
+      "name": "아프리카 챔스"
     }
   ],
   "league_strength": {
