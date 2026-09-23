@@ -255,7 +255,8 @@ def kst_now():
     return datetime.now(KST)
 
 
-def date_strings(now, days=(-1, 0, 1)):
+def date_strings(now, days=(-2, -1, 0, 1)):
+    """수집할 날짜들. 해외 대회는 현지 날짜 기준이라, 한국 시간 '어제 새벽·오전' 경기가 빠지지 않게 이틀 전부터 본다."""
     return [(now + timedelta(days=d)).strftime("%Y%m%d") for d in days]
 
 
@@ -287,7 +288,7 @@ def collect_espn_games(client, now, leagues):
 
 
 def collect_mlb_games(client, now):
-    start = (now - timedelta(days=1)).strftime("%Y-%m-%d")
+    start = (now - timedelta(days=2)).strftime("%Y-%m-%d")     # 미국 날짜 기준이라 한국 시간 어제 경기가 빠지지 않게
     end = (now + timedelta(days=1)).strftime("%Y-%m-%d")
     data = client.get_json(
         f"{MLB_API}/schedule",
