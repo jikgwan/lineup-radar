@@ -837,7 +837,9 @@ def build_espn_detail(client, game, now):
         extractor = parse_basketball_box_for_team
         size = 5
 
-    if not sides or not any((s or {}).get("lineup") for s in sides.values()):
+    size_need = {"축구": 9, "농구": 4}.get(game["sport"], 7)      # 이만큼은 있어야 판정 (11명 중 9명 등)
+    counts = [len((sides.get(s) or {}).get("lineup") or []) for s in ("home", "away")] if sides else [0, 0]
+    if not sides or max(counts) == 0:
         out = {"lineup_ready": False, "note": "아직 선발 라인업이 나오지 않았습니다."}
         if game["sport"] == "축구":
             try:
@@ -848,6 +850,9 @@ def build_espn_detail(client, game, now):
 
     start = to_kst(game["start_kst"]) or now
     cfg = load_config()
+    if min(counts) < size_need:                                  # 한쪽이라도 선수가 모자라면 판정하지 않는다
+        return {"lineup_ready": False,
+                "note": f"라인업 정보가 부족해요 (확인된 선발 {counts[0]}명 · {counts[1]}명). 발표되면 판정해요."}
     teams, slugs = {}, {}
     # 명단은 팀 ID로 먼저 맞추고(홈/원정 표기가 틀려도 안전), 못 찾으면 표기대로
     by_id = {str(v.get("team_id")): v for v in sides.values() if isinstance(v, dict) and v.get("team_id")}
@@ -898,6 +903,10 @@ def build_espn_detail(client, game, now):
         ea, ca = elo_for(game["away"].get("name_en") or game["away"]["name"], ratings, names)
         home_adv = ELO_HOME if league_slug in (cfg.get("home_advantage_slugs") or []) else 0
         power = compare_elo(teams["home"], teams["away"], game["home"]["name"], game["away"]["name"], eh, ea, home_adv)
+        if power is None:                                        # Elo에 없는 대표팀(작은 나라 등)은 최근 성적으로
+            power = compare_power(teams["home"], teams["away"], game["home"]["name"], game["away"]["name"])
+            if power:
+                power["note"] = (power.get("note") or "") or "Elo 점수가 없어 최근 성적으로 비교했어요"
         teams["home"]["elo_code"], teams["away"]["elo_code"] = ch, ca
     elif game["sport"] == "축구":
         ls = cfg.get("league_strength") or {}
