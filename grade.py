@@ -487,19 +487,70 @@ def add_periods(result, history, season):
 
 # ---------------------------------------------------------------- 에이스
 
+ACE_MIN_APPS = 5          # 출전이 이보다 적으면 에이스 후보에서 뺀다 (한 경기 반짝 방지)
+ACE_MIN_GA = 3            # 팀에 확실한 에이스가 없으면(시즌 골+도움 3 미만) 에이스 없음
+
+
+def _per90(x):
+    """90분당 골 + 0.7×도움"""
+    x = x or {}
+    mins = x.get("minutes") or 0
+    ga = (x.get("goals") or 0) + 0.7 * (x.get("assists") or 0)
+    if mins >= 90:
+        return ga / (mins / 90.0)
+    n = x.get("matches") or 0
+    return ga / n if n else 0.0
+
+
 def _form_value(x):
-    """한 기간의 기여도: 경기당 (골 + 0.7×도움)×2 + 경기당 출전시간 비율."""
-    n = (x or {}).get("matches") or 0
+    """한 기간의 기여도 = 90분당 (골 + 0.7×도움) × 3 + 출전시간 비율 × 0.2.
+    골·도움이 중심이고 출전시간은 보조다."""
+    x = x or {}
+    n = x.get("matches") or 0
     if not n:
         return 0.0
-    ap = ((x.get("goals") or 0) + 0.7 * (x.get("assists") or 0)) / n
-    mins = (x.get("minutes") or 0) / (90.0 * n)
-    return ap * 2 + mins
+    share = (x.get("minutes") or 0) / (90.0 * n)
+    return _per90(x) * 3 + share * 0.2
 
 
-def ace_score(p):
-    """시즌 50% + 최근 50%."""
-    return round(0.5 * _form_value(p.get("season")) + 0.5 * _form_value(p.get("recent")), 3)
+def team_share(p, team_total):
+    """팀 전체 골·도움 중 이 선수가 차지하는 비율 (팀이 이 선수에게 얼마나 기대는가)"""
+    s = p.get("season") or {}
+    ga = (s.get("goals") or 0) + 0.7 * (s.get("assists") or 0)
+    return min(1.0, ga / team_total) if team_total > 0 else 0.0
+
+
+def irreplaceable(p):
+    """이 선수가 선발일 때와 아닐 때 팀 득점 차이 (경기 기록에서). 5경기 이상 양쪽에 있을 때만."""
+    log = p.get("log") or []
+    on = [r for r in log if r.get("started") and r.get("team_gf") is not None]
+    off = [r for r in log if not r.get("played") and r.get("team_gf") is not None]
+    if len(on) < 5 or len(off) < 5:
+        return None
+    return sum(r["team_gf"] for r in on) / len(on) - sum(r["team_gf"] for r in off) / len(off)
+
+
+def position_bonus(p):
+    """포지션 보정: 수비·골키퍼는 골이 적은 게 당연하므로 출전 안정성으로 평가."""
+    pos = str(p.get("pos") or "").upper()
+    s = p.get("season") or {}
+    n = s.get("matches") or 0
+    starts = (s.get("starts") or 0) / n if n else 0
+    if pos.startswith("G"):
+        return starts * 0.5          # 골키퍼: 붙박이일수록
+    if pos.startswith("D") or "CD" in pos or "LB" in pos or "RB" in pos:
+        return starts * 0.8
+    return starts
+
+
+def ace_score(p, team_total=0.0):
+    """에이스 점수 = 팀 의존도 40% + 생산성 30% + 대체 불가 15% + 포지션 보정 15%.
+    백테스트에서 '팀 골·도움 중 빠진 비율'이 가장 잘 맞아 팀 의존도를 중심에 뒀다."""
+    prod = 0.6 * _form_value(p.get("season")) + 0.4 * _form_value(p.get("recent"))
+    share = team_share(p, team_total)
+    irr = irreplaceable(p)
+    irr_v = max(0.0, min(1.0, (irr or 0) / 1.5))          # 득점 1.5골 차이를 1.0으로
+    return round(0.40 * share * 2.5 + 0.30 * prod + 0.15 * irr_v + 0.15 * position_bonus(p), 3)
 
 
 def pick_ace(result):
@@ -513,15 +564,23 @@ def pick_ace(result):
             seen.add(p.get("id"))
             status = where or (p.get("status") or "선발 제외")
             cands.append((p, status))
-    cands = [c for c in cands if (c[0]["season"].get("apps") or 0) > 0]
+    cands = [c for c in cands if (c[0]["season"].get("apps") or 0) >= ACE_MIN_APPS]
     if not cands:
         return None
-    p, status = max(cands, key=lambda c: (ace_score(c[0]), c[0]["season"].get("goals") or 0,
-                                          c[0]["season"].get("minutes") or 0, c[0].get("name", "")))
+    team_total = sum((c[0]["season"].get("goals") or 0) + 0.7 * (c[0]["season"].get("assists") or 0) for c in cands)
+    played = max((c[0]["season"].get("matches") or 0) for c in cands)
+    need = ACE_MIN_GA if played >= 10 else 2               # 시즌 초반에는 기준을 낮춘다
+    pool = [(c[0], c[1]) for c in cands
+            if ((c[0]["season"].get("goals") or 0) + (c[0]["season"].get("assists") or 0)) >= need]
+    if not pool:
+        return None                                        # 팀에 확실한 에이스가 없음
+    p, status = max(pool, key=lambda c: (ace_score(c[0], team_total), c[0]["season"].get("goals") or 0,
+                                         c[0]["season"].get("minutes") or 0, c[0].get("name", "")))
     s, r = p["season"], p.get("recent") or {}
     return {
         "id": p["id"], "name": p.get("name", ""), "pos": p.get("pos", ""), "jersey": p.get("jersey", ""),
-        "status": status, "score": ace_score(p), "season": s, "recent": r,
+        "status": status, "score": ace_score(p, team_total), "share": round(team_share(p, team_total), 3),
+        "irreplaceable": irreplaceable(p), "season": s, "recent": r,
         "trend": p.get("trend", ""), "log": p.get("log") or [],
     }
 
