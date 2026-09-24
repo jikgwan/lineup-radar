@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""16차 소스 점검 (읽기만 함): 위키데이터에 선수 한국어 이름이 얼마나 있나 (리그별 표본 50명).
+"""18차 소스 점검 (읽기만 함): 대표팀 Elo — 어느 나라가 자료에서 빠지는지.
 
 1) KBO: 끝난 경기·오늘 경기에서 라인업·타순·선발투수·선수 기록이 어디서 어떤 모양으로 오는지
 2) 풋몹: 결장자(unavailable) 항목 모양, 라인업 발표 전에도 결장자 명단이 있는지, 팀 이름 표기
@@ -84,48 +84,38 @@ def kbo():
 
 
 # ---------------------------------------------------------------- 풋몹
-SAMPLES = {
-    "유럽 주요 리그": ["Erling Haaland", "Bukayo Saka", "Jude Bellingham", "Lamine Yamal", "Rafael Leao",
-                   "Florian Wirtz", "Ousmane Dembele", "Virgil van Dijk", "Alexander Isak", "Pedri"],
-    "걸프·중동 대표팀": ["Aymen Hussein", "Ali Jasim", "Zaid Tahseen", "Issam Al-Sabhi", "Abdulaziz Al-Ghanim",
-                   "Salem Al-Dawsari", "Sultan Al-Ghannam", "Ali Al-Bulaihi", "Mohanad Ali", "Muhsen Al-Ghassani"],
-    "사우디 리그": ["Aleksandar Mitrovic", "Malcom", "Ruben Neves", "Karim Benzema", "Sadio Mane",
-                "Riyad Mahrez", "Roberto Firmino", "Ivan Toney", "Franck Kessie", "Moussa Diaby"],
-    "중국 슈퍼리그": ["Wu Lei", "Zhang Yuning", "Wei Shihao", "Oscar", "Cesar Aguilar",
-                 "Serginho", "Leonardo", "Fernandinho", "Wang Dalei", "Zhu Chenjie"],
-    "남미 리그": ["Pedro", "Gabriel Barbosa", "Hulk", "Paulinho", "Miguel Borja",
-               "Edinson Cavani", "Angel Di Maria", "Luis Suarez", "Everton Ribeiro", "Marcos Rojo"],
-}
+ELO_BASE = "https://www.eloratings.net"
+CHECK = ["South Korea", "Korea Republic", "Ecuador", "Japan", "Uruguay", "China PR", "Maldives",
+         "Palestine", "New Zealand", "Papua New Guinea", "Solomon Islands", "Vanuatu", "New Caledonia",
+         "Namibia", "Congo", "Congo DR"]
 
 
-def wikidata_names():
-    head("위키데이터 — 선수 이름이 한국어로 얼마나 있나 (리그별 표본)")
-    api = "https://www.wikidata.org/w/api.php"
-    total_ok = total_n = 0
-    for group, names in SAMPLES.items():
-        ok, lines = 0, []
-        for name in names:
-            body, st = jget(api, {"action": "wbsearchentities", "search": name, "language": "en",
-                                  "uselang": "ko", "type": "item", "limit": 3, "format": "json"})
-            hits = (body or {}).get("search") or []
-            player = next((h for h in hits if "football" in str(h.get("description") or "").lower()
-                           or "축구" in str(h.get("description") or "")), hits[0] if hits else None)
-            ko = None
-            if player:
-                b2, s2 = jget(api, {"action": "wbgetentities", "ids": player.get("id"), "props": "labels",
-                                    "languages": "ko", "format": "json"})
-                ent = ((b2 or {}).get("entities") or {}).get(player.get("id")) or {}
-                ko = ((ent.get("labels") or {}).get("ko") or {}).get("value")
-            if ko:
-                ok += 1
-            lines.append(f"     {name:24} → {ko or '(없음)'}")
-        total_ok += ok
-        total_n += len(names)
-        print(f"\n  ▶ {group}: {ok}/{len(names)} 한국어 이름 있음")
-        for line in lines:
-            print(line)
-    print(f"\n  전체: {total_ok}/{total_n} ({round(100 * total_ok / max(1, total_n))}%)")
-    print("  · 절반을 넘으면 붙일 만하고, 낮으면 네이버가 있는 리그만 한국어로 하는 게 나아요.")
+def elo_check():
+    head("대표팀 Elo — 자료가 받아지는지, 어느 나라가 빠지는지")
+    import parse as P
+    for path, key in ((f"{ELO_BASE}/World.tsv", "레이팅"), (f"{ELO_BASE}/en.teams.tsv", "이름표")):
+        try:
+            r = requests.get(path, headers=H, timeout=20)
+            print(f"  {key} HTTP {r.status_code} · {len(r.text)}자 · 첫 줄: {r.text.splitlines()[0][:90] if r.text else ''}")
+            if key == "레이팅":
+                world = r.text
+            else:
+                namestxt = r.text
+        except Exception as exc:
+            print(f"  {key} 실패: {type(exc).__name__}")
+            return
+    ratings = P.parse_elo_world(world)
+    names = P.parse_elo_names(namestxt)
+    print(f"  읽은 레이팅 {len(ratings)}개 · 이름표 {len(names)}개")
+    print("\n  [나라별 확인]")
+    for n in CHECK:
+        rating, code = P.elo_for(n, ratings, names)
+        print(f"   {n:20} → 키 {P.nation_key(n):20} 코드 {code or '-':5} 점수 {rating or '없음'}")
+    miss = [n for n in CHECK if P.elo_for(n, ratings, names)[0] is None]
+    print(f"\n  못 찾은 나라 {len(miss)}개: {miss}")
+    if names:
+        sample = list(names.items())[:8]
+        print(f"  이름표 예시: {sample}")
 
 
 def safe(fn):
@@ -136,7 +126,7 @@ def safe(fn):
 
 
 def main():
-    safe(wikidata_names)
+    safe(elo_check)
     print()
     print("점검 끝. 위 내용을 그대로 복사해서 보내주면 됩니다.")
     return 0
