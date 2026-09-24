@@ -1180,13 +1180,14 @@ def mlb_team_form(client, team_id):
     return parse_mlb_team_results(data, team_id)[:15] if data else []
 
 
-MLB_RECENT = 10     # 최근 몇 경기 선발 타순으로 주전을 볼지
+MLB_RECENT = 20      # 주전 판정에 쓸 최근 경기 수 (야구는 매일 경기라 10경기면 2주도 안 된다)
+MLB_SEASON = 40      # 로테이션했을 때 성적 등 통계에 쓸 경기 수 (경기 기록은 영구 저장이라 처음만 오래 걸린다)
 
 
 def mlb_team_history(client, results):
     """최근 경기 박스스코어에서 선발 타순·출전 선수 (축구의 '최근 6경기 선발'과 같은 방식)."""
     history = []
-    for r in results[:MLB_RECENT]:
+    for r in results[:MLB_SEASON]:
         pk = r.get("gamePk")
         if not pk:
             continue
@@ -1325,8 +1326,8 @@ def mlb_pitcher_card(client, pitcher, season):
 
 # ------------------------------------------------------------------ KBO (네이버)
 
-KBO_RECENT = 10          # 주전 판정에 쓸 최근 경기 수
-KBO_LOOKBACK = 16        # 선발투수 최근 등판·불펜을 찾을 최근 경기 수
+KBO_RECENT = 20          # 주전 판정에 쓸 최근 경기 수 (야구는 매일 경기라 10경기면 2주도 안 된다)
+KBO_LOOKBACK = 40        # 선발투수 최근 등판·불펜·성적 통계에 쓸 경기 수
 
 
 def kbo_season_games(client, cfg, upper, cat, before_kst):
@@ -1589,7 +1590,8 @@ def build_mlb_detail(client, game, now):
         info = mlb_team_regulars(client, game[side]["id"], season) if game[side]["id"] else {}
         regulars = info.get("regulars") or []
         names = info.get("names") or {}
-        recent = mlb_team_history(client, info.get("results") or [])
+        full = mlb_team_history(client, info.get("results") or [])     # 최대 40경기
+        recent = full[:MLB_RECENT]                                      # 주전 판정은 최근 20경기
         if len(recent) >= 3:
             history, basis = recent, "recent"
         else:
@@ -1633,7 +1635,7 @@ def build_mlb_detail(client, game, now):
         hands = [bats.get(p["id"], "") for p in lineup]
         result["pitching"] = {"sp": sp, "pen": pen, "off_rpg": info.get("off_rpg"),
                               "bats": {k: hands.count(k) for k in ("L", "R", "S")}}
-        add_context(result, history, "야구")
+        add_context(result, full if basis == "recent" else history, "야구")   # 통계는 더 많은 경기로
         teams[side] = result
 
     def inputs(side):
@@ -1742,6 +1744,41 @@ def snapshot(game, detail):
         "power": [pw.get("home"), pw.get("away")] if pw else None, "power_mode": pw.get("mode", "club") if pw else None,
         "snap_state": game.get("state"), "result": None,
     }
+
+
+def frozen_detail(game, now):
+    """경기가 시작된 뒤에는 이미 저장해 둔 '경기 전 판정'을 그대로 쓴다.
+    (다시 계산하면 오늘 경기 결과가 기록에 섞여서 판정이 뒤집힌다)"""
+    if game.get("state") == "pre":
+        return None
+    start = to_kst(game.get("start_kst"))
+    if not start or now < start:
+        return None
+    path = os.path.join(GAME_DIR, game_filename(game["key"]))
+    try:
+        with open(path, encoding="utf-8") as f:
+            saved = json.load(f)
+    except (OSError, ValueError):
+        return None
+    if not saved.get("lineup_ready"):
+        return None
+    saved.pop("game", None)
+    saved["frozen"] = True                      # 화면에서 '경기 전 판정'이라고 알려주기 위해
+    return saved
+
+
+def detail_row(detail):
+    """상세에서 목록에 넣을 값만 뽑는다."""
+    out = {"lineup_ready": bool(detail.get("lineup_ready"))}
+    teams = detail.get("teams") or {}
+    out["grade_home"] = (teams.get("home") or {}).get("grade", "")
+    out["grade_away"] = (teams.get("away") or {}).get("grade", "")
+    pw = detail.get("power") or {}
+    if pw:
+        out["power"] = [pw.get("home"), pw.get("away")]
+    if detail.get("signals"):
+        out["signals"] = detail["signals"]
+    return out
 
 
 def keep_detail(game, detail):
@@ -1871,6 +1908,13 @@ def run(verbose=False):
             "grade_home": "",
             "grade_away": "",
         }
+        frozen = frozen_detail(g, now) if g in targets else None
+        if frozen:                                   # 경기가 시작된 뒤에는 경기 전 판정을 그대로 둔다
+            detail = frozen
+            details[g["key"]] = detail
+            row.update(detail_row(detail))
+            index.append(row)
+            continue
         if g in targets:
             print(f"  · 경기 상세 {targets.index(g) + 1}/{len(targets)}: {g['league']} {g['home']['name']} vs {g['away']['name']} "
                   f"(요청 {client.count}건 · {int(time.time() - started)}초)", flush=True)
