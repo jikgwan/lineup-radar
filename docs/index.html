@@ -49,6 +49,8 @@ button{background:none;border:0;padding:0;cursor:pointer;text-align:left}
   .seg{display:none!important}
   .plist[hidden]{display:block!important}
   .plists{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .plists.one{display:block}
+  .subhead{font-size:12px;font-weight:700;color:var(--mute);margin:16px 0 8px;padding-top:12px;border-top:1px solid var(--line)}
   .plist .ptitle{display:block!important}
 }
 
@@ -949,20 +951,29 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     const m = block("빠진 주전", "벤치 · 명단 제외"); m.append(missBlock(T, g)); w.append(m);
     const ab = absentBlock(T.home.absent, T.away.absent, g);
     if (ab) w.append(ab);
+    // 팀을 고르면 그 팀의 선발 + 교체 명단을 함께 보여준다 (예전에는 교체가 양 팀 다 나와 섞여 보였다)
     const pl = block("선발 선수", NAT ? "대표팀 골·도움" : "시즌 골·도움");
     const seg = el("div", "seg"); const thumb = el("span", "thumb");
-    const lists = el("div", "plists");
-    const lh = plist(T.home, "home", g), la = plist(T.away, "away", g); la.hidden = true; lists.append(lh, la);
-    [["home", g.home], ["away", g.away]].forEach(([s, n], k) => { const b = el("button", null, n); b.type = "button"; b.setAttribute("aria-pressed", String(k === 0));
-      b.onclick = () => { lh.hidden = s !== "home"; la.hidden = s !== "away"; seg.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b))); thumb.style.transform = `translateX(${k * 100}%)`; }; seg.append(b); });
+    const lists = el("div", "plists one");
+    const panes = {};
+    ["home", "away"].forEach(side => {
+      const box = el("div");
+      box.append(plist(T[side], side, g));
+      if ((T[side].bench || []).length){
+        box.append(el("div", "subhead", "교체 명단"), plist(T[side], side, g, true));
+      }
+      panes[side] = box; lists.append(box);
+    });
+    panes.away.hidden = true;
+    [["home", g.home], ["away", g.away]].forEach(([side, n], k) => {
+      const b = el("button", null, n); b.type = "button"; b.setAttribute("aria-pressed", String(k === 0));
+      b.onclick = () => { panes.home.hidden = side !== "home"; panes.away.hidden = side !== "away";
+        seg.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+        thumb.style.transform = `translateX(${k * 100}%)`; };
+      seg.append(b);
+    });
     seg.append(thumb); pl.append(seg, lists);
     w.append(pl);
-    if ((T.home.bench || []).length || (T.away.bench || []).length){
-      const bb = block("교체 명단", "주전이 벤치에 있으면 표시"); const bl = el("div", "plists");
-      bl.append(plist(T.home, "home", g, true), plist(T.away, "away", g, true));
-      bl.querySelectorAll(".ptitle").forEach(x => x.style.display = "block");
-      bb.append(bl); w.append(bb);
-    }
     return w;
   }
 
