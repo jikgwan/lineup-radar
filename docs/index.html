@@ -317,8 +317,21 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     return Date.UTC(k.y, k.m - 1, k.d) / 864e5 - Date.UTC(n.y, n.m - 1, n.d) / 864e5; }
   const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
   // 전날(한국 시간 기준 오늘 이전 날짜) 경기는 전부 '지난 경기'로
-  const isPast = (g) => dayDiff(g.start_kst) < 0;
+  const isPast = (g) => gameDiff(g) < 0;
   const dateKey = (iso) => { const k = iso && sportsDay(iso); return k ? `${k.y}-${String(k.m).padStart(2, "0")}-${String(k.d).padStart(2, "0")}` : ""; };
+  // 더블헤더 2차전은 1차전과 같은 날짜 묶음에 둔다 (새벽 6시 기준을 넘어가도 갈라지지 않게)
+  function pairDays(list){
+    const first = new Map();
+    list.forEach(g => { if (g.game_no === 1) first.set(`${g.league}|${g.home}|${g.away}`, g); });
+    list.forEach(g => {
+      delete g.day_key;
+      if (!g.game_no || g.game_no === 1) return;
+      const f = first.get(`${g.league}|${g.home}|${g.away}`);
+      if (f && Math.abs(Date.parse(g.start_kst) - Date.parse(f.start_kst)) < 20 * 3600e3) g.day_key = dateKey(f.start_kst);
+    });
+  }
+  const gameDay = (g) => g.day_key || dateKey(g.start_kst);
+  const gameDiff = (g) => g.day_key ? dayDiff(games.find(x => gameDay(x) === g.day_key && x.game_no === 1)?.start_kst || g.start_kst) : dayDiff(g.start_kst);
   function relWord(iso){ const d = dayDiff(iso); return {"-1": "어제", "0": "오늘", "1": "내일", "2": "모레"}[String(d)] || ""; }
   function dayTitle(iso){ const k = sportsDay(iso); if (!k) return ""; const r = relWord(iso); return `${r ? r + " · " : ""}${k.m}월 ${k.d}일 ${WEEK[k.w]}요일`; }
   function dayChip(iso){ const k = sportsDay(iso); const r = relWord(iso); return r ? `${r} ${k.m}/${k.d}` : `${k.m}/${k.d} ${WEEK[k.w]}`; }
@@ -410,6 +423,7 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     try {
       const data = await getJSON("data/games.json");
       games = data.games || [];
+      pairDays(games);                                   // 더블헤더 짝 맞추기
       updatedAt = Date.parse(data.updated) || 0;
       showUpdated();
       renderList();
@@ -462,28 +476,28 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     else if (filter === "A매치") rows = rows.filter(g => g.national);
     else if (filter !== "전체") rows = rows.filter(g => g.sport === filter);
     if (day === "past") rows = rows.filter(isPast);
-    else if (day !== "all") rows = rows.filter(g => dateKey(g.start_kst) === day);
+    else if (day !== "all") rows = rows.filter(g => gameDay(g) === day);
     else rows = rows.filter(g => !isPast(g));
     if (query) rows = rows.filter(g => (g.home + " " + g.away + " " + g.league).toLowerCase().includes(query));
     if (sortGap) rows = [...rows].sort((a, b) => (b.power ? Math.abs(b.power[0] - b.power[1]) : -1) - (a.power ? Math.abs(a.power[0] - a.power[1]) : -1));
-    else if (day === "past") rows = [...rows].sort((a, b) => dateKey(b.start_kst).localeCompare(dateKey(a.start_kst)) || (Date.parse(a.start_kst) || 0) - (Date.parse(b.start_kst) || 0));   // 최근 날짜부터
+    else if (day === "past") rows = [...rows].sort((a, b) => gameDay(b).localeCompare(gameDay(a)) || (Date.parse(a.start_kst) || 0) - (Date.parse(b.start_kst) || 0));   // 최근 날짜부터
     else rows = [...rows].sort((a, b) => (Date.parse(a.start_kst) || 0) - (Date.parse(b.start_kst) || 0));   // 날짜·시간 순
     return rows;
   }
   function renderList(){
     const pins = getPins();
     const sports = ["축구", "야구", "농구"].filter(s => games.some(g => g.sport === s));
-    const scope = games.filter(g => day === "past" ? isPast(g) : day === "all" ? !isPast(g) : dateKey(g.start_kst) === day);   // 지금 보는 날짜 기준 개수
+    const scope = games.filter(g => day === "past" ? isPast(g) : day === "all" ? !isPast(g) : gameDay(g) === day);   // 지금 보는 날짜 기준 개수
     const opts = [["전체", "전체"], ["NEW", `NEW ${scope.filter(isNew).length}`]]
       .concat(sports.map(s => [s, `${s} ${scope.filter(g => g.sport === s).length}`]))
       .concat([["관심", `관심 ${[...pins].filter(k => games.some(g => g.key === k)).length}`]])
       .concat(games.some(g => g.national) ? [["A매치", "A매치"]] : []);
     const dayBar = $("days"); dayBar.textContent = "";
-    const keys = [...new Set(games.filter(g => !isPast(g) && dayDiff(g.start_kst) >= 0).map(g => dateKey(g.start_kst)).filter(Boolean))].sort();
+    const keys = [...new Set(games.filter(g => !isPast(g) && gameDiff(g) >= 0).map(g => gameDay(g)).filter(Boolean))].sort();
     const pastN = games.filter(isPast).length;
     if (day !== "all" && day !== "past" && !keys.includes(day)) day = "all";
     if (day === "past" && !pastN) day = "all";
-    [["all", "전체 날짜", games.filter(g => !isPast(g)).length]].concat(keys.map(k => { const g = games.find(x => dateKey(x.start_kst) === k); return [k, dayChip(g.start_kst), games.filter(x => dateKey(x.start_kst) === k).length]; }))
+    [["all", "전체 날짜", games.filter(g => !isPast(g)).length]].concat(keys.map(k => { const g = games.find(x => gameDay(x) === k); return [k, dayChip(g.start_kst), games.filter(x => gameDay(x) === k).length]; }))
       .concat(pastN ? [["past", "지난 경기", pastN]] : [])
       .forEach(([id, label, n]) => { const b = el("button", "dchip" + (id === "past" ? " pastchip" : "")); b.type = "button"; b.setAttribute("aria-pressed", String(day === id));
         b.append(el("span", null, label), el("small", "num", n)); b.onclick = () => { day = id; renderList(); scrollTo(0, 0); }; dayBar.append(b); });
@@ -492,7 +506,7 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     view = filtered();
     const box = $("list"); box.textContent = "";
     if (!view.length){
-      const past = [...new Set(games.filter(isPast).map(g => dateKey(g.start_kst)))].sort();
+      const past = [...new Set(games.filter(isPast).map(g => gameDay(g)))].sort();
       if (day === "all" && filter === "전체" && !query && past.length){
         const e = el("div", "empty"); e.append(el("p", null, "오늘 이후 경기가 아직 없어요."));
         const bt = el("button", "chip", "지난 경기 보기"); bt.type = "button"; bt.setAttribute("aria-pressed", "false");
@@ -509,10 +523,10 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     let last = null;
     const rows = view.filter(g => !pinned.includes(g));
     rows.forEach((g, i) => {
-      const k = dateKey(g.start_kst);
+      const k = gameDay(g);
       if (k !== last){
         last = k;
-        const sameDay = rows.filter(x => dateKey(x.start_kst) === k);
+        const sameDay = rows.filter(x => gameDay(x) === k);
         const h = el("div", "dgroup"); h.append(el("span", null, dayTitle(g.start_kst)), el("small", null, `${sameDay.length}경기`)); wrap.append(h);
         // 오늘 이미 끝난 경기는 접어두고, 아직 안 한 경기부터 보여준다
         const done = sameDay.filter(x => x.state === "post");
@@ -530,7 +544,7 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
           fold.append(bt, box); wrap.append(fold);
         }
       }
-      if (day === "all" && g.state === "post" && rows.some(x => dateKey(x.start_kst) === k && x.state !== "post")) return;  // 접은 쪽에 이미 넣었음
+      if (day === "all" && g.state === "post" && rows.some(x => gameDay(x) === k && x.state !== "post")) return;  // 접은 쪽에 이미 넣었음
       wrap.append(card(g, pins));
     });
     return wrap;
@@ -579,10 +593,10 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     let lastDay = null;
     const hidden = new Set();          // 오늘 이미 끝난 경기 (접어둠)
     view.forEach(g => {
-      const k = dateKey(g.start_kst);
+      const k = gameDay(g);
       if (!sortGap && k !== lastDay){
         lastDay = k;
-        const sameDay = view.filter(x => dateKey(x.start_kst) === k);
+        const sameDay = view.filter(x => gameDay(x) === k);
         const gr = el("tr", "grow"); const td = el("td"); td.colSpan = 8;
         td.append(el("span", null, dayTitle(g.start_kst)), el("small", null, ` · ${sameDay.length}경기`)); gr.append(td); tb.append(gr);
         const done = sameDay.filter(x => x.state === "post");
