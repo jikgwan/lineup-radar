@@ -660,6 +660,11 @@ NATION_ALIASES = {
     "democratic republic of the congo": "dr congo", "bosnia herzegovina": "bosnia and herzegovina",
     "north macedonia": "macedonia", "republic of ireland": "ireland", "eswatini": "swaziland",
     "chinese taipei": "taiwan", "kyrgyz republic": "kyrgyzstan", "timor leste": "east timor",
+    # "Korea, South"처럼 쉼표를 쓰는 표기 (쉼표가 지워지면 'korea south'가 된다)
+    "korea south": "south korea", "korea north": "north korea", "korea rep": "south korea",
+    "south korea korea republic": "south korea", "congo republic": "congo", "congo kinshasa": "dr congo",
+    "congo brazzaville": "congo", "ivory coast cote divoire": "ivory coast", "cape verde islands": "cape verde",
+    "united states usa": "united states", "great britain": "england", "holland": "netherlands",
 }
 
 
@@ -686,7 +691,8 @@ def parse_elo_world(text):
 
 
 def parse_elo_names(text):
-    """en.teams.tsv -> {비교용 이름: 팀코드}"""
+    """en.teams.tsv -> {비교용 이름: [팀코드...]}
+    한 이름에 코드가 여러 개일 수 있다(옛 팀·표기 변경). 그래서 목록으로 모은다."""
     out = {}
     for line in _s(text).splitlines():
         f = line.split("\t")
@@ -695,18 +701,27 @@ def parse_elo_names(text):
         code = f[0].strip()
         for label in f[1:]:
             key = nation_key(label)
-            if key and key not in out:
-                out[key] = code
+            if not key:
+                continue
+            codes = out.setdefault(key, [])
+            if code not in codes:
+                codes.append(code)
     return out
 
 
 def elo_for(team_name, ratings, names):
-    """ESPN 팀 이름 -> (레이팅, 팀코드). 못 찾으면 (None, None)."""
+    """ESPN 팀 이름 -> (레이팅, 팀코드). 못 찾으면 (None, None).
+    같은 이름에 코드가 여러 개면(옛 팀 등) 지금 레이팅이 있는 코드를 고른다."""
     key = nation_key(team_name)
     for k in (key, key.replace(" women", ""), key.replace(" u23", "")):
-        code = names.get(k)
-        if code and code in ratings:
-            return ratings[code], code
+        codes = names.get(k)
+        if not codes:
+            continue
+        if isinstance(codes, str):
+            codes = [codes]
+        for code in codes:
+            if code in ratings:
+                return ratings[code], code
     return None, None
 
 
