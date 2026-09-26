@@ -254,7 +254,7 @@ def test_summarize_rotated_team():
     assert s["headline"] == "레알, 음바페·벨링엄 빼고 2군 가동"
     assert s["insight"] == "레알 주전 3명 빠짐 · 음바페 벤치"
     assert s["points"][0] == ["레알 주전 11명 중 3명이 선발에서 빠짐", "벤치 대기 2 · 명단 제외 1"]
-    assert s["points"][1][0] == "팀 14골 중 10골(71%) 넣은 선수가 선발에 없음"
+    assert s["points"][1][0] == "레알 14골 중 10골(71%) 넣은 선수가 선발에 없음"   # 어느 팀인지 이름으로
     assert s["points"][2] == ["헤타페는 주전 10명 그대로", "최근 5경기 2승 2무 1패"]
 
 
@@ -322,11 +322,12 @@ def test_pick_ace_prefers_combined_form_and_reports_status():
     from grade import ace_score, pick_ace
     def P(pid, name, s, r):
         return {"id": pid, "name": name, "season": s, "recent": r}
-    per = lambda n, g, a, m: {"matches": n, "goals": g, "assists": a, "minutes": m, "apps": n}
+    per = lambda n, g, a, m: {"matches": n, "goals": g, "assists": a, "minutes": m, "apps": n, "starts": n}
     scorer = P("s", "득점왕", per(12, 10, 2, 1000), per(6, 5, 1, 520))
     cold = P("c", "시즌만", per(12, 8, 2, 1000), per(6, 0, 0, 90))
-    hot = P("h", "최근만", per(12, 2, 0, 400), per(6, 4, 1, 500))
-    assert ace_score(scorer) > ace_score(hot) > ace_score(cold)
+    hot = P("h", "최근만", per(12, 4, 2, 400), per(6, 4, 1, 500))
+    total = sum((x["season"]["goals"] + 0.7 * x["season"]["assists"]) for x in (scorer, cold, hot))
+    assert ace_score(scorer, total) > ace_score(hot, total) > ace_score(cold, total)
     res = {"players": [cold, hot], "bench": [], "missing": [dict(scorer, status="벤치")]}
     ace = pick_ace(res)
     assert ace["name"] == "득점왕" and ace["status"] == "벤치"
@@ -337,6 +338,12 @@ def test_pick_ace_prefers_combined_form_and_reports_status():
     # 한 경기도 안 뛴 선수는 후보가 아님
     ghost = P("g", "유령", per(0, 0, 0, 0), per(0, 0, 0, 0)); ghost["season"]["apps"] = 0
     assert pick_ace({"players": [ghost], "bench": [], "missing": []}) is None
+    # 출전이 너무 적은 선수(4경기)는 후보에서 빠진다
+    flash = P("f", "반짝", per(20, 5, 0, 300), per(6, 5, 0, 300)); flash["season"]["apps"] = 4
+    assert pick_ace({"players": [flash], "bench": [], "missing": []}) is None
+    # 골·도움이 적은 팀이면 에이스를 억지로 뽑지 않는다
+    plain = P("p", "평범", per(20, 0, 1, 1800), per(6, 0, 0, 540))
+    assert pick_ace({"players": [plain], "bench": [], "missing": []}) is None
 
 
 
@@ -419,12 +426,18 @@ def test_elo_parsing_and_name_matching():
     world = parse.parse_elo_world(WORLD_TSV)
     assert world == {"ES": 2259, "AR": 2173, "KR": 1805, "JP": 1888}
     names = parse.parse_elo_names(TEAMS_TSV)
-    assert names["south korea"] == "KR" and "in south korea" not in names
+    assert names["south korea"] == ["KR"] and "in south korea" not in names   # 이름당 코드 목록
     assert parse.elo_for("South Korea", world, names) == (1805, "KR")
     assert parse.elo_for("Korea Republic", world, names) == (1805, "KR")     # ESPN/FIFA 표기
     assert parse.elo_for("Japan", world, names)[0] == 1888
     assert parse.nation_key("Côte d'Ivoire") == "ivory coast"
     assert parse.elo_for("Atlantis", world, names) == (None, None)
+    # 같은 이름을 옛 팀이 먼저 차지해도, 지금 점수가 있는 코드를 고른다 (대한민국이 이 문제로 빠졌었다)
+    names2 = parse.parse_elo_names("OLD\tKorea\nKR\tSouth Korea\tKorea Republic\n")
+    world2 = parse.parse_elo_world("1\t1\tKR\t1820\n")
+    assert names2["south korea"] == ["OLD", "KR"]
+    assert parse.elo_for("South Korea", world2, names2) == (1820, "KR")
+    assert parse.elo_for("Republic of Korea", world2, names2) == (1820, "KR")
 
 
 def test_compare_elo_rotation_and_home():
@@ -443,6 +456,223 @@ def test_compare_elo_rotation_and_home():
     assert h["lineup_power"]["today_elo"] == 2259 - 120 and h["lineup_power"]["elo"] == 2259
     assert strong_b["mode"] == "elo"
     assert compare_elo(dict(full), dict(full), "A", "B", None, 1800) is None
+
+
+
+def test_summarize_same_grade_both_sides_names_both():
+    from grade import summarize
+    m = lambda n: [{"name": f"x{i}", "starts": 8} for i in range(n)]
+    s = summarize("볼티모어", "토론토", {"home": _team("1.5군", 7, 9, m(2)), "away": _team("1.5군", 7, 9, m(2))}, "야구")
+    assert s["headline"] == "양 팀 모두 1.5군" and s["focus"] is None
+    assert not s["headline"].startswith(",") and s["insight"] == "양 팀 주전 2명·2명 빠짐"
+    assert s["points"][0][0] == "볼티모어 주전 2명, 토론토 주전 2명이 선발에서 빠짐"
+    s2 = summarize("A", "B", {"home": _team("1군", 10, 11, m(1)), "away": _team("1군", 10, 11, m(1))})
+    assert s2["headline"] == "양 팀 사실상 베스트"
+
+
+
+def test_korean_team_names():
+    from names_ko import ko_team
+    assert ko_team("Baltimore Orioles") == "볼티모어" and ko_team("Los Angeles Dodgers") == "LA 다저스"
+    assert ko_team("Real Madrid") == "레알 마드리드" and ko_team("Atlético Madrid") == "아틀레티코 마드리드"
+    assert ko_team("Brighton & Hove Albion") == "브라이턴" and ko_team("Borussia Mönchengladbach") == "묀헨글라트바흐"
+    assert ko_team("South Korea") == "대한민국" and ko_team("Korea Republic") == "대한민국"
+    assert ko_team("Côte d'Ivoire") == "코트디부아르" and ko_team("South Korea Women") == "대한민국 여자"
+    assert ko_team("Vissel Kobe") == "비셀 고베"
+    assert ko_team("Somewhere Unknown FC") == "Somewhere Unknown FC"   # 사전에 없으면 그대로
+    assert ko_team("Barracas Central") == "바라카스 센트랄"
+    assert ko_team("강원") == "강원" and ko_team("") == ""          # 이미 한국어·빈 값
+
+
+def test_japanese_romaji_to_hangul():
+    """일본 리그 선수는 사전 없이 로마자 규칙으로 읽는다 (외래어 표기법)."""
+    from names_ko import ko_player, jp_player
+    # 어두 ㄱ·ㄷ, 어중 ㅋ·ㅌ · 성 먼저
+    assert jp_player("Kenta Tanaka") == "다나카 겐타"
+    assert jp_player("Keisuke Kasai") == "가사이 게이스케"
+    assert jp_player("Yamato Wakatsuki") == "와카쓰키 야마토"        # つ는 '쓰'
+    assert jp_player("Daizen Maeda") == "마에다 다이젠"
+    assert jp_player("Shinji Kagawa") == "가가와 신지"               # ん은 ㄴ 받침
+    assert jp_player("Kouta Sano") == "사노 고타"                    # 장음은 안 적음
+    assert jp_player("Shohei Ohtani") == "오타니 쇼헤이"             # oh = 장음 o
+    assert jp_player("Ryotaro Meshino") == "메시노 료타로"
+    assert jp_player("Shion Inoue") == "이노우에 시온"               # 井上은 '우'를 살린다
+    assert jp_player("Takumi Matsuura") == "마쓰우라 다쿠미"          # 겹모음은 두 박자로 본다
+    assert jp_player("Junya Ito") == "이토 준야"                     # ん+や (にゃ가 아님)
+    assert jp_player("Kenichi Kaga") == "가가 겐이치"                # ん+いち
+    assert jp_player("Kunihiro Yamada") == "야마다 구니히로"          # 진짜 に는 그대로
+    assert jp_player("Shiva Nagasawa") == "나가사와 시바"             # 가타카나 ヴァ
+    # 헵번식이 아닌 철자(ti·si·zi)는 외국 이름일 때가 많아 안 바꾼다
+    assert jp_player("Tiago Alves") is None and jp_player("Diego Rossi") is None
+    # 일본식으로 읽을 수 없는 이름은 건드리지 않는다 (J리그 브라질 선수 등)
+    for x in ("Leandro Pereira", "Douglas Vieira", "Thiago Santana", "Kim Min-tae", "Marcos Junior"):
+        assert jp_player(x) is None, x
+    # 사전이 먼저, 그다음 규칙. jp=False면 규칙을 안 쓴다
+    assert ko_player("Daizen Maeda") == "마에다 다이젠"              # 사전에 있는 이름
+    assert ko_player("Kenta Tanaka") == "Kenta Tanaka"              # 일본 리그가 아니면 그대로
+    assert ko_player("Kenta Tanaka", jp=True) == "다나카 겐타"
+    assert ko_player("", jp=True) == "" and ko_player("손흥민", jp=True) == "손흥민"
+
+
+def test_mls_team_names():
+    from names_ko import ko_team
+    assert ko_team("Inter Miami CF") == "인터 마이애미" and ko_team("LA Galaxy") == "LA 갤럭시"
+    assert ko_team("CF Montréal") == "CF 몬트리올" and ko_team("Sporting KC") == "스포팅 캔자스시티"
+    assert ko_team("St. Louis City SC") == "세인트루이스 시티" and ko_team("D.C. United") == "D.C. 유나이티드"
+    assert ko_team("San Diego FC") == "샌디에이고 FC"
+
+
+def test_jp_league_flag():
+    import collect
+    assert collect.is_jp_league("jpn.1") and collect.is_jp_league("fotmob.8974")
+    assert not collect.is_jp_league("eng.1") and not collect.is_jp_league("") and not collect.is_jp_league(None)
+
+
+def test_translate_keeps_english_for_elo():
+    import collect
+    games = [{"home": {"name": "South Korea", "short": "Korea"}, "away": {"name": "Japan"}}]
+    collect.translate_names(games)
+    assert games[0]["home"]["name"] == "대한민국" and games[0]["home"]["name_en"] == "South Korea"
+    assert games[0]["away"]["name"] == "일본"
+    collect.translate_names(games)                                  # 두 번 돌려도 영어 원본 유지
+    assert games[0]["home"]["name_en"] == "South Korea"
+
+
+
+def test_context_rotation_similar_goals_and_signals():
+    from grade import analyze_lineup, build_signals, goals_flow, rotation_record, similar_record
+    A = [f"a{i}" for i in range(11)]
+    B = [f"b{i}" for i in range(11)]
+    season = _mk(["W", "W", "D", "L", "W", "D", "W", "L", "L", "W"], lambda i: A if i < 4 else A[:5] + B[:6])
+    res = analyze_lineup([{"id": x} for x in A[:5] + B[:6]], season[:6], 11)
+    assert res["grade"] == "2군"
+    rot = rotation_record(res, season)
+    assert rot["1군"] == [2, 1, 1] and rot["2군"] == [3, 1, 2] and rot["1.5군"] == [0, 0, 0]
+    sim = similar_record(res, season)
+    assert (sim["w"], sim["d"], sim["l"], sim["n"], sim["need"]) == (3, 1, 2, 6, 8)
+    full = analyze_lineup([{"id": x} for x in A], season[:6], 11)
+    assert similar_record(full, season)["n"] == 4                     # 주전 그대로면 앞 4경기와 겹침
+    gf = goals_flow(season)
+    assert gf["n"] == 10 and gf["clean"] == 5 and gf["gf_avg"] == 1.5 and gf["over_pct"] == 0
+    assert goals_flow([]) is None
+    # 신호등
+    teams = {"home": dict(res, ace={"status": "벤치"}, schedule={"next": {"in_days": 3, "comp": "챔피언스리그"}}),
+             "away": dict(full, ace={"status": "선발"})}
+    sig = build_signals({"home": "레알", "away": "헤타페"}, teams)
+    assert sig[0] == ["레알 에이스 벤치", "bad"]
+    assert ["레알 2군", "warn"] in sig and ["레알 3일 뒤 챔피언스리그", "warn"] in sig
+    assert sig[-1] == ["헤타페 풀전력", "good"] and len(sig) <= 4
+    # 야구: 불펜 과부하·선발 부진
+    bt = {"home": {"grade": "1군", "core_in": 9, "size": 9, "pitching": {"pen": {"pitches_3d": 540, "b2b": 1}, "sp": {"recent_era": 6.5}}},
+          "away": {"grade": "1.5군", "core_in": 6, "size": 9}}
+    s2 = build_signals({"home": "볼티모어", "away": "토론토"}, bt, "야구")
+    assert ["볼티모어 불펜 과부하", "warn"] in s2 and ["볼티모어 선발 최근 부진", "warn"] in s2
+
+
+def test_espn_team_schedule_parser():
+    data = {"events": [
+        {"date": "2026-09-19T19:00Z", "competitions": [{"status": {"type": {"completed": True}}, "competitors": [
+            {"id": "86", "homeAway": "away", "score": {"value": 2}, "team": {"id": "86", "displayName": "Real Madrid"}},
+            {"id": "83", "homeAway": "home", "score": {"value": 1}, "team": {"id": "83", "displayName": "Barcelona"}}]}]},
+        {"date": "2026-09-26T19:00Z", "competitions": [{"status": {"type": {"completed": False}}, "competitors": [
+            {"id": "86", "homeAway": "home", "team": {"id": "86"}}, {"id": "9", "homeAway": "away", "team": {"id": "9", "displayName": "Man City"}}]}]}]}
+    rows = parse.parse_espn_team_schedule(data, "86")
+    assert rows[0]["completed"] and rows[0]["opp"] == "Barcelona" and rows[0]["gf"] == 2 and rows[0]["ga"] == 1 and rows[0]["home"] is False
+    assert rows[1]["completed"] is False and rows[1]["opp"] == "Man City" and rows[1]["gf"] is None
+    assert parse.parse_espn_team_schedule({}, "86") == []
+
+
+
+def test_rotation_risk_learns_team_pattern():
+    from datetime import datetime, timedelta, timezone
+    from grade import core_from_history, rotation_risk
+    KST = timezone(timedelta(hours=9))
+    base = datetime(2026, 9, 20, 20, 0, tzinfo=KST)
+    A = [f"a{i}" for i in range(11)]
+    B = [f"b{i}" for i in range(11)]
+    history, events = [], []
+    for i in range(12):                                   # 4일 간격 리그 경기 12개 (최신순)
+        d = base - timedelta(days=4 * (i + 1))
+        big_next = i % 2 == 0                              # 짝수 경기 다음엔 3일 뒤 챔스
+        starters = A[:6] + B[:5] if big_next else A        # 챔스 앞에선 5명 교체
+        history.append({"date": d.isoformat(), "starters": starters, "res": "W",
+                        "minutes": {p: 90 for p in starters}})
+        events.append({"date": d.isoformat(), "comp": "EPL", "completed": True})
+        if big_next:
+            events.append({"date": (d + timedelta(days=3)).isoformat(), "comp": "챔스", "completed": True})
+    core = core_from_history([h for h in history if h["starters"] == A][:6], 11)
+    assert {m["id"] for m in core} == set(A)
+    r = rotation_risk(history, events, core, 11, {"in_days": 3, "comp": "챔스"}, 4)
+    assert r["situation"] == "big" and r["level"] == "높음"
+    assert r["today"]["n"] == 6 and r["today"]["avg"] == 5.0 and r["today"]["rot"] == 6
+    assert r["reason"] == "다음 경기 3일 뒤 챔스 · 지난 경기 후 4일 휴식"
+    r2 = rotation_risk(history, events, core, 11, {"in_days": 7, "comp": "EPL"}, 6)
+    assert r2["situation"] == "normal" and r2["level"] == "낮음" and r2["today"]["avg"] == 0.0
+    # 표본이 적으면 판단하지 않는다
+    r3 = rotation_risk(history[:3], events, core, 11, {"in_days": 3, "comp": "챔스"}, 4)
+    assert r3["level"] is None
+    assert rotation_risk([], events, core, 11, None, None) is None
+
+
+
+def test_mark_returning_counts_long_absent_regular():
+    """장기 결장 뒤 복귀한 주전은 주전으로 세고, 그 자리를 메우던 대체 선수는 '빠진 주전'에서 뺀다."""
+    from grade import analyze_lineup, mark_returning
+    A = [f"a{i}" for i in range(11)]                       # a10 = 부상으로 빠졌던 주전
+    SUB = "sub1"
+    season = ([{"starters": A[:10] + [SUB], "res": "W", "date": f"2026-09-{20 - i:02d}"} for i in range(6)] +
+              [{"starters": A, "res": "W", "date": f"2026-09-{14 - i:02d}"} for i in range(8)])
+    recent = season[:6]
+    today = [{"id": x, "name": x} for x in A]              # 오늘: a10 복귀, sub1 빠짐
+    r = analyze_lineup(today, recent, 11)
+    assert r["core_in"] == 10 and [m["id"] for m in r["missing"]] == [SUB]
+    mark_returning(r, recent, season, 11)
+    assert r["core_in"] == 11 and r["grade"] == "1군" and r["missing"] == []
+    assert [(x["name"], x["season_starts"], x["of"]) for x in r["returning"]] == [("a10", 8, 14)]
+    assert next(p for p in r["players"] if p["id"] == "a10")["returning"] is True
+    # 평소 벤치 선수가 한 번 선발로 나온 건 복귀가 아니다
+    bench = [{"id": x, "name": x} for x in A[:10] + ["bench9"]]
+    r2 = mark_returning(analyze_lineup(bench, recent, 11), recent, season, 11)
+    assert "returning" not in r2 and r2["core_in"] == 10
+    # 시즌 경기가 적으면 판단하지 않는다
+    r3 = mark_returning(analyze_lineup(today, recent, 11), recent, season[:7], 11)
+    assert "returning" not in r3
+    # 최근에도 계속 선발이던 선수는 이미 주전이라 복귀 표시가 없다
+    r4 = mark_returning(analyze_lineup([{"id": x, "name": x} for x in A[:10] + [SUB]], recent, 11), recent, season, 11)
+    assert "returning" not in r4 and r4["core_in"] == 11
+
+
+
+def test_korean_player_names():
+    from names_ko import ko_player
+    assert ko_player("Florian Wirtz") == "플로리안 비르츠"
+    assert ko_player("Virgil van Dijk") == "버질 반다이크" and ko_player("Karim Benzema") == "카림 벤제마"
+    assert ko_player("Haaland") == "엘링 홀란"                 # 성만 와도 (겹치지 않을 때만)
+    assert ko_player("Ayman Hussein") == "아이멘 후세인"        # 철자가 조금 달라도 (성이 하나뿐 + 이름 첫 글자 같음)
+    assert ko_player("K. Benzema") == "카림 벤제마"
+    assert ko_player("Marcos Suarez") == "Marcos Suarez"       # 성이 같아도 다른 선수면 그대로
+    assert ko_player("Kim Min-Jae") == "김민재"
+    assert ko_player("손흥민") == "손흥민"                      # 이미 한국어면 그대로
+    assert ko_player("Nobody Unknown") == "Nobody Unknown"     # 사전에 없으면 영어 그대로
+    assert ko_player("") == "" and ko_player(None) == ""
+
+
+def test_korean_players_applied_and_absence_matching_still_works():
+    """이름을 한국어로 바꿔도 부상·징계 짝짓기는 영어 이름으로 해야 안 깨진다."""
+    import collect
+    result = {"players": [{"id": "1", "name": "Florian Wirtz"}, {"id": "2", "name": "Nobody Unknown"}],
+              "missing": [{"id": "3", "name": "Karim Benzema"}], "bench": [], "ace": {"id": "1", "name": "Florian Wirtz"},
+              "absent": []}
+    collect.korean_players(result)
+    assert result["players"][0]["name"] == "플로리안 비르츠" and result["players"][0]["name_en"] == "Florian Wirtz"
+    assert result["players"][1]["name"] == "Nobody Unknown" and "name_en" not in result["players"][1]
+    assert result["ace"]["name"] == "플로리안 비르츠" and result["missing"][0]["name"] == "카림 벤제마"
+    teams = {"home": result, "away": {"missing": []}}
+    ab = {"home": [{"name": "Karim Benzema", "type": "부상", "return": "10월 중순"}], "away": []}
+    collect.attach_absences(teams, ab, {"home": "알 이티하드", "away": "x"})
+    m = result["missing"][0]
+    assert m["reason"] == "부상" and m["return"] == "10월 중순"          # 한국어로 바뀐 뒤에도 짝지어짐
+    assert result["absent"][0]["name"] == "카림 벤제마"                   # 결장자 이름도 한국어로
 
 
 if __name__ == "__main__":
