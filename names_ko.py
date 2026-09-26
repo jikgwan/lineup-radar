@@ -137,6 +137,24 @@ CLUBS = {
     "Phoenix Rising FC": "피닉스 라이징", "Louisville City FC": "루이빌 시티",
     "Indy Eleven": "인디 일레븐", "Tampa Bay Rowdies": "탬파베이 라우디스",
     "Detroit City FC": "디트로이트 시티", "El Paso Locomotive FC": "엘패소 로코모티브",
+    # 코파 델 레이 1·2라운드에 나오는 스페인 하부 팀
+    "Anaitasuna": "아나이타수나", "CD Tedeon": "CD 테데온", "Atletico Calatayud": "아틀레티코 칼라타유드",
+    "CD Baztan": "CD 바스탄", "UB Lebrijana": "UB 레브리하나", "Ceuta 6 de Junio": "세우타 6 데 후니오",
+    "Ribadesella": "리바데세야", "SD Noja": "SD 노하", "Atletico Pinatarense": "아틀레티코 피나타렌세",
+    "Atletico Melilla": "아틀레티코 멜리야",
+    "Real Murcia": "레알 무르시아", "Racing Ferrol": "라싱 페롤", "Racing de Ferrol": "라싱 페롤",
+    "Cultural Leonesa": "쿨투랄 레오네사", "Unionistas de Salamanca": "우니오니스타스",
+    "Numancia": "누만시아", "CD Numancia": "누만시아", "Hercules": "에르쿨레스", "Hercules CF": "에르쿨레스",
+    "Merida": "메리다", "AD Merida": "메리다", "Badajoz": "바다호스", "CD Badajoz": "바다호스",
+    "Zamora": "사모라", "Zamora CF": "사모라", "Ourense": "오렌세", "CD Ourense": "오렌세",
+    "Amorebieta": "아모레비에타", "SD Amorebieta": "아모레비에타", "Barakaldo": "바라칼도",
+    "Real Union": "레알 우니온", "Sestao River": "세스타오 리베르", "Talavera": "탈라베라",
+    "Guadalajara": "과달라하라", "Linares Deportivo": "리나레스 데포르티보", "Antequera": "안테케라",
+    "Marbella": "마르베야", "Ibiza": "이비사", "UD Ibiza": "이비사", "Atletico Baleares": "아틀레티코 발레아레스",
+    "Terrassa": "테라사", "Sant Andreu": "산트 안드레우", "CE Europa": "에우로파",
+    "Gimnastica Torrelavega": "김나스티카 토렐라베가", "Real Aviles": "레알 아빌레스",
+    "Coruxo": "코루호", "Arenteiro": "아렌테이로", "Yeclano": "예클라노", "Alzira": "알시라",
+    "Atletico Sanluqueno": "아틀레티코 산루케뇨", "Cacereno": "카세레뇨", "Arenas Club": "아레나스 클루브",
 }
 
 NATIONS = {
@@ -333,6 +351,25 @@ for _src in (CLUBS, NATIONS):                       # 새로 넣은 이름도 �
 _WOMEN = re.compile(r"\s*(women|womens|w)$")
 
 
+def _key_variants(k):
+    """같은 팀·나라인데 표기가 다른 경우를 맞춰본다.
+    'St. Vincent and the Grenadines' <-> 'Saint Vincent & Grenadines' 처럼."""
+    out, seen = [], {k}
+    cands = [k]
+    if k.startswith("saint "):
+        cands.append("st " + k[6:])
+    elif k.startswith("st "):
+        cands.append("saint " + k[3:])
+    for c in list(cands):
+        cands.append(re.sub(r"\band the\b", "and", c))
+    for c in cands:
+        c = re.sub(r"\s+", " ", c).strip()
+        if c and c not in seen:
+            seen.add(c)
+            out.append(c)
+    return out
+
+
 def ko_team(name):
     """영어 팀 이름 -> 한국어 (사전에 없으면 원래 이름)."""
     raw = str(name or "")
@@ -341,6 +378,9 @@ def ko_team(name):
     k = _key(raw)
     if k in _TABLE:
         return _TABLE[k]
+    for alt in _key_variants(k):                     # Saint/St., 'and the' 같은 표기 차이 흡수
+        if alt in _TABLE:
+            return _TABLE[alt]
     m = _WOMEN.search(k)
     if m:                                            # 여자 대표팀: "South Korea Women" -> "대한민국 여자"
         base = k[:m.start()].strip()
