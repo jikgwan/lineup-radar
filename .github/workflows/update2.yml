@@ -51,10 +51,36 @@ jobs:
         run: |
           git config user.name "lineup-bot"
           git config user.email "actions@github.com"
+          BR="${GITHUB_REF_NAME}"
+
+          # 지난 회차가 충돌로 멈춰 있으면 정리하고 브랜치로 돌아온다
+          tidy() {
+            git rebase --abort 2>/dev/null || true
+            git merge --abort 2>/dev/null || true
+            git checkout "$BR" 2>/dev/null || git checkout -B "$BR" "origin/$BR" 2>/dev/null || true
+          }
+
+          # 데이터 파일은 방금 수집한 게 최신이라, 충돌하면 우리 것으로 맞춘다 (-X theirs)
+          push_data() {
+            for try in 1 2 3; do
+              if git push origin "HEAD:$BR"; then return 0; fi
+              echo "올리기 실패 ($try/3) — 원격과 맞춘 뒤 다시"
+              tidy
+              git fetch origin "$BR" || true
+              git rebase -X theirs "origin/$BR" || tidy
+              sleep 10
+            done
+            echo "올리기 계속 실패 — 원격 상태로 되돌리고 다음 회차에서 다시"
+            tidy
+            git reset --hard "origin/$BR" || true
+            return 1
+          }
+
           START=$(date +%s)
           for i in $(seq 1 "$ROUNDS"); do
             LEFT=$(( (LIMIT - ($(date +%s) - START)) / 60 ))
             echo "===== $i/$ROUNDS 회차 ($(date -u '+%H:%M UTC') · 남은 시간 ${LEFT}분) ====="
+            tidy
             python collect.py || echo "이번 회차 실패 — 다음 회차에서 다시 시도"
             mkdir -p archive docs/data
             git add -A docs/data archive
@@ -62,12 +88,7 @@ jobs:
               echo "변경 없음"
             else
               git commit -m "data: $(date -u '+%Y-%m-%d %H:%M UTC')"
-              for try in 1 2 3; do            # 다른 실행과 겹치면 다시 받아서 올린다
-                git pull --rebase --autostash origin "${GITHUB_REF_NAME}" || true
-                if git push; then break; fi
-                echo "올리기 실패 ($try/3) — 20초 뒤 다시"
-                sleep 20
-              done
+              push_data || true
             fi
             if [ $(( $(date +%s) - START )) -ge "$LIMIT" ]; then
               echo "시간이 다 되어 멈춥니다 (다음 실행이 이어받습니다)"
