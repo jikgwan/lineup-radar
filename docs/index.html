@@ -703,9 +703,14 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
       }
     });
     h.append(tm);
-    if (!ready){ const s0 = sigs(d && d.signals, true); if (s0) h.append(s0); return h; }
-    const pw = d.power;
-    if (pw){ h.append(tug(pw.home, pw.away, true)); h.append(el("div", "verdict", pw.verdict)); if (pw.note) h.append(el("div", "vnote", pw.note)); }
+    const pw = d && d.power;
+    if (pw){
+      h.append(tug(pw.home, pw.away, true));
+      h.append(el("div", "verdict", pw.verdict));
+      // 전력은 팀 체급·Elo로 내므로 라인업 발표 전에도 같은 숫자다 (백테스트 결과)
+      const vn = ready ? pw.note : (pw.note || "라인업과 상관없는 팀 체급 기준 · 발표되면 등급이 켜져요");
+      if (vn) h.append(el("div", "vnote", vn));
+    }
     const basis = el("div", "basis");
     const add = (k, a, b, fa, fb, tip, lower) => {
       if (a == null && b == null) return;
@@ -716,8 +721,11 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
       x.append(v); basis.append(x);
       x.onclick = () => showNote(x, tip);
     };
-    const H = T.home.lineup_power || {}, A = T.away.lineup_power || {};
-    if (pw && pw.mode === "elo"){
+    const H = (T.home || {}).lineup_power || {}, A = (T.away || {}).lineup_power || {};
+    if (pw && pw.mode === "elo" && !ready){                     // 발표 전 대표팀: Elo만
+      const ev = (pw.basis || {}).elo || [];
+      add("Elo", ev[0], ev[1], ev[0] ?? "-", ev[1] ?? "-", "World Football Elo 대표팀 점수");
+    } else if (pw && pw.mode === "elo"){
       add("Elo", H.elo, A.elo, H.elo, A.elo, "World Football Elo 대표팀 점수");
       add("라인업 계수", H.q, A.q, Math.round(H.q * 100) + "%", Math.round(A.q * 100) + "%", "전력 보존율 60% + 오늘 선발의 득점·도움 지분 40%");
       add("오늘 Elo", H.today_elo, A.today_elo, H.today_elo, A.today_elo, "레이팅 − 로테이션 감점(완전 2군이면 −200)");
@@ -731,12 +739,12 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
       const word = he == null ? "보통" : he >= 0.15 ? "강함" : he >= 0.03 ? "조금 강함" : he > -0.05 ? "보통" : he > -0.12 ? "약함" : "거의 없음";
       const x = el("div", "b"); x.dataset.tip = "리그마다 다른 홈 이점 (백테스트: 라리가가 가장 크고 K리그가 가장 작음)";
       x.append(el("span", "k", "홈 이점"), el("b", null, `${g.league} ${word}`)); x.onclick = () => showNote(x, x.dataset.tip); basis.append(x);
-    } else if (pw && pw.mode === "mlb"){
+    } else if (pw && pw.mode === "mlb" && ready){
       const P = (s) => (T[s].pitching || {});
       add("선발 ERA", P("home").sp && P("home").sp.era, P("away").sp && P("away").sp.era, fmt(P("home").sp && P("home").sp.era), fmt(P("away").sp && P("away").sp.era), "선발투수 시즌 평균자책 (낮을수록 좋음)", true);
       add("불펜 3일", (P("home").pen || {}).pitches_3d, (P("away").pen || {}).pitches_3d, ((P("home").pen || {}).pitches_3d ?? "-") + "구", ((P("away").pen || {}).pitches_3d ?? "-") + "구", "최근 3일 불펜 투구수 (평소 약 420구, 적을수록 여유)", true);
       add("타선 득점", P("home").off_rpg, P("away").off_rpg, fmt(P("home").off_rpg), fmt(P("away").off_rpg), "시즌 경기당 득점");
-    } else {
+    } else if (ready){                                          // 아래 줄들은 라인업이 있어야 계산된다
       add("팀 체급", H.team_strength, A.team_strength, fmt(H.team_strength), fmt(A.team_strength), "리그 경기당 승점 (경기 수 적으면 평균 쪽으로 보정)");
       add("라인업 계수", H.q, A.q, H.q == null ? "-" : Math.round(H.q * 100) + "%", A.q == null ? "-" : Math.round(A.q * 100) + "%", "전력 보존율 60% + 오늘 선발의 득점·도움 지분 40%");
       add("전력 보존율", (T.home.strength || {}).retain, (T.away.strength || {}).retain, ((T.home.strength || {}).retain ?? "-") + "%", ((T.away.strength || {}).retain ?? "-") + "%", "오늘 선발이 평소 주전 출전시간의 몇 %인지");
@@ -746,6 +754,7 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
       h.append(basis);
     }
     const note = el("div", "vnote"); note.id = "basisNote"; h.append(note);
+    if (!ready){ const s0 = sigs(d && d.signals, true); if (s0) h.append(s0); return h; }
     if (pw && pw.mode === "mlb"){ const ex = el("div", "exp"); ex.append(el("span", null, "예상 득점"), el("b", null, `${fmt(pw.exp_home, 1)} : ${fmt(pw.exp_away, 1)}`), el("span", null, `합계 ${fmt(pw.exp_total, 1)}`)); h.append(ex); }
     const s = sigs(d.signals, true); if (s) h.append(s);
     if (d.summary && d.summary.headline) h.append(el("p", "headline", d.summary.headline));
