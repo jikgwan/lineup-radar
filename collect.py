@@ -1483,16 +1483,22 @@ def collect_fotmob_games(client, now, cfg):
             lg = leagues[m["league_id"]]
             games.append({"key": f"축구:fotmob.{m['league_id']}:{m['id']}", "sport": "축구", "league": lg["name"],
                           "league_slug": f"fotmob.{m['league_id']}", "source": "fotmob", "event_id": m["id"],
+                          "fm_league": m["league_id"], "power": bool(lg.get("power")),
                           "start_kst": m["start_kst"], "state": m["state"], "national": False,
                           "home": {"id": m["home"]["id"], "name": m["home"]["name"], "score": m["home"]["score"] if m["state"] != "pre" else None},
                           "away": {"id": m["away"]["id"], "name": m["away"]["name"], "score": m["away"]["score"] if m["state"] != "pre" else None}})
     return games
 
 
-def fotmob_team_history(client, team_id, before_kst, n=12):
-    """풋몹 팀의 지난 경기 선발 (경기 상세는 끝난 경기라 영구 저장)."""
+def fotmob_team_history(client, team_id, before_kst, n=12, league_id=None):
+    """풋몹 팀의 지난 경기 선발 (경기 상세는 끝난 경기라 영구 저장).
+    league_id를 주면 그 리그 경기만 본다 — 컵대회 로테이션이 '평소 주전'을 흐리지 않게."""
     page = client.get_json(f"{FOTMOB}/teams", params={"id": team_id}, cache_key=f"fm_team_{team_id}", ttl=6 * 3600)
     fx = [f for f in parse_fotmob_team_fixtures(page or {}) if to_kst(f["utc"]) and to_kst(f["utc"]) < before_kst]
+    if league_id:
+        only = [f for f in fx if not f.get("league_id") or str(f["league_id"]) == str(league_id)]
+        if len(only) >= 6:
+            fx = only
     fx.sort(key=lambda f: f["utc"], reverse=True)
     hist = []
     for f in fx[:n]:
@@ -1516,13 +1522,56 @@ def fotmob_team_history(client, team_id, before_kst, n=12):
     return hist
 
 
+def fotmob_league_form(client, team_id, before_kst, league_id, n=20):
+    """풋몹 팀의 그 리그 최근 결과만 (전력 계산용 · 라인업과 무관해서 컵경기는 뺀다)."""
+    page = client.get_json(f"{FOTMOB}/teams", params={"id": team_id}, cache_key=f"fm_team_{team_id}", ttl=6 * 3600)
+    out = []
+    for f in parse_fotmob_team_fixtures(page or {}):
+        t = to_kst(f["utc"])
+        if not t or t >= before_kst:
+            continue
+        if league_id and f.get("league_id") and str(f["league_id"]) != str(league_id):
+            continue
+        try:
+            hg, ag = int(f["hg"]), int(f["ag"])
+        except (TypeError, ValueError):
+            continue
+        home = f["home_id"] == str(team_id)
+        out.append({"date": t.isoformat(), "gf": hg if home else ag, "ga": ag if home else hg})
+    out.sort(key=lambda m: m["date"], reverse=True)
+    return out[:n]
+
+
+def fotmob_power(client, game, teams, start):
+    """풋몹 리그(J2 등) 전력 비교: 이번 시즌 득실차만 (리그 Elo는 못 구해서 뺀다)."""
+    model = get_model()
+    if not model:
+        return None
+    lid = game.get("fm_league") or (game.get("league_slug") or "").split(".")[-1]
+    sides = {}
+    for s in ("home", "away"):
+        if not game[s]["id"]:
+            return None
+        form = fotmob_league_form(client, game[s]["id"], start, lid)
+        if len(form) < 5:                       # 경기가 너무 적으면 숫자를 안 만든다
+            return None
+        sides[s] = dict(model_side(form), elo=1500.0)
+    power = model_power(model, game["league_slug"], sides["home"], sides["away"],
+                        game["home"]["name"], game["away"]["name"], teams)
+    power["basis"]["elo"] = [None, None]        # 리그 Elo가 없으니 화면에서도 숨긴다
+    power["confident"] = False                  # Elo 없이 득실차만이라 확신 표시는 안 한다
+    power["note"] = power.get("note") or "리그 Elo가 없어 이번 시즌 득실차로만 비교했어요"
+    return power
+
+
 def build_fotmob_detail(client, game, now):
     det = client.get_json(f"{FOTMOB}/matchDetails", params={"matchId": game["event_id"]}, cache_key=f"fm_live_{game['event_id']}", ttl=120)
     lu = parse_fotmob_lineups(det or {})
     start = to_kst(game["start_kst"]) or now
     names = {s: game[s]["name"] for s in ("home", "away")}
     ab = parse_fotmob_unavailable(det) if det else None
-    hist = {s: fotmob_team_history(client, game[s]["id"], start) if game[s]["id"] else [] for s in ("home", "away")}
+    only_league = game.get("fm_league") if game.get("power") else None
+    hist = {s: fotmob_team_history(client, game[s]["id"], start, league_id=only_league) if game[s]["id"] else [] for s in ("home", "away")}
     have = all(len((lu.get(s) or {}).get("lineup") or []) >= 11 for s in ("home", "away"))
     # 풋몹이 '발표' 표시를 늦게 바꾸는 대회가 있어서, 다음 중 하나면 발표로 본다
     changed = 0
@@ -1577,9 +1626,15 @@ def build_fotmob_detail(client, game, now):
         korean_players(result)
         teams[side] = result
     extra = attach_absences(teams, ab, names) if ab else []
+    power = None
+    if game.get("power"):
+        try:
+            power = fotmob_power(client, game, teams, start)
+        except Exception as exc:                 # 전력 숫자가 안 나와도 라인업 판정은 그대로
+            print(f"  ! 풋몹 전력 계산 실패: {exc}", file=sys.stderr)
     summary = summarize(game["home"]["name"], game["away"]["name"], teams, "축구")
-    return {"lineup_ready": True, "teams": teams, "power": None, "national": False, "summary": summary, "record_recent": True,
-            "lineup_source": why, "signals": (extra + build_signals(names, teams, "축구"))[:4]}
+    return {"lineup_ready": True, "teams": teams, "power": power, "national": False, "summary": summary, "record_recent": True,
+            "lineup_source": why, "signals": (extra + model_signals(power, names) + build_signals(names, teams, "축구"))[:4]}
 
 
 def build_mlb_detail(client, game, now):
