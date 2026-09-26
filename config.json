@@ -278,12 +278,6 @@
     },
     {
       "sport": "축구",
-      "slug": "esp.2",
-      "path": "soccer/esp.2",
-      "name": "라리가2"
-    },
-    {
-      "sport": "축구",
       "slug": "fifa.olympics",
       "path": "soccer/fifa.olympics",
       "name": "올림픽 축구",
