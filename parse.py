@@ -1240,6 +1240,8 @@ def parse_fotmob_team_fixtures(data):
         if not st.get("finished") or st.get("cancelled"):
             continue
         h, a = _d(f.get("home")), _d(f.get("away"))
+        tn = _d(f.get("tournament"))
         out.append({"id": _idstr(f.get("id")), "utc": _s(st.get("utcTime")), "home_id": _idstr(h.get("id")), "away_id": _idstr(a.get("id")),
-                    "hg": h.get("score"), "ag": a.get("score")})
+                    "hg": h.get("score"), "ag": a.get("score"),
+                    "league_id": _idstr(tn.get("leagueId") or tn.get("id") or f.get("leagueId") or f.get("primaryLeagueId"))})
     return out
