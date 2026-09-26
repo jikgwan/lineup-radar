@@ -35,8 +35,11 @@ button{background:none;border:0;padding:0;cursor:pointer;text-align:left}
 #detailPane{padding-bottom:90px}
 #emptyDetail{display:none}
 @media (min-width:1100px){
-  #app{max-width:1500px;display:grid;grid-template-columns:600px 1fr;gap:18px;padding:0 20px 30px;align-items:start}
-  #listPane{position:sticky;top:0;max-height:100vh;overflow:auto;padding-bottom:20px;scrollbar-width:thin}
+  /* 목록은 화면 폭에 맞춰 늘었다 줄었다 (최소 360px, 최대 600px). min-width:0이 없으면
+     내용이 칸보다 넓어져서 화면 전체에 가로 스크롤이 생긴다. */
+  #app{max-width:1500px;display:grid;grid-template-columns:clamp(360px,48%,620px) minmax(0,1fr);gap:18px;padding:0 20px 30px;align-items:start}
+  #app > *{min-width:0}
+  #listPane{position:sticky;top:0;max-height:100vh;overflow-y:auto;overflow-x:hidden;padding-bottom:20px;scrollbar-width:thin}
   #listPane[hidden],#detailPane[hidden]{display:block!important}
   #detailPane{padding-bottom:30px}
   #emptyDetail{display:flex;height:60vh;align-items:center;justify-content:center;color:var(--mute)}
@@ -134,12 +137,15 @@ h1{margin:0;font-size:24px;font-weight:900;letter-spacing:-0.03em}
 .sig.good{color:var(--good)} .sig.good i{background:var(--good)}
 
 /* PC 목록 표 */
-.ltable{width:100%;border-collapse:collapse;margin:0 0 6px}
+.ltable{width:100%;border-collapse:collapse;margin:0 0 6px;table-layout:fixed}
+.ltable col.c-time{width:11%} .ltable col.c-lg{width:15%} .ltable col.c-tm{width:29%} .ltable col.c-pw{width:16%}
+.ltable .nmx{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ltable .gwrap{flex:none}
 .ltable th{font-size:11px;color:var(--mute);font-weight:700;text-align:left;padding:6px 4px;border-bottom:1px solid var(--line);white-space:nowrap}
 .ltable td{padding:9px 4px;border-bottom:1px solid var(--line);font-size:13px;white-space:nowrap}
 .ltable tr{cursor:pointer} .ltable tr:hover td{background:rgba(255,255,255,.03)}
 .ltable tr.sel td{background:rgba(255,197,61,.08)} .ltable tr.sel td:first-child{box-shadow:inset 3px 0 0 var(--acc)}
-.ltable .tm{display:flex;align-items:center;gap:6px;font-weight:700}
+.ltable .tm{display:flex;align-items:center;gap:6px;font-weight:700;min-width:0}
 .ltable td:first-child b{font-family:'Inter','Noto Sans KR',sans-serif;font-weight:800;font-size:16px;letter-spacing:-0.02em}
 .ltable td.lg{white-space:normal;color:var(--mute);font-size:12px}
 .ltable th.sort{color:var(--acc);cursor:pointer}
@@ -573,11 +579,12 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
       }
       c.append(r);
     });
-    if (g.lineup_ready === true && g.power) c.append(tug(g.power[0], g.power[1]));
-    else if (g.lineup_ready === true) {}
-    else if (g.state === "post") c.append(el("div", "wait", "라인업 기록 없음"));
-    else if (g.lineup_ready === null || g.lineup_ready === undefined) c.append(el("div", "wait", "눌러서 라인업 확인"));
-    else c.append(el("div", "wait", `라인업 ${announce(g.start_kst)}쯤 발표`));
+    if (g.power) c.append(tug(g.power[0], g.power[1]));       // 전력은 라인업 발표 전에도 나온다
+    if (g.lineup_ready !== true){
+      if (g.state === "post") c.append(el("div", "wait", "라인업 기록 없음"));
+      else if (g.lineup_ready === null || g.lineup_ready === undefined) c.append(el("div", "wait", "눌러서 라인업 확인"));
+      else c.append(el("div", "wait", `라인업 ${announce(g.start_kst)}쯤 발표`));
+    }
     const s = sigs(g.signals); if (s) c.append(s);
     const st = el("button", "star", "★"); st.type = "button"; st.setAttribute("aria-label", "관심 경기"); st.setAttribute("aria-pressed", String(pins.has(g.key)));
     st.onclick = (e) => { e.stopPropagation(); togglePin(g.key); renderList(); };
@@ -588,8 +595,11 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
   }
   function listTable(pins){
     const t = el("table", "ltable");
+    const cg = el("colgroup");
+    ["c-time", "c-lg", "c-tm", "c-tm", "c-pw"].forEach(c => cg.append(el("col", c)));
+    t.append(cg);
     const head = el("tr");
-    [["시간"], ["리그"], ["홈"], ["등급"], ["원정"], ["등급"], ["전력"], ["차이 " + (sortGap ? "▼" : "↕"), "sort"]].forEach(([h, c]) => { const th = el("th", c || null, h); if (c) th.onclick = () => { sortGap = !sortGap; renderList(); }; head.append(th); });
+    [["시간"], ["리그"], ["홈"], ["원정"], ["전력 " + (sortGap ? "▼" : "↕"), "sort"]].forEach(([h, c]) => { const th = el("th", c || null, h); if (c) th.onclick = () => { sortGap = !sortGap; renderList(); }; head.append(th); });
     const thead = el("thead"); thead.append(head); t.append(thead);
     const tb = el("tbody");
     let lastDay = null;
@@ -599,13 +609,13 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
       if (!sortGap && k !== lastDay){
         lastDay = k;
         const sameDay = view.filter(x => gameDay(x) === k);
-        const gr = el("tr", "grow"); const td = el("td"); td.colSpan = 8;
+        const gr = el("tr", "grow"); const td = el("td"); td.colSpan = 5;
         td.append(el("span", null, dayTitle(g.start_kst)), el("small", null, ` · ${sameDay.length}경기`)); gr.append(td); tb.append(gr);
         const done = sameDay.filter(x => x.state === "post");
         if (day === "all" && done.length && done.length < sameDay.length){
           const open = openDone.has(k);
           if (!open) done.forEach(x => hidden.add(x.key));
-          const fr = el("tr", "nowrow"); const ftd = el("td"); ftd.colSpan = 8;
+          const fr = el("tr", "nowrow"); const ftd = el("td"); ftd.colSpan = 5;
           const who = done.map(x => `${x.home} ${x.score ? x.score[0] + ":" + x.score[1] : ""} ${x.away}`.replace(/\s+/g, " ").trim());
           const bt = el("button", "foldbt", open ? `끝난 경기 ${done.length}개 접기 ▲`
             : `끝난 경기 ${done.length}개 보기 ▼ · ${who[0]}${done.length > 1 ? ` 외 ${done.length - 1}경기` : ""}`); bt.type = "button";
@@ -619,14 +629,17 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
       const lg = el("td", "lg", g.league + (g.game_no ? ` ${g.game_no}차전` : "") + (g.postponed ? " · 연기" : "") + (g.state === "in" ? " · LIVE" : "")); if (isNew(g)){ lg.append(document.createTextNode(" ")); lg.append(el("span", "new", "NEW")); } tr.append(lg);
       [["home", "grade_home", "var(--home)"], ["away", "grade_away", "var(--away)"]].forEach(([s, gk, col]) => {
         const td = el("td"); const d = el("div", "tm"); const dot = el("span"); dot.style.cssText = `width:3px;height:14px;border-radius:2px;background:${col};flex:none`;
-        d.append(g[s + "_logo"] ? crest(g[s + "_logo"], g[s], col, 20) : dot, document.createTextNode(g[s])); td.append(d); tr.append(td);
-        const gd = el("td"); if (g.lineup_ready === true && g[gk]) gd.append(pips(g[gk])); else gd.append(el("span", "wait", g.state === "post" ? "-" : "대기")); tr.append(gd);
+        d.append(g[s + "_logo"] ? crest(g[s + "_logo"], g[s], col, 20) : dot, el("span", "nmx", g[s]));
+        const gw = el("span", "gwrap");                       // 등급은 같은 칸 오른쪽에 (칸 수를 줄여 좁은 화면에서도 들어가게)
+        if (g.lineup_ready === true && g[gk]) gw.append(pips(g[gk])); else gw.append(el("span", "wait", g.state === "post" ? "-" : "대기"));
+        d.append(gw); td.append(d); tr.append(td);
       });
-      const pw = el("td", "num"); const gap = el("td");
+      const pw = el("td", "num");
       if (g.state !== "pre" && g.score && g.score[0] != null){ pw.innerHTML = `<span class="${g.state === "post" ? "fin" : "live"}">${g.state === "post" ? "종료" : "LIVE"}</span> <b>${g.score[0]} : ${g.score[1]}</b>`; }
       else if (g.power){ pw.innerHTML = `<b style="color:${g.power[0] > g.power[1] ? "var(--acc)" : "var(--ink)"}">${g.power[0]}</b> : <b style="color:${g.power[1] > g.power[0] ? "var(--acc)" : "var(--ink)"}">${g.power[1]}</b>`;
-        const b = el("span", "gapbar"); b.style.width = Math.min(56, Math.max(4, Math.abs(g.power[0] - g.power[1]) * 1.6)) + "px"; gap.append(b); } else pw.textContent = "-";
-      tr.append(pw, gap);
+        const b = el("span", "gapbar"); b.style.width = Math.min(56, Math.max(4, Math.abs(g.power[0] - g.power[1]) * 1.6)) + "px";
+        pw.append(document.createElement("br"), b); } else pw.textContent = "-";
+      tr.append(pw);
       const badSig = (g.signals || []).filter(x => x[1] === "bad");
       if (badSig.length){ const dot = el("span", "sig bad"); dot.style.padding = "3px"; dot.append(el("i")); dot.dataset.tip = badSig.map(x => esc(x[0])).join("<br>"); tr.cells[0].append(document.createTextNode(" "), dot); }
       tr.onclick = () => openGame(g);
