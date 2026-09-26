@@ -100,6 +100,43 @@ CLUBS = {
     "Tegevajaro Miyazaki": "테게바자로 미야자키", "Tegevajaro": "테게바자로 미야자키",
     "Ryukyu": "FC 류큐", "Grulla Morioka": "이와테 그루자 모리오카", "Fukushima United": "후쿠시마 유나이티드",
     "Tottori": "가이나레 돗토리", "Sagamihara": "SC 사가미하라", "Imabari": "FC 이마바리",
+    # MLS (2026년 30개 구단) — ESPN 표기와 줄임말을 같이 넣는다
+    "Inter Miami CF": "인터 마이애미", "Inter Miami": "인터 마이애미",
+    "LA Galaxy": "LA 갤럭시", "Los Angeles Galaxy": "LA 갤럭시",
+    "Los Angeles FC": "LAFC", "LAFC": "LAFC",
+    "Seattle Sounders FC": "시애틀 사운더스", "Seattle Sounders": "시애틀 사운더스",
+    "Atlanta United FC": "애틀랜타 유나이티드", "Atlanta United": "애틀랜타 유나이티드",
+    "New York City FC": "뉴욕 시티", "NYCFC": "뉴욕 시티",
+    "New York Red Bulls": "뉴욕 레드불스", "NY Red Bulls": "뉴욕 레드불스", "Red Bull New York": "뉴욕 레드불스",
+    "Portland Timbers": "포틀랜드 팀버스",
+    "Columbus Crew": "컬럼버스 크루", "Columbus Crew SC": "컬럼버스 크루",
+    "FC Cincinnati": "FC 신시내티",
+    "Philadelphia Union": "필라델피아 유니온",
+    "Toronto FC": "토론토 FC",
+    "Vancouver Whitecaps FC": "밴쿠버 화이트캡스", "Vancouver Whitecaps": "밴쿠버 화이트캡스",
+    "CF Montreal": "CF 몬트리올", "CF Montréal": "CF 몬트리올", "Montreal Impact": "CF 몬트리올",
+    "Chicago Fire FC": "시카고 파이어", "Chicago Fire": "시카고 파이어",
+    "Orlando City SC": "올랜도 시티", "Orlando City": "올랜도 시티",
+    "Nashville SC": "내슈빌 SC",
+    "Austin FC": "오스틴 FC",
+    "St. Louis City SC": "세인트루이스 시티", "St Louis City SC": "세인트루이스 시티", "St. Louis CITY SC": "세인트루이스 시티",
+    "Charlotte FC": "샬럿 FC",
+    "FC Dallas": "FC 댈러스",
+    "Houston Dynamo FC": "휴스턴 다이너모", "Houston Dynamo": "휴스턴 다이너모",
+    "Sporting Kansas City": "스포팅 캔자스시티", "Sporting KC": "스포팅 캔자스시티",
+    "Minnesota United FC": "미네소타 유나이티드", "Minnesota United": "미네소타 유나이티드",
+    "Colorado Rapids": "콜로라도 래피즈",
+    "Real Salt Lake": "리얼 솔트레이크",
+    "San Jose Earthquakes": "산호세 어스퀘이크스",
+    "D.C. United": "D.C. 유나이티드", "DC United": "D.C. 유나이티드",
+    "New England Revolution": "뉴잉글랜드 레볼루션",
+    "San Diego FC": "샌디에이고 FC",
+    # MLS 하위/컵대회에서 가끔 올라오는 팀
+    "Colorado Rapids 2": "콜로라도 래피즈 2", "New York Red Bulls II": "뉴욕 레드불스 2",
+    "Orange County SC": "오렌지 카운티 SC", "Sacramento Republic FC": "새크라멘토 리퍼블릭",
+    "Phoenix Rising FC": "피닉스 라이징", "Louisville City FC": "루이빌 시티",
+    "Indy Eleven": "인디 일레븐", "Tampa Bay Rowdies": "탬파베이 라우디스",
+    "Detroit City FC": "디트로이트 시티", "El Paso Locomotive FC": "엘패소 로코모티브",
 }
 
 NATIONS = {
@@ -1078,7 +1115,34 @@ PLAYERS = {
     "Ao Tanaka": "다나카 아오",
     "Keito Nakamura": "나카무라 케이토",
     "Reo Hatate": "하타테 레오",
-    "Daizen Maeda": "마에다 다이젠"
+    "Daizen Maeda": "마에다 다이젠",
+    # ---- MLS 주요 선수 ----
+    "Heung-Min Son": "손흥민", "Son Heung-Min": "손흥민", "Heung Min Son": "손흥민",
+    "Riqui Puig": "리키 푸치", "Joseph Paintsil": "조지프 페인칠", "Miguel Almiron": "미겔 알미론",
+    "Jordan Morris": "조던 모리스", "Albert Rusnak": "알베르트 루스나크", "Diego Rossi": "디에고 로시",
+    "Evander": "에반데르", "Luca Orellano": "루카 오레야노", "Alonso Martinez": "알론소 마르티네스",
+    "Hany Mukhtar": "하니 무크타르", "Sam Surridge": "샘 서리지", "Tai Baribo": "타이 바리보",
+    "Brandon Vazquez": "브랜던 바스케스", "Wilfried Zaha": "윌프리드 자하",
+    "Federico Bernardeschi": "페데리코 베르나르데스키", "Lorenzo Insigne": "로렌초 인시녜",
+    "Martin Ojeda": "마르틴 오헤다", "Luis Muriel": "루이스 무리엘", "Emil Forsberg": "에밀 포르스베리",
+    "Hirving Lozano": "이르빙 로사노", "Anders Dreyer": "안데르스 드레위에르", "Diego Luna": "디에고 루나",
+    "Petar Musa": "페타르 무사", "Dejan Joveljic": "데얀 요벨리치", "Erik Thommy": "에리크 토미",
+    "Carles Gil": "카를레스 힐", "Christian Benteke": "크리스티안 벤테케", "Cristian Arango": "크리스티안 아랑고",
+    "Josef Martinez": "요세프 마르티네스", "Jonathan Bamba": "조나탕 밤바", "Hugo Cuypers": "위고 카위퍼르스",
+    "Ryan Gauld": "라이언 골드", "Brian White": "브라이언 화이트", "Rafael Navarro": "하파에우 나바루",
+    "Kelvin Yeboah": "켈빈 예보아", "Facundo Torres": "파쿤도 토레스", "Maximiliano Falcon": "막시밀리아노 팔콘",
+    "Sergio Canales": "세르히오 카날레스", "Cucho Hernandez": "쿠초 에르난데스", "Thiago Almada": "티아고 알마다",
+    "Julian Gressel": "율리안 그레셀", "Walker Zimmerman": "워커 지머먼", "Matt Turner": "맷 터너",
+    "Zack Steffen": "잭 스테펜", "Tyler Adams": "타일러 애덤스", "Gio Reyna": "조반니 레이나",
+    "Giovanni Reyna": "조반니 레이나", "Folarin Balogun": "폴라린 발로건", "Yunus Musah": "유누스 무사",
+    "Sergino Dest": "세르지뇨 데스트", "Ricardo Pepi": "리카르도 페피", "Malik Tillman": "말리크 틸먼",
+    "Johnny Cardoso": "조니 카르도주", "Marco Delgado": "마르코 델가도", "Denis Bouanga": "드니 부앙가",
+    "Nathan Ordaz": "네이선 오르다스", "Kevin Denkey": "케빈 뎅케이", "Sebastian Driussi": "세바스티안 드리우시",
+    "Emmanuel Latte Lath": "에마뉘엘 라테 라트", "Jesus Ferreira": "헤수스 페레이라",
+    "Christian Ramirez": "크리스티안 라미레스", "Djordje Mihailovic": "조르제 미하일로비치",
+    "Patrick Agyemang": "패트릭 아제망", "Tim Ream": "팀 림", "Jack McGlynn": "잭 매글린",
+    "Paxten Aaronson": "팩스턴 애런슨", "Brenden Aaronson": "브렌던 애런슨", "Josh Sargent": "조시 사전트",
+    "Haji Wright": "하지 라이트", "Luca de la Torre": "루카 데라토레", "Tanner Tessmann": "태너 테스먼"
 }
 
 _PLAYER_TABLE = {}
@@ -1097,9 +1161,113 @@ for _en, _ko in PLAYERS.items():                      # 성으로도 맞추되, 
         _PLAYER_LAST.setdefault(_last, (_ko, _first))
 
 
-def ko_player(name):
+# ---------------------------------------------------------------- 일본 선수 이름: 로마자 -> 한글 (사전 없이 규칙으로)
+# 외래어 표기법(일본어)을 따른다.
+#   · か·た행은 어두에 ㄱ·ㄷ, 어중에 ㅋ·ㅌ  (Tanaka -> 다나카)
+#   · つ는 '쓰'  (Matsumoto -> 마쓰모토)
+#   · 장음은 적지 않는다  (Kouta -> 고타)
+#   · っ은 ㅅ 받침(Sapporo -> 삿포로), ん은 ㄴ 받침(Shinji -> 신지)
+# 값은 (어두, 어중) 쌍.
+_JP = {
+    "a": ("아", "아"), "i": ("이", "이"), "u": ("우", "우"), "e": ("에", "에"), "o": ("오", "오"),
+    "ka": ("가", "카"), "ki": ("기", "키"), "ku": ("구", "쿠"), "ke": ("게", "케"), "ko": ("고", "코"),
+    "kya": ("갸", "캬"), "kyu": ("규", "큐"), "kyo": ("교", "쿄"),
+    "ga": ("가", "가"), "gi": ("기", "기"), "gu": ("구", "구"), "ge": ("게", "게"), "go": ("고", "고"),
+    "gya": ("갸", "갸"), "gyu": ("규", "규"), "gyo": ("교", "교"),
+    "sa": ("사", "사"), "shi": ("시", "시"), "su": ("스", "스"), "se": ("세", "세"), "so": ("소", "소"),
+    "sha": ("샤", "샤"), "shu": ("슈", "슈"), "sho": ("쇼", "쇼"),
+    "za": ("자", "자"), "ji": ("지", "지"), "zu": ("즈", "즈"), "ze": ("제", "제"), "zo": ("조", "조"),
+    "ja": ("자", "자"), "ju": ("주", "주"), "jo": ("조", "조"), "jya": ("자", "자"), "jyu": ("주", "주"), "jyo": ("조", "조"),
+    "ta": ("다", "타"), "chi": ("지", "치"), "tsu": ("쓰", "쓰"), "te": ("데", "테"), "to": ("도", "토"),
+    "cha": ("자", "차"), "chu": ("주", "추"), "cho": ("조", "초"),
+    "da": ("다", "다"), "de": ("데", "데"), "do": ("도", "도"),
+    "na": ("나", "나"), "ni": ("니", "니"), "nu": ("누", "누"), "ne": ("네", "네"), "no": ("노", "노"),
+    "nya": ("냐", "냐"), "nyu": ("뉴", "뉴"), "nyo": ("뇨", "뇨"),
+    "ha": ("하", "하"), "hi": ("히", "히"), "fu": ("후", "후"), "he": ("헤", "헤"), "ho": ("호", "호"),
+    "hya": ("햐", "햐"), "hyu": ("휴", "휴"), "hyo": ("효", "효"),
+    "ba": ("바", "바"), "bi": ("비", "비"), "bu": ("부", "부"), "be": ("베", "베"), "bo": ("보", "보"),
+    "bya": ("뱌", "뱌"), "byu": ("뷰", "뷰"), "byo": ("뵤", "뵤"),
+    "pa": ("파", "파"), "pi": ("피", "피"), "pu": ("푸", "푸"), "pe": ("페", "페"), "po": ("포", "포"),
+    "pya": ("퍄", "퍄"), "pyu": ("퓨", "퓨"), "pyo": ("표", "표"),
+    "ma": ("마", "마"), "mi": ("미", "미"), "mu": ("무", "무"), "me": ("메", "메"), "mo": ("모", "모"),
+    "mya": ("먀", "먀"), "myu": ("뮤", "뮤"), "myo": ("묘", "묘"),
+    "ya": ("야", "야"), "yu": ("유", "유"), "yo": ("요", "요"),
+    "ra": ("라", "라"), "ri": ("리", "리"), "ru": ("루", "루"), "re": ("레", "레"), "ro": ("로", "로"),
+    "rya": ("랴", "랴"), "ryu": ("류", "류"), "ryo": ("료", "료"),
+    "wa": ("와", "와"), "wo": ("오", "오"),
+    "va": ("바", "바"), "vi": ("비", "비"), "vu": ("부", "부"), "ve": ("베", "베"), "vo": ("보", "보"),
+    "fa": ("파", "파"), "fi": ("피", "피"), "fe": ("페", "페"), "fo": ("포", "포"),
+    "je": ("제", "제"), "she": ("셰", "셰"), "che": ("체", "체"),
+}
+_JP_CONS = "kgsztdnhfbpmyrwcj"
+_JONG_N, _JONG_S = 4, 19                                    # ㄴ, ㅅ 받침
+
+
+def _add_final(text, jong):
+    """마지막 글자에 받침을 붙인다 (이미 받침이 있으면 그대로)."""
+    if not text:
+        return text
+    code = ord(text[-1]) - 0xAC00
+    if not (0 <= code < 11172) or code % 28:
+        return text
+    return text[:-1] + chr(ord(text[-1]) + jong)
+
+
+def _jp_word(w):
+    """로마자 한 낱말 -> 한글. 일본어로 읽을 수 없으면 None (브라질·유럽 이름 걸러내기)."""
+    s = re.sub(r"oh(?=[kgsztdnhbpmyrw])", "o", w)           # Ohtani -> Otani
+    s = re.sub(r"ou(?!e)", "o", s)                           # Kouta -> 고타. 단 Inoue(井上)는 '우'를 살린다
+    s = s.replace("oo", "o").replace("nn", "n")
+    # 'uu'는 건드리지 않는다: 출처가 장음을 겹쳐 쓰지 않아서 Matsuura(松浦) 같은 두 박자일 때가 많다
+    out, i, head = "", 0, True
+    while i < len(s):
+        c = s[i]
+        if s[i:i + 3] == "tch" or (c in _JP_CONS and c != "n" and s[i:i + 2] == c + c):
+            if not out:                                      # 낱말 첫머리에 촉음은 없다
+                return None
+            out = _add_final(out, _JONG_S)
+            i += 1
+            continue
+        # ん + や행·いち는 헵번식에서 아포스트로피를 빼고 적는다 (Junya=じゅんや, Kenichi=けんいち)
+        nn = c == "n" and bool(out) and (s[i + 1:i + 2] == "y" or re.match(r"ichi(rou?)?$", s[i + 1:]))
+        if c == "n" and (nn or i + 1 >= len(s) or s[i + 1] not in "aiueoy"):
+            if not out:
+                return None
+            out = _add_final(out, _JONG_N)
+            i += 1
+            head = False
+            continue
+        for ln in (3, 2, 1):
+            tok = s[i:i + ln]
+            if tok in _JP:
+                out += _JP[tok][0 if head else 1]
+                i += ln
+                head = False
+                break
+        else:
+            return None
+    return out or None
+
+
+def jp_player(name):
+    """일본식 로마자 이름이면 '성 이름' 순서의 한글로. 아니면 None.
+    풋몹·ESPN은 '이름 성' 순서로 주므로 뒤집는다 (Daizen Maeda -> 마에다 다이젠)."""
+    raw = str(name or "")
+    if not raw or re.search(r"[가-힣]", raw):
+        return None
+    words = _key(raw).split()
+    if not 1 <= len(words) <= 2 or any(len(w) < 2 for w in words):
+        return None
+    parts = [_jp_word(w) for w in words]
+    if not all(parts):
+        return None
+    return parts[-1] + (" " + parts[0] if len(parts) == 2 else "")
+
+
+def ko_player(name, jp=False):
     """영어 선수 이름 -> 한국어 (사전에 없으면 원래 이름). 이미 한국어면 그대로.
-    철자가 조금 달라도(Aymen/Ayman) 성이 하나뿐이고 이름 첫 글자가 같으면 바꾼다."""
+    철자가 조금 달라도(Aymen/Ayman) 성이 하나뿐이고 이름 첫 글자가 같으면 바꾼다.
+    jp=True(일본 리그)면 사전에 없을 때 로마자를 규칙으로 읽는다."""
     raw = str(name or "")
     if not raw or re.search(r"[가-힣]", raw):
         return raw
@@ -1114,4 +1282,6 @@ def ko_player(name):
         ko, first = hit
         if len(words) == 1 or not first or words[0][0] == first:
             return ko
+    if jp:
+        return jp_player(raw) or raw
     return raw
