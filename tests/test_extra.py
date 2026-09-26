@@ -522,6 +522,17 @@ def test_mls_team_names():
     assert ko_team("San Diego FC") == "샌디에이고 FC"
 
 
+def test_name_spelling_variants():
+    """같은 나라인데 표기가 다른 경우(Saint/St., 'and the')도 찾아낸다."""
+    from names_ko import ko_team
+    assert ko_team("St. Vincent and the Grenadines") == "세인트빈센트 그레나딘"
+    assert ko_team("Saint Vincent & Grenadines") == "세인트빈센트 그레나딘"
+    assert ko_team("St Kitts and Nevis") == "세인트키츠 네비스"
+    assert ko_team("Anaitasuna") == "아나이타수나"                   # 코파 델 레이 하부 팀
+    assert ko_team("Atlético Melilla") == "아틀레티코 멜리야"
+    assert ko_team("St. Nowhere United") == "St. Nowhere United"    # 없는 팀은 그대로
+
+
 def test_jp_league_flag():
     import collect
     assert collect.is_jp_league("jpn.1") and collect.is_jp_league("fotmob.8974")
