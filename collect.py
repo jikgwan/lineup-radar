@@ -701,13 +701,41 @@ def _risk_signals(names, risk):
     return sig
 
 
+def pre_power(client, game, hist, slugs, start, cfg):
+    """라인업 발표 전 전력 비교.
+    백테스트에서 '오늘 라인업'은 결과 예측을 거의 못 바꿨고(개선 0.1% 수준) 팀 체급(득실차)과
+    Elo가 대부분을 설명했다. 그래서 라인업이 나오기 전에도 같은 숫자를 미리 낼 수 있다."""
+    if game.get("sport") != "축구":
+        return None
+    if not (hist.get("home") and hist.get("away")):
+        return None
+    hn, an = game["home"]["name"], game["away"]["name"]
+    if game.get("national"):
+        ratings, names = load_elo(client)
+        eh, _ = elo_for(game["home"].get("name_en") or hn, ratings, names)
+        ea, _ = elo_for(game["away"].get("name_en") or an, ratings, names)
+        home_adv = ELO_HOME if game.get("league_slug") in (cfg.get("home_advantage_slugs") or []) else 0
+        power = compare_elo({}, {}, hn, an, eh, ea, home_adv)
+        if power:
+            power["basis"] = {"elo": [round(eh), round(ea)]}
+        return power
+    model = get_model()
+    sh, sa = slugs.get("home"), slugs.get("away")
+    if not (model and sh and sh == sa and sh not in EURO_COMPS):
+        return None                       # 챔스처럼 리그가 다른 팀끼리는 발표 전 숫자를 안 낸다
+    elo = espn_league_elo(client, sh, start, must=(game["home"]["id"], game["away"]["id"]))
+    h = dict(model_side(hist["home"]), elo=elo.get(game["home"]["id"], 1500.0))
+    a = dict(model_side(hist["away"]), elo=elo.get(game["away"]["id"], 1500.0))
+    return model_power(model, sh, h, a, hn, an)
+
+
 def espn_pre_lineup(client, game, now, extractor):
     """라인업 발표 전: 양 팀의 로테이션 가능성 (지난 경기 패턴 + 오늘 일정).
     대표팀은 소집마다 명단이 바뀌어 '로테이션'으로 볼 수 없어서 이 계산을 하지 않는다 (부상·징계만 보여준다)."""
     jp_names = is_jp_league(game.get("league_slug"))
     start = to_kst(game["start_kst"]) or now
     cfg = load_config()
-    risk = {}
+    risk, hist, slug_of = {}, {}, {}
     for side in ("home", "away"):
         team_id = game[side]["id"]
         if not team_id:
@@ -721,6 +749,8 @@ def espn_pre_lineup(client, game, now, extractor):
                 slug = domestic_slug(client, team_id, slug, cfg) or slug
             history = espn_team_history(client, "soccer", slug, team_id, start, extractor)
             slugs = [slug] + [s for s in EURO_COMPS if s in {lg["slug"] for lg in cfg.get("espn_leagues", [])} and s != slug]
+            slug_of[side] = slug
+        hist[side] = history
         events = espn_team_events(client, "soccer", slugs, team_id)
         ctx = espn_schedule_context(client, "soccer", slugs, team_id, start, events=events)
         core = core_from_history(history[:HISTORY_MATCHES], 11)
@@ -755,7 +785,13 @@ def espn_pre_lineup(client, game, now, extractor):
             r["core_absent"] = [x["name"] for x in core_out]
             if len(core_out) >= 2:
                 sig.append([f"{names[side]} 주전 {len(core_out)}명 부상·징계", "bad"])
-    return {"risk": risk, "signals": (sig + _risk_signals(names, risk))[:4]}
+    power = None
+    try:
+        power = pre_power(client, game, hist, slug_of, start, cfg)
+    except Exception as exc:                  # 전력 숫자가 안 나와도 나머지는 그대로
+        print(f"  ! 발표 전 전력 계산 실패: {exc}", file=sys.stderr)
+    return {"risk": risk, "power": power,
+            "signals": (sig + model_signals(power, names) + _risk_signals(names, risk))[:4]}
 
 
 def _ctx(last, nxt, start):
@@ -1060,9 +1096,10 @@ def naver_team_events(client, cfg, game, side, start):
 def naver_pre_lineup(client, game, now):
     cfg = load_config()
     start = to_kst(game["start_kst"]) or now
-    risk = {}
+    risk, hist = {}, {}
     for side in ("home", "away"):
         history = naver_team_history(client, cfg, game, side, start)
+        hist[side] = history
         events = naver_team_events(client, cfg, game, side, start)
         ctx = naver_schedule_context(client, game, side, history, start)
         core = core_from_history(history[:HISTORY_MATCHES], 11)
@@ -1072,7 +1109,18 @@ def naver_pre_lineup(client, game, now):
             r["tired"] = [ko_player(x) for x in r.get("tired") or []]
             risk[side] = r
     names = {s: game[s]["name"] for s in ("home", "away")}
-    return {"risk": risk, "signals": _risk_signals(names, risk)}
+    power = None
+    model = get_model()
+    if model and hist.get("home") and hist.get("away"):        # 발표 전에도 전력은 낼 수 있다
+        try:
+            elo = naver_league_elo(client, cfg, game.get("category"), start)
+            h = dict(model_side(hist["home"]), elo=elo.get(game["home"]["id"], 1500.0))
+            a = dict(model_side(hist["away"]), elo=elo.get(game["away"]["id"], 1500.0))
+            power = model_power(model, game.get("category"), h, a, names["home"], names["away"])
+        except Exception as exc:
+            print(f"  ! 발표 전 전력 계산 실패: {exc}", file=sys.stderr)
+    return {"risk": risk, "power": power,
+            "signals": (model_signals(power, names) + _risk_signals(names, risk))[:4]}
 
 
 def build_naver_detail(client, game, now):
@@ -1601,6 +1649,11 @@ def build_fotmob_detail(client, game, now):
                "note": "풋몹에 아직 라인업이 없어요." if not have else "아직 발표 전이라 예상 라인업만 있어요.",
                "expected": ({s: {"name": game[s]["name"], "formation": (lu.get(s) or {}).get("formation") or "",
                                  "players": (lu.get(s) or {}).get("lineup") or []} for s in ("home", "away")} if have else None)}
+        if game.get("power"):
+            try:
+                out["power"] = fotmob_power(client, game, None, start)
+            except Exception as exc:
+                print(f"  ! 풋몹 전력 계산 실패: {exc}", file=sys.stderr)
         risk, sig = {}, []
         for s in ("home", "away"):
             core = core_from_history(hist[s][:HISTORY_MATCHES], 11)
@@ -1615,7 +1668,8 @@ def build_fotmob_detail(client, game, now):
                        "reason": "", "size": 11, "absent": rows, "core_absent": core_out}
             if len(core_out) >= 2:
                 sig.append([f"{names[s]} 주전 {len(core_out)}명 부상·징계", "bad"])
-        out.update({"risk": risk, "signals": sig})
+        out["signals"] = (model_signals(out.get("power"), names) + sig)[:4]
+        out["risk"] = risk
         return out
 
     teams = {}
@@ -2023,8 +2077,12 @@ def run(verbose=False):
                 for side in ("home", "away"):
                     ace = detail["teams"][side].get("ace") or {}
                     row[f"ace_{side}"] = {"name": ace.get("name", ""), "status": ace.get("status", "")} if ace else None
-            elif detail.get("signals"):          # 라인업 발표 전: 로테이션 가능성 신호
-                row["signals"] = detail["signals"][:3]
+            else:                                # 라인업 발표 전에도 전력은 보여준다
+                pw = detail.get("power") or {}
+                if pw:
+                    row["power"] = [pw["home"], pw["away"]]
+                if detail.get("signals"):        # 로테이션 가능성·부상 신호
+                    row["signals"] = detail["signals"][:3]
             row["note"] = detail.get("note", "")
         index.append(row)
 
