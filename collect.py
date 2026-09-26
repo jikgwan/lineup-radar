@@ -577,20 +577,30 @@ def model_side(history):
     return {"gd": gd * n / (n + 2), "gf_pg": sum(m["gf"] for m in rs) / n, "ga_pg": sum(m["ga"] for m in rs) / n, "n": n}
 
 
-def korean_players(result):
+JP_LEAGUES = ("jpn.",)                     # ESPN 일본 리그
+JP_FOTMOB = ("fotmob.8974", "fotmob.9011")  # 풋몹 J2 · 일왕배
+
+
+def is_jp_league(slug):
+    """일본 리그면 선수 이름을 로마자 규칙으로 읽는다 (사전에 없을 때만)."""
+    sl = str(slug or "")
+    return sl.startswith(JP_LEAGUES) or sl in JP_FOTMOB
+
+
+def korean_players(result, jp=False):
     """선발·교체·빠진 주전·에이스 이름을 한국어로 (사전에 없으면 영어 그대로). 영어 이름은 name_en에 남긴다."""
     for key in ("players", "bench", "missing", "returning"):
         for p in result.get(key) or []:
-            ko = ko_player(p.get("name"))
+            ko = ko_player(p.get("name"), jp)
             if ko != p.get("name"):
                 p["name_en"], p["name"] = p.get("name"), ko
     ace = result.get("ace")
     if ace and ace.get("name"):
-        ko = ko_player(ace["name"])
+        ko = ko_player(ace["name"], jp)
         if ko != ace["name"]:
             ace["name_en"], ace["name"] = ace["name"], ko
     for x in result.get("absent") or []:
-        ko = ko_player(x.get("name"))
+        ko = ko_player(x.get("name"), jp)
         if ko != x.get("name"):
             x["name_en"], x["name"] = x.get("name"), ko
     return result
@@ -644,7 +654,7 @@ def _en_name(p):
     return p.get("name_en") or p.get("name")
 
 
-def attach_absences(teams, absences, names):
+def attach_absences(teams, absences, names, jp=False):
     """빠진 주전에 결장 사유를 붙이고, 주전이 부상·징계로 2명 이상 빠지면 신호."""
     sig = []
     if not absences:
@@ -670,7 +680,7 @@ def attach_absences(teams, absences, names):
                         hit += 1
                         break
         for x in rows:                                  # 결장자 이름도 한국어로 (짝짓기가 끝난 뒤)
-            ko = ko_player(x.get("name"))
+            ko = ko_player(x.get("name"), jp)
             if ko != x.get("name"):
                 x["name_en"], x["name"] = x.get("name"), ko
         if hit >= 2:
@@ -694,6 +704,7 @@ def _risk_signals(names, risk):
 def espn_pre_lineup(client, game, now, extractor):
     """라인업 발표 전: 양 팀의 로테이션 가능성 (지난 경기 패턴 + 오늘 일정).
     대표팀은 소집마다 명단이 바뀌어 '로테이션'으로 볼 수 없어서 이 계산을 하지 않는다 (부상·징계만 보여준다)."""
+    jp_names = is_jp_league(game.get("league_slug"))
     start = to_kst(game["start_kst"]) or now
     cfg = load_config()
     risk = {}
@@ -718,7 +729,7 @@ def espn_pre_lineup(client, game, now, extractor):
         if r:
             r["schedule"] = ctx
             r["core_names"] = [m.get("name") for m in core]
-            r["tired"] = [ko_player(x) for x in r.get("tired") or []]
+            r["tired"] = [ko_player(x, jp_names) for x in r.get("tired") or []]
             risk[side] = r
         elif game.get("national"):
             risk[side] = {"level": None, "situation": "normal", "situation_text": "평소", "today": {"n": 0}, "base": {"n": 0},
@@ -737,7 +748,7 @@ def espn_pre_lineup(client, game, now, extractor):
                                        "base": {"n": 0}, "tired": [], "reason": "", "size": 11, "core_names": []})
             core_out = [x for x in rows if any(same_person(n, x["name"]) for n in r.get("core_names") or [])]
             for x in rows:
-                ko = ko_player(x.get("name"))
+                ko = ko_player(x.get("name"), jp_names)
                 if ko != x.get("name"):
                     x["name_en"], x["name"] = x.get("name"), ko
             r["absent"] = rows
@@ -890,7 +901,7 @@ def build_espn_detail(client, game, now):
                 else:
                     sl = [hist_slug] + [s for s in EURO_COMPS if s in {lg["slug"] for lg in cfg.get("espn_leagues", [])} and s != hist_slug]
                 result["schedule"] = espn_schedule_context(client, sport_root, sl, team_id, start)
-        korean_players(result)
+        korean_players(result, is_jp_league(hist_slug))
         result["league"] = hist_slug
         result["leaders"]["labels"] = ["최다 득점", "최다 도움"] if game["sport"] == "축구" else ["최다 득점", "최다 어시스트"]
         result["team_name"] = game[side]["name"] or info.get("team_name") or ""
@@ -926,7 +937,7 @@ def build_espn_detail(client, game, now):
     extra = []
     if game["sport"] == "축구":
         try:
-            extra = attach_absences(teams, fotmob_absences(client, game), names)
+            extra = attach_absences(teams, fotmob_absences(client, game), names, is_jp_league(league_slug))
         except Exception as exc:                 # 풋몹이 막혀도 판정은 그대로
             print(f"  ! 풋몹 결장자 실패: {exc}", file=sys.stderr)
     return {"lineup_ready": True, "teams": teams, "power": power, "national": bool(game.get("national")),
@@ -1570,6 +1581,7 @@ def build_fotmob_detail(client, game, now):
     start = to_kst(game["start_kst"]) or now
     names = {s: game[s]["name"] for s in ("home", "away")}
     ab = parse_fotmob_unavailable(det) if det else None
+    jp_names = is_jp_league(game.get("league_slug"))
     only_league = game.get("fm_league") if game.get("power") else None
     hist = {s: fotmob_team_history(client, game[s]["id"], start, league_id=only_league) if game[s]["id"] else [] for s in ("home", "away")}
     have = all(len((lu.get(s) or {}).get("lineup") or []) >= 11 for s in ("home", "away"))
@@ -1595,10 +1607,10 @@ def build_fotmob_detail(client, game, now):
             rows = (ab or {}).get(s) or []
             core_out = [x["name"] for x in rows if any(same_person(m.get("name"), x["name"]) for m in core)]
             for x in rows:
-                ko = ko_player(x.get("name"))
+                ko = ko_player(x.get("name"), jp_names)
                 if ko != x.get("name"):
                     x["name_en"], x["name"] = x.get("name"), ko
-            core_out = [ko_player(nm) for nm in core_out]
+            core_out = [ko_player(nm, jp_names) for nm in core_out]
             risk[s] = {"level": None, "situation": "normal", "situation_text": "평소", "today": {"n": 0}, "base": {"n": 0}, "tired": [],
                        "reason": "", "size": 11, "absent": rows, "core_absent": core_out}
             if len(core_out) >= 2:
@@ -1623,9 +1635,9 @@ def build_fotmob_detail(client, game, now):
         result["team_name"] = game[side]["name"]
         result["formation"] = lu[side].get("formation") or ""
         result["league"] = game.get("league_slug")
-        korean_players(result)
+        korean_players(result, jp_names)
         teams[side] = result
-    extra = attach_absences(teams, ab, names) if ab else []
+    extra = attach_absences(teams, ab, names, jp_names) if ab else []
     power = None
     if game.get("power"):
         try:
