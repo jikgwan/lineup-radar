@@ -271,7 +271,7 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
     <p class="foot">라인업은 보통 경기 1시간 전에 나오고, 나오면 등급이 켜집니다. 전력 비율은 팀 체급(득실차·Elo)과 리그별 홈 이점으로 계산한 기대 승점 비율이고, 라인업·결장은 따로 정보로 보여줘요.<br>
     <b>개인이 경기 분석에 참고하려고 만든 무료 사이트</b>를 같이 보시라고 공유한 거예요. 공식 서비스가 아니라 기록이 틀리거나 잠시 멈출 수 있어요.
     특정 경기의 베팅을 권유하지 않으며, 판단과 책임은 이용자 본인에게 있습니다.<br>
-    데이터 출처: 축구·농구 ESPN · K리그·KBO 네이버 스포츠 · 야구 MLB · 부상·징계 FotMob · 대표팀 World Football Elo. 각 데이터의 권리는 해당 제공처에 있으며, 요청이 있으면 즉시 내립니다.</p>
+    데이터 출처: 축구·농구 ESPN · K리그·KBO 네이버 스포츠 · 야구 MLB · J2리그·부상·징계 FotMob · 대표팀 World Football Elo. 각 데이터의 권리는 해당 제공처에 있으며, 요청이 있으면 즉시 내립니다.</p>
   </aside>
   <main id="detailPane" hidden><div id="emptyDetail">왼쪽에서 경기를 고르세요</div><div id="detail"></div></main>
 </div>
@@ -741,7 +741,10 @@ em.bad{font-style:normal;color:var(--bad)} em.good{font-style:normal;color:var(-
       add("라인업 계수", H.q, A.q, H.q == null ? "-" : Math.round(H.q * 100) + "%", A.q == null ? "-" : Math.round(A.q * 100) + "%", "전력 보존율 60% + 오늘 선발의 득점·도움 지분 40%");
       add("전력 보존율", (T.home.strength || {}).retain, (T.away.strength || {}).retain, ((T.home.strength || {}).retain ?? "-") + "%", ((T.away.strength || {}).retain ?? "-") + "%", "오늘 선발이 평소 주전 출전시간의 몇 %인지");
     }
-    if (basis.children.length) h.append(basis);
+    if (basis.children.length){
+      basis.style.gridTemplateColumns = `repeat(${basis.children.length}, 1fr)`;
+      h.append(basis);
+    }
     const note = el("div", "vnote"); note.id = "basisNote"; h.append(note);
     if (pw && pw.mode === "mlb"){ const ex = el("div", "exp"); ex.append(el("span", null, "예상 득점"), el("b", null, `${fmt(pw.exp_home, 1)} : ${fmt(pw.exp_away, 1)}`), el("span", null, `합계 ${fmt(pw.exp_total, 1)}`)); h.append(ex); }
     const s = sigs(d.signals, true); if (s) h.append(s);
