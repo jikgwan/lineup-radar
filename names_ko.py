@@ -97,6 +97,9 @@ CLUBS = {
     "Kamatamare Sanuki": "가마타마레 사누키", "FC Ryukyu": "FC 류큐", "Azul Claro Numazu": "아술 클라로 누마즈",
     "Gainare Tottori": "가이나레 돗토리", "SC Sagamihara": "SC 사가미하라", "Iwate Grulla Morioka": "이와테 그루자 모리오카",
     "Vanraure Hachinohe": "반라우레 하치노헤", "FC Osaka": "FC 오사카", "Nara Club": "나라 클럽", "Kochi United": "고치 유나이티드",
+    "Tegevajaro Miyazaki": "테게바자로 미야자키", "Tegevajaro": "테게바자로 미야자키",
+    "Ryukyu": "FC 류큐", "Grulla Morioka": "이와테 그루자 모리오카", "Fukushima United": "후쿠시마 유나이티드",
+    "Tottori": "가이나레 돗토리", "Sagamihara": "SC 사가미하라", "Imabari": "FC 이마바리",
 }
 
 NATIONS = {
