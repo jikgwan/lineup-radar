@@ -513,30 +513,85 @@ def _elo_params():
     return {"k": e.get("k", 20), "home": e.get("home", 60), "regress": e.get("season_regress", 1 / 3)}
 
 
-def espn_league_elo(client, slug, start, must=()):
-    """리그 전체 팀의 이번 시즌 + 지난 시즌 결과로 Elo (팀 일정은 캐시, 지난 시즌은 영구 저장)."""
-    key = ("espn", slug, start.date())
+def _league_events(client, slug, start, must=()):
+    """한 대회의 이번 시즌 + 지난 시즌 결과 {경기id: (날짜, 시즌, 홈, 원정, 홈골, 원정골)}.
+    ESPN 팀 일정은 '그 대회 경기만' 주므로, 대항전 결과는 대항전 슬러그로 따로 받아야 한다."""
+    key = ("ev", slug, start.date())
     if key in _ELO_MEMO:
-        return _ELO_MEMO[key]
-    teams = client.get_json(f"{ESPN_SITE}/soccer/{slug}/teams", cache_key=f"teams_{slug}", ttl=7 * 86400)
-    ids = list(dict.fromkeys(parse_espn_team_ids(teams or {}) + [t for t in must if t]))
-    prev = start.year - 1 if (slug in CALENDAR_LEAGUES or start.month >= 7) else start.year - 2
-    evs = {}
-    for tid in ids:
-        if getattr(client, "out_of_time", False):
-            break
-        url = f"{ESPN_SITE}/soccer/{slug}/teams/{tid}/schedule"
-        for label, params, ck, ttl in (("c", None, f"sched_{slug}_{tid}", 6 * 3600),
-                                       ("p", {"season": prev}, f"schedp_{slug}_{tid}_{prev}", -1)):
-            data = client.get_json(url, params=params, cache_key=ck, ttl=ttl)
-            for e in parse_espn_schedule_events(data or {}):
-                if e["completed"] and e["hg"] is not None and to_kst(e["date"]) < start:
-                    evs[e["id"]] = (e["date"], label, e["home_id"], e["away_id"], e["hg"], e["ag"])
+        evs = dict(_ELO_MEMO[key])
+    else:
+        teams = client.get_json(f"{ESPN_SITE}/soccer/{slug}/teams", cache_key=f"teams_{slug}", ttl=7 * 86400)
+        ids = parse_espn_team_ids(teams or {})
+        prev = start.year - 1 if (slug in CALENDAR_LEAGUES or start.month >= 7) else start.year - 2
+        evs, done = {}, True
+        for tid in ids:
+            if getattr(client, "out_of_time", False):
+                done = False
+                break
+            url = f"{ESPN_SITE}/soccer/{slug}/teams/{tid}/schedule"
+            for label, params, ck, ttl in (("c", None, f"sched_{slug}_{tid}", 6 * 3600),
+                                           ("p", {"season": prev}, f"schedp_{slug}_{tid}_{prev}", -1)):
+                data = client.get_json(url, params=params, cache_key=ck, ttl=ttl)
+                for e in parse_espn_schedule_events(data or {}):
+                    if e["completed"] and e["hg"] is not None and to_kst(e["date"]) < start:
+                        evs[e["id"]] = (e["date"], label, e["home_id"], e["away_id"], e["hg"], e["ag"])
+        if done:                                  # 도중에 끊긴 건 캐시하지 않는다 (다음 회차에 마저 받게)
+            _ELO_MEMO[key] = dict(evs)
+    for tid in must:                              # 목록에 없는 팀(승격팀 등)은 따로 채운다
+        if not tid or getattr(client, "out_of_time", False):
+            continue
+        data = client.get_json(f"{ESPN_SITE}/soccer/{slug}/teams/{tid}/schedule", cache_key=f"sched_{slug}_{tid}", ttl=6 * 3600)
+        for e in parse_espn_schedule_events(data or {}):
+            if e["completed"] and e["hg"] is not None and to_kst(e["date"]) < start:
+                evs.setdefault(e["id"], (e["date"], "c", e["home_id"], e["away_id"], e["hg"], e["ag"]))
+    return evs
+
+
+def _elo_from(evs):
     # 지난 시즌 경기가 먼저 오도록 시즌 표시를 날짜 순서와 맞춤
     rows = [(d, "0" if s == "p" else "1", h, a, hg, ag) for d, s, h, a, hg, ag in evs.values()]
-    table = elo_table(rows, **_elo_params())
+    return elo_table(rows, **_elo_params())
+
+
+def espn_league_elo(client, slug, start, must=()):
+    """리그 전체 팀의 이번 시즌 + 지난 시즌 결과로 Elo (팀 일정은 캐시, 지난 시즌은 영구 저장)."""
+    key = ("espn", slug, start.date(), tuple(sorted(t for t in must if t)))
+    if key in _ELO_MEMO:
+        return _ELO_MEMO[key]
+    table = _elo_from(_league_events(client, slug, start, must))
     _ELO_MEMO[key] = table
     return table
+
+
+# 유럽 통합 Elo: 여러 리그 + 대항전을 한 표에 넣는다. 대항전 경기가 리그끼리의 잣대를 이어준다.
+EURO_ELO_LEAGUES = ("eng.1", "esp.1", "ita.1", "ger.1", "fra.1", "por.1", "ned.1", "tur.1", "eng.2")
+EURO_ELO_MIN_TEAMS = 80        # 이보다 적으면 아직 덜 받아온 것 → 예전 방식으로
+
+
+def euro_elo(client, cfg, start, must=()):
+    """유럽 리그 + 챔스·유로파·컨퍼런스 결과를 한 Elo 표로. 리그가 다른 팀끼리 비교할 때 쓴다."""
+    key = ("euro", start.date())
+    if key in _ELO_MEMO:
+        return _ELO_MEMO[key]
+    have = {lg["slug"] for lg in cfg.get("espn_leagues", [])}
+    evs = {}
+    for slug in EURO_ELO_LEAGUES + EURO_COMPS:
+        if slug not in have:
+            continue
+        evs.update(_league_events(client, slug, start, must if slug in EURO_COMPS else ()))
+    table = _elo_from(evs)
+    if len(table) >= EURO_ELO_MIN_TEAMS:          # 다 받아왔을 때만 기억한다
+        _ELO_MEMO[key] = table
+    return table
+
+
+def league_gd_factor(model, cfg, slug):
+    """리그마다 득실차의 '무게'가 다르다. 백테스트가 찾은 값이 있으면 그걸, 없으면 설정값을 쓴다."""
+    lg = (model or {}).get("league_gd") or {}
+    if slug in lg:
+        return lg[slug]
+    ls = cfg.get("league_strength") or {}
+    return ls.get(slug, ls.get("default", 0.8))
 
 
 def naver_league_elo(client, cfg, cat, start):
@@ -701,6 +756,51 @@ def _risk_signals(names, risk):
     return sig
 
 
+def cross_power(client, cfg, model, game, teams, slugs, start, ins=None):
+    """리그가 다른 팀끼리(챔스·유로파) 전력 비교.
+    Elo는 유럽 통합 표에서 가져오고(대항전 결과가 리그끼리를 이어준다),
+    득실차는 리그마다 무게가 달라 리그 계수로 보정한다."""
+    if not model:
+        return None
+    hs, as_ = (ins or (None, None))
+    if hs is None or as_ is None:
+        hs = (teams.get("home") or {}).get("model_in")
+        as_ = (teams.get("away") or {}).get("model_in")
+    if not (hs and as_):
+        return None
+    ids = (game["home"]["id"], game["away"]["id"])
+    if not all(ids):
+        return None
+    sh, sa = slugs.get("home"), slugs.get("away")
+    offs = (model.get("league_elo_offset") or {})
+    mode = model.get("euro_mode")
+    eh = ea = None
+    way = ""
+    # ① 백테스트가 '리그 보정치'를 고른 경우: 리그별 Elo에 그 값을 더한다 (요청이 안 늘어난다)
+    if offs and mode != "uni" and sh in offs and sa in offs:
+        th = espn_league_elo(client, sh, start, must=(ids[0],))
+        ta = espn_league_elo(client, sa, start, must=(ids[1],)) if sa != sh else th
+        if ids[0] in th and ids[1] in ta:
+            eh, ea = th[ids[0]] + offs[sh], ta[ids[1]] + offs[sa]
+            way = "리그 수준 보정을 더한 Elo로 비교했어요"
+    # ② 아니면 대항전 결과까지 합친 통합 Elo
+    if eh is None:
+        elo = euro_elo(client, cfg, start, must=ids)
+        if len(elo) < EURO_ELO_MIN_TEAMS or ids[0] not in elo or ids[1] not in elo:
+            return None                           # 아직 덜 모였으면 숫자를 내지 않는다
+        eh, ea = elo[ids[0]], elo[ids[1]]
+        way = "리그가 달라 대항전 결과로 만든 통합 Elo로 비교했어요"
+    kh = league_gd_factor(model, cfg, sh)
+    ka = league_gd_factor(model, cfg, sa)
+    h = dict(hs, gd=(hs.get("gd") or 0.0) * kh, elo=eh)
+    a = dict(as_, gd=(as_.get("gd") or 0.0) * ka, elo=ea)
+    power = model_power(model, game.get("league_slug"), h, a, game["home"]["name"], game["away"]["name"], teams)
+    power["cross"] = {"gd_factor": [round(kh, 3), round(ka, 3)], "league": [sh, sa],
+                      "elo_offset": [offs.get(sh), offs.get(sa)] if way.startswith("리그 수준") else None}
+    power["note"] = power.get("note") or way
+    return power
+
+
 def pre_power(client, game, hist, slugs, start, cfg):
     """라인업 발표 전 전력 비교.
     백테스트에서 '오늘 라인업'은 결과 예측을 거의 못 바꿨고(개선 0.1% 수준) 팀 체급(득실차)과
@@ -721,8 +821,11 @@ def pre_power(client, game, hist, slugs, start, cfg):
         return power
     model = get_model()
     sh, sa = slugs.get("home"), slugs.get("away")
-    if not (model and sh and sh == sa and sh not in EURO_COMPS):
-        return None                       # 챔스처럼 리그가 다른 팀끼리는 발표 전 숫자를 안 낸다
+    if not (model and sh and sa):
+        return None
+    if sh != sa or game.get("league_slug") in EURO_COMPS:      # 챔스·유로파: 통합 Elo
+        return cross_power(client, cfg, model, game, {}, slugs, start,
+                           ins=(model_side(hist["home"]), model_side(hist["away"])))
     elo = espn_league_elo(client, sh, start, must=(game["home"]["id"], game["away"]["id"]))
     h = dict(model_side(hist["home"]), elo=elo.get(game["home"]["id"], 1500.0))
     a = dict(model_side(hist["away"]), elo=elo.get(game["away"]["id"], 1500.0))
@@ -961,14 +1064,17 @@ def build_espn_detail(client, game, now):
         if slugs["home"] != slugs["away"]:   # 리그가 다를 때만 리그 수준 보정
             fh, fa = ls.get(slugs["home"], ls.get("default", 0.8)), ls.get(slugs["away"], ls.get("default", 0.8))
         model = get_model()
+        ins = (teams["home"].get("model_in"), teams["away"].get("model_in"))
         same_league = slugs["home"] == slugs["away"] and league_slug not in EURO_COMPS
-        if model and same_league and teams["home"].get("model_in") and teams["away"].get("model_in"):
+        if model and same_league and all(ins):
             elo = espn_league_elo(client, slugs["home"], start, must=(game["home"]["id"], game["away"]["id"]))
             h = dict(teams["home"]["model_in"], elo=elo.get(game["home"]["id"], 1500.0))
             a = dict(teams["away"]["model_in"], elo=elo.get(game["away"]["id"], 1500.0))
             power = model_power(model, slugs["home"], h, a, game["home"]["name"], game["away"]["name"], teams)
-        else:                                     # 챔스처럼 리그가 다른 팀끼리 · model.json 없을 때: 예전 방식
-            power = compare_power(teams["home"], teams["away"], game["home"]["name"], game["away"]["name"], fh, fa)
+        else:
+            power = cross_power(client, cfg, model, game, teams, slugs, start)
+            if power is None:                     # 통합 Elo가 아직 덜 모였을 때: 예전 방식
+                power = compare_power(teams["home"], teams["away"], game["home"]["name"], game["away"]["name"], fh, fa)
     names = {s: game[s]["name"] for s in ("home", "away")}
     extra = []
     if game["sport"] == "축구":
