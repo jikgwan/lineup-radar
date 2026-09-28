@@ -514,6 +514,26 @@ def test_japanese_romaji_to_hangul():
     assert ko_player("", jp=True) == "" and ko_player("손흥민", jp=True) == "손흥민"
 
 
+def test_spanish_names():
+    """스페인어권 선수는 사전 없이 규칙으로 읽는다 (외래어 표기법)."""
+    from names_ko import ko_player, es_player
+    assert es_player("Jorge Aguirre") == "호르헤 아기레"
+    assert es_player("Sergio Ramos") == "세르히오 라모스"          # j·g(e,i)는 'ㅎ'
+    assert es_player("Carlos Vela") == "카를로스 벨라"             # rl·모음 사이 l은 'ㄹㄹ'
+    assert es_player("Marcos Llorente") == "마르코스 요렌테"        # ll은 '야'행
+    assert es_player("Víctor Muñoz") == "빅토르 무뇨스"            # ñ은 '냐'행, 음절 끝 c는 'ㄱ' 받침
+    assert es_player("Francisco Sánchez") == "프란시스코 산체스"    # z는 'ㅅ', n+ch는 'ㄴ' 받침
+    assert es_player("Guillermo Ochoa") == "기예르모 오초아"
+    assert es_player("Cristian Núñez") == "크리스티안 누녜스"       # 어두 c+자음은 '크'
+    assert es_player("Iker Casillas") == "이케르 카시야스"
+    # 스페인어권 이름이 아니면 건드리지 않는다
+    for x in ("Jermaine Francis", "Harry Kane", "Jude Bellingham", "Ronaldo Silva", "Leonardo Bonucci"):
+        assert es_player(x) is None, x
+    assert ko_player("Jorge Aguirre") == "호르헤 아기레"
+    assert ko_player("Jermaine Francis") == "Jermaine Francis"
+    assert es_player("") is None and es_player("손흥민") is None
+
+
 def test_mls_team_names():
     from names_ko import ko_team
     assert ko_team("Inter Miami CF") == "인터 마이애미" and ko_team("LA Galaxy") == "LA 갤럭시"
@@ -661,7 +681,8 @@ def test_korean_player_names():
     assert ko_player("Haaland") == "엘링 홀란"                 # 성만 와도 (겹치지 않을 때만)
     assert ko_player("Ayman Hussein") == "아이멘 후세인"        # 철자가 조금 달라도 (성이 하나뿐 + 이름 첫 글자 같음)
     assert ko_player("K. Benzema") == "카림 벤제마"
-    assert ko_player("Marcos Suarez") == "Marcos Suarez"       # 성이 같아도 다른 선수면 그대로
+    # 성이 같아도 다른 선수면 사전 이름을 쓰지 않는다 (루이스 수아레스로 바뀌면 안 됨)
+    assert ko_player("Marcos Suarez") == "마르코스 수아레스"     # 스페인어 규칙으로 읽는다
     assert ko_player("Kim Min-Jae") == "김민재"
     assert ko_player("손흥민") == "손흥민"                      # 이미 한국어면 그대로
     assert ko_player("Nobody Unknown") == "Nobody Unknown"     # 사전에 없으면 영어 그대로

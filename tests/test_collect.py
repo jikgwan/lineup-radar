@@ -342,8 +342,33 @@ def test_uefa_match_uses_each_domestic_league_and_factor():
         assert set(H["lineup_power"]["lines"]) >= {"DF", "MF", "FW"} or H["lineup_power"]["lines"]
         # 자국 리그 찾기 결과는 캐시된다
         assert os.path.exists(collect.cache_path("domestic_100"))
+        # 통합 Elo가 아직 덜 모였으면(가짜 데이터라 팀이 적음) 예전 방식으로 떨어진다
+        assert d["power"].get("mode") != "model" and "cross" not in d["power"]
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def test_euro_elo_links_leagues():
+    """대항전 결과가 있어야 리그끼리 Elo를 비교할 수 있다."""
+    from grade import elo_table
+    # 리그 A(팀 a1·a2)와 리그 B(팀 b1·b2). 리그 안에서는 서로 비슷한데,
+    # 대항전에서 A가 B를 크게 이겼다면 A 쪽 Elo가 위로 가야 한다.
+    league_only = [("2026-01-01", "1", "a1", "a2", 1, 1), ("2026-01-08", "1", "a2", "a1", 1, 1),
+                   ("2026-01-01", "1", "b1", "b2", 1, 1), ("2026-01-08", "1", "b2", "b1", 1, 1)]
+    t1 = elo_table(league_only)
+    assert round(t1["a1"]) == round(t1["b1"])                    # 이어주는 경기가 없으면 구분이 안 된다
+    cross = league_only + [("2026-02-01", "1", "a1", "b1", 4, 0), ("2026-02-08", "1", "a2", "b2", 3, 0)]
+    t2 = elo_table(cross)
+    assert t2["a1"] > t2["b1"] and t2["a2"] > t2["b2"]           # 대항전 결과가 잣대를 이어준다
+
+
+def test_league_gd_factor():
+    """리그 계수: 백테스트 값이 있으면 그걸, 없으면 설정값."""
+    cfg = {"league_strength": {"eng.1": 1.0, "ned.1": 0.83, "default": 0.8}}
+    assert collect.league_gd_factor({"league_gd": {"ned.1": 0.71}}, cfg, "ned.1") == 0.71
+    assert collect.league_gd_factor({}, cfg, "ned.1") == 0.83
+    assert collect.league_gd_factor(None, cfg, "eng.1") == 1.0
+    assert collect.league_gd_factor({}, cfg, "없는리그") == 0.8
 
 
 
