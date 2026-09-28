@@ -1304,6 +1304,177 @@ def jp_player(name):
     return parts[-1] + (" " + parts[0] if len(parts) == 2 else "")
 
 
+# ---------------------------------------------------------------- 스페인어 선수 이름: 로마자 -> 한글 (외래어 표기법)
+# 한 글자씩 읽는다. c/g는 e·i 앞에서 소리가 바뀌고(세·히), j는 'ㅎ', z는 'ㅅ', ll은 '야'행,
+# ñ은 '냐'행, h는 소리가 없다. 모음 사이 l·rl은 'ㄹㄹ'(벨라·카를로스).
+_ES_V = set("aeiou")
+_ES_CHO = {"g": "ㄱ", "k": "ㅋ", "n": "ㄴ", "d": "ㄷ", "t": "ㅌ", "r": "ㄹ", "l": "ㄹ", "m": "ㅁ",
+           "b": "ㅂ", "p": "ㅍ", "s": "ㅅ", "f": "ㅍ", "h": "ㅎ", "j": "ㅈ", "c": "ㅊ", "w": "ㅂ"}
+_CHOSET = list("ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ")
+_JUNG = list("ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ")
+_JONG = ["", "ㄱ", "ㄲ", "ㄳ", "ㄴ", "ㄵ", "ㄶ", "ㄷ", "ㄹ", "ㄺ", "ㄻ", "ㄼ", "ㄽ", "ㄾ", "ㄿ", "ㅀ",
+         "ㅁ", "ㅂ", "ㅄ", "ㅅ", "ㅆ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"]
+_ES_VOW = {"a": "ㅏ", "e": "ㅔ", "i": "ㅣ", "o": "ㅗ", "u": "ㅜ"}
+_ES_YVOW = {"a": "ㅑ", "e": "ㅖ", "i": "ㅣ", "o": "ㅛ", "u": "ㅠ"}
+
+
+def _syl(cho, jung, jong=""):
+    return chr(0xAC00 + (_CHOSET.index(cho) * 21 + _JUNG.index(jung)) * 28 + _JONG.index(jong))
+
+
+def _es_jong(text, j):
+    """마지막 글자에 받침을 붙인다 (이미 받침이 있으면 그대로)."""
+    if not text:
+        return text
+    code = ord(text[-1]) - 0xAC00
+    if not (0 <= code < 11172) or code % 28:
+        return text
+    return text[:-1] + chr(ord(text[-1]) + _JONG.index(j))
+
+
+def _es_prep(name):
+    t = str(name or "").replace("ñ", "\x01").replace("Ñ", "\x01").replace("ü", "\x02").replace("Ü", "\x02")
+    return unicodedata.normalize("NFKD", t).encode("ascii", "ignore").decode("ascii").lower()
+
+
+def _es_word(w):
+    """스페인어 낱말 하나 -> 한글. 스페인어로 읽을 수 없으면 None."""
+    s = _es_prep(w)
+    if not s or re.search(r"[^a-z\x01\x02'-]", s):
+        return None
+    s = s.replace("'", "").replace("-", "")
+    cv = lambda c, v: _syl(c, _ES_VOW[v])
+    out, i, n = "", 0, len(s)
+    while i < n:
+        c = s[i]
+        v2 = s[i + 1] if i + 1 < n else ""
+        v3 = s[i + 2] if i + 2 < n else ""
+        if c == "h":                                     # h는 소리가 없다
+            i += 1
+            continue
+        if c == "c" and v2 == "h" and v3 in _ES_V:
+            out += cv("ㅊ", v3); i += 3; continue
+        if c == "l" and v2 == "l" and v3 in _ES_V:
+            out += _syl("ㅇ", _ES_YVOW[v3]); i += 3; continue
+        if c == "\x01" and v2 in _ES_V:                  # ñ
+            out += _syl("ㄴ", _ES_YVOW[v2]); i += 2; continue
+        if c == "q" and v2 == "u" and v3 in ("e", "i"):
+            out += cv("ㅋ", v3); i += 3; continue
+        if c == "g" and v2 == "u" and v3 in ("e", "i"):
+            out += cv("ㄱ", v3); i += 3; continue
+        if c == "g" and v2 == "\x02" and v3 in ("e", "i"):
+            out += "구" + _syl("ㅇ", _ES_VOW[v3]); i += 3; continue
+        if c == "g" and v2 == "u" and v3 == "a":
+            out += "과"; i += 3; continue
+        if c in _ES_V:
+            out += _syl("ㅇ", _ES_VOW[c]); i += 1; continue
+        if v2 in _ES_V:
+            if c == "c":
+                out += cv("ㅅ" if v2 in ("e", "i") else "ㅋ", v2)
+            elif c == "g":
+                out += cv("ㅎ" if v2 in ("e", "i") else "ㄱ", v2)
+            elif c == "j":
+                out += cv("ㅎ", v2)
+            elif c == "z":
+                out += cv("ㅅ", v2)
+            elif c in ("b", "v"):
+                out += cv("ㅂ", v2)
+            elif c == "y":
+                out += _syl("ㅇ", _ES_YVOW[v2])
+            elif c == "x":
+                out = _es_jong(out, "ㄱ"); out += cv("ㅅ", v2)
+            elif c == "l":
+                if out and s[i - 1] in _ES_V:            # 모음 사이 l = ㄹㄹ (Vela 벨라)
+                    out = _es_jong(out, "ㄹ")
+                out += cv("ㄹ", v2)
+            elif c in _ES_CHO:
+                out += cv(_ES_CHO[c], v2)
+            else:
+                return None
+            i += 2
+            continue
+        # 모음이 안 따라오는 자음
+        if c == "r" and v2 == "r":
+            i += 1; continue                             # rr도 'ㄹ' 하나
+        if c == "n":
+            hard = v2 in ("g", "k", "q") or (v2 == "c" and v3 not in ("h", "e", "i"))
+            out = _es_jong(out, "ㅇ" if hard else "ㄴ"); i += 1; continue
+        if c == "m":
+            out = _es_jong(out, "ㅁ"); i += 1; continue
+        if c == "l":
+            out = _es_jong(out, "ㄹ"); i += 1; continue
+        if c == "r":
+            out += _syl("ㄹ", "ㅡ")
+            if v2 == "l":                                # rl = ㄹㄹ (Carlos 카를로스)
+                out = _es_jong(out, "ㄹ")
+            i += 1; continue
+        if c in ("s", "z"):
+            out += _syl("ㅅ", "ㅡ"); i += 1; continue
+        if c == "y":
+            out += "이"; i += 1; continue
+        if c == "x":
+            out = _es_jong(out, "ㄱ"); out += _syl("ㅅ", "ㅡ"); i += 1; continue
+        if c in ("b", "v", "p", "f", "d", "t", "k", "g", "c"):
+            if c == "c" and out and s[i - 1] in _ES_V:   # 음절 끝 c = 'ㄱ' 받침 (Víctor 빅토르)
+                out = _es_jong(out, "ㄱ"); i += 1; continue
+            out += _syl({"b": "ㅂ", "v": "ㅂ", "p": "ㅍ", "f": "ㅍ", "d": "ㄷ",
+                         "t": "ㅌ", "k": "ㅋ", "g": "ㄱ", "c": "ㅋ"}[c], "ㅡ")
+            if v2 == "l":
+                out = _es_jong(out, "ㄹ")
+            i += 1
+            continue
+        return None
+    return out or None
+
+
+# 스페인어권 이름일 때만 규칙을 쓴다. 라틴 문자는 대부분 스페인어로도 '읽히기' 때문에
+# 이름(첫 낱말)이 아래 목록에 있거나 ñ이 들어 있을 때만 바꾼다. (Jermaine Francis 같은 영어권 이름 보호)
+_ES_FIRST = set("""
+alejandro alberto alex alexis alfonso alfredo alvaro anderson andres angel antonio ariel armando arturo
+aaron abel adrian agustin aitor albert alan alonso amaury ander andoni aritz asier
+benjamin bernardo borja brahim braulio bruno
+camilo carlos cesar cristian cristiano claudio cesc
+daniel dani dario david diego domingo dylan
+eduardo edgar edu efrain elias emilio enrique eric ernesto esteban ezequiel eduard
+fabian federico felipe fernando fidel francisco franco frank fran
+gabriel gaston geronimo gerardo german gonzalo gorka guillermo gustavo gerard
+hector hernan hugo humberto
+iker ignacio inaki isaac isco ismael israel ivan ivo iago
+jaime jairo javier jesus joaquin joel jonathan jorge jose josu juan julian julio joselu jon joan jordi
+kevin
+lautaro leandro lucas luciano luis
+manuel marco marcos mariano mario martin mateo matias mauricio mauro maximiliano miguel moises
+nacho nahuel nelson nestor nicolas norberto
+octavio omar orlando oscar osvaldo oriol oier
+pablo paco patricio pau pedro pepe rafael ramiro ramon raul renato ricardo roberto rodrigo rodolfo rogelio rolando
+roman ruben
+salvador samuel santiago saul sebastian sergio servando silvio simon sixto
+teodoro tomas
+ubaldo ulises
+valentin vicente victor 
+walter wilson
+xabi xavi ximo unai aleix arnau brais marc sergi pol nico yago biel
+yeray yeferson
+""".split())
+
+
+def es_player(name):
+    """스페인어권 이름이면 한글로. 아니면 None. 순서는 그대로 (성을 앞으로 보내지 않는다)."""
+    raw = str(name or "")
+    if not raw or re.search(r"[가-힣]", raw):
+        return None
+    words = [w for w in re.split(r"\s+", raw.strip()) if w]
+    if not 1 <= len(words) <= 3:
+        return None
+    first = _es_prep(words[0])
+    if first not in _ES_FIRST and "\x01" not in _es_prep(raw):
+        return None
+    parts = [_es_word(w) for w in words]
+    if not all(parts):
+        return None
+    return " ".join(parts)
+
+
 def ko_player(name, jp=False):
     """영어 선수 이름 -> 한국어 (사전에 없으면 원래 이름). 이미 한국어면 그대로.
     철자가 조금 달라도(Aymen/Ayman) 성이 하나뿐이고 이름 첫 글자가 같으면 바꾼다.
@@ -1323,5 +1494,7 @@ def ko_player(name, jp=False):
         if len(words) == 1 or not first or words[0][0] == first:
             return ko
     if jp:
-        return jp_player(raw) or raw
-    return raw
+        got = jp_player(raw)
+        if got:
+            return got
+    return es_player(raw) or raw
