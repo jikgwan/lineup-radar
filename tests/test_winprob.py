@@ -154,3 +154,24 @@ def test_통합_Elo_표에_독주_보정이_들어있다():
     top = max(por, key=lambda v: v["elo_raw"])
     assert top["elo"] < top["elo_raw"]                  # 포르투갈 독주팀은 눌린다
     assert abs(top["bonus"]) > 50
+
+
+# ---------------------------------------------------------------- 보관 폴더가 ARCHIVE_DIR을 따라가나
+
+def test_상세_보관은_ARCHIVE_DIR을_따라간다():
+    """테스트가 ARCHIVE_DIR만 임시 폴더로 바꿔도 진짜 저장소에 쓰면 안 된다."""
+    import tempfile
+    real = collect.ARCHIVE_DIR
+    try:
+        tmp = tempfile.mkdtemp()
+        collect.ARCHIVE_DIR = os.path.join(tmp, "archive")
+        assert collect.detail_archive() == os.path.join(tmp, "archive", "details")
+        game = {"key": "축구:esp.1:9", "sport": "축구", "league": "라리가", "league_slug": "esp.1",
+                "start_kst": "2026-09-23T22:38:00+09:00", "state": "post", "national": False,
+                "home": {"name": "레알", "score": 2}, "away": {"name": "헤타페", "score": 1}}
+        assert collect.keep_detail(game, {"lineup_ready": True, "teams": {}}) is True
+        assert os.path.exists(os.path.join(tmp, "archive", "details", "2026-09",
+                                           collect.game_filename(game["key"])))
+    finally:
+        collect.ARCHIVE_DIR = real
+    assert collect.detail_archive() == os.path.join(real, "details")
