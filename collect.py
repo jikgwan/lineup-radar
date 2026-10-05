@@ -70,7 +70,14 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(ROOT, "docs", "data")
 GAME_DIR = os.path.join(DATA_DIR, "games")
 ARCHIVE_DIR = os.path.join(ROOT, "archive")
-DETAIL_ARCHIVE = os.path.join(ARCHIVE_DIR, "details")   # 끝난 경기의 상세 판정 영구 보관 (나중에 xG·선수 기여도 분석용)    # 경기 전 판정 + 실제 결과 영구 기록 (백테스트·점수 조정용)
+DETAIL_ARCHIVE = os.path.join(ARCHIVE_DIR, "details")   # 끝난 경기의 상세 판정 영구 보관 (나중에 xG·선수 기여도 분석용)
+
+
+def detail_archive():
+    """상세 보관 폴더. 쓸 때마다 ARCHIVE_DIR에서 계산한다.
+    모듈 상수로 고정해 두면 ARCHIVE_DIR을 임시 폴더로 바꿔도 따라가지 않아,
+    테스트가 진짜 저장소의 archive/details 에 가짜 경기를 써 버린다."""
+    return os.path.join(ARCHIVE_DIR, "details")
 CACHE_DIR = os.path.join(ROOT, "cache")
 
 # ESPN: 깃허브 서버에서는 site.api 주소가 막히고(403) site.web 주소는 열린다 (2026-09 소스 점검 결과).
@@ -2182,7 +2189,7 @@ def keep_detail(game, detail):
         return False
     start = to_kst(game.get("start_kst"))
     month = start.strftime("%Y-%m") if start else "unknown"
-    folder = os.path.join(DETAIL_ARCHIVE, month)
+    folder = os.path.join(detail_archive(), month)
     path = os.path.join(folder, game_filename(game["key"]))
     if os.path.exists(path):
         return False
