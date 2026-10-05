@@ -1,0 +1,4552 @@
+{
+ "updated": "2026-10-05T17:33:45",
+ "seasons": [
+  "2018-19",
+  "2019-20",
+  "2020-21",
+  "2021-22",
+  "2022-23",
+  "2023-24",
+  "2024-25",
+  "2025-26"
+ ],
+ "cup_matches": 1731,
+ "euro_mode": "uni",
+ "elo_params": {
+  "k": 16,
+  "home": 40,
+  "regress": 0.0,
+  "cup": 4.0,
+  "goal": 0.5,
+  "cup_home": 0,
+  "recent": 1.0,
+  "start": 1500,
+  "k_base": 16
+ },
+ "dominance_shrink": {
+  "lam": 0.4,
+  "M": 200,
+  "_설명": "대항전 경험이 적을수록 리그 평균 쪽으로 당긴다 (리그 독주로 부푼 점수 보정)"
+ },
+ "league_bonus": {},
+ "league_elo": {
+  "nor.1": 1526.0,
+  "swe.1": 1550.3,
+  "isr.1": 1520.9,
+  "den.1": 1540.6,
+  "rou.1": 1532.2,
+  "sui.1": 1492.0,
+  "ned.1": 1529.0,
+  "por.1": 1544.2,
+  "aut.1": 1493.4,
+  "tur.1": 1528.9,
+  "bel.1": 1532.9,
+  "eng.2": 1463.8,
+  "sco.1": 1473.9,
+  "eng.1": 1713.3,
+  "gre.1": 1516.2,
+  "cyp.1": 1500.9,
+  "fra.1": 1603.9,
+  "esp.1": 1619.0,
+  "ita.1": 1598.6,
+  "ger.1": 1623.2
+ },
+ "teams": {
+  "2980": {
+   "name": "Bodo/Glimt",
+   "league": "nor.1",
+   "elo": 1672.5,
+   "elo_raw": 1845.0,
+   "bonus": -172.4,
+   "cup_n": 22
+  },
+  "987": {
+   "name": "Lillestrom",
+   "league": "nor.1",
+   "elo": 1481.5,
+   "elo_raw": 1416.6,
+   "bonus": 65.0,
+   "cup_n": 2
+  },
+  "6750": {
+   "name": "IK Start",
+   "league": "nor.1",
+   "elo": 1481.4,
+   "elo_raw": 1414.5,
+   "bonus": 66.9,
+   "cup_n": 0
+  },
+  "5270": {
+   "name": "Tromso",
+   "league": "nor.1",
+   "elo": 1545.2,
+   "elo_raw": 1574.0,
+   "bonus": -28.8,
+   "cup_n": 0
+  },
+  "2715": {
+   "name": "Molde",
+   "league": "nor.1",
+   "elo": 1532.2,
+   "elo_raw": 1540.8,
+   "bonus": -8.6,
+   "cup_n": 7
+  },
+  "3279": {
+   "name": "Sandefjord",
+   "league": "nor.1",
+   "elo": 1520.7,
+   "elo_raw": 1512.8,
+   "bonus": 7.9,
+   "cup_n": 0
+  },
+  "5002": {
+   "name": "Sarpsborg FK",
+   "league": "nor.1",
+   "elo": 1517.7,
+   "elo_raw": 1505.6,
+   "bonus": 12.1,
+   "cup_n": 2
+  },
+  "438": {
+   "name": "Rosenborg",
+   "league": "nor.1",
+   "elo": 1534.0,
+   "elo_raw": 1545.6,
+   "bonus": -11.5,
+   "cup_n": 4
+  },
+  "6672": {
+   "name": "Kristiansund BK",
+   "league": "nor.1",
+   "elo": 1495.8,
+   "elo_raw": 1450.7,
+   "bonus": 45.2,
+   "cup_n": 0
+  },
+  "2791": {
+   "name": "Vålerenga",
+   "league": "nor.1",
+   "elo": 1514.5,
+   "elo_raw": 1497.2,
+   "bonus": 17.2,
+   "cup_n": 0
+  },
+  "620": {
+   "name": "SK Brann",
+   "league": "nor.1",
+   "elo": 1544.9,
+   "elo_raw": 1572.9,
+   "bonus": -28.0,
+   "cup_n": 1
+  },
+  "3327": {
+   "name": "",
+   "league": null,
+   "elo": 1438.2,
+   "elo_raw": 1347.9,
+   "bonus": 90.4,
+   "cup_n": 2
+  },
+  "602": {
+   "name": "",
+   "league": null,
+   "elo": 1466.3,
+   "elo_raw": 1415.8,
+   "bonus": 50.5,
+   "cup_n": 0
+  },
+  "7834": {
+   "name": "BK Häcken",
+   "league": "swe.1",
+   "elo": 1545.2,
+   "elo_raw": 1538.0,
+   "bonus": 7.3,
+   "cup_n": 4
+  },
+  "3052": {
+   "name": "Kalmar FF",
+   "league": "swe.1",
+   "elo": 1525.4,
+   "elo_raw": 1488.1,
+   "bonus": 37.3,
+   "cup_n": 0
+  },
+  "2495": {
+   "name": "Hammarby IF",
+   "league": "swe.1",
+   "elo": 1604.4,
+   "elo_raw": 1685.4,
+   "bonus": -81.1,
+   "cup_n": 0
+  },
+  "8547": {
+   "name": "IK Sirius",
+   "league": "swe.1",
+   "elo": 1549.4,
+   "elo_raw": 1548.0,
+   "bonus": 1.4,
+   "cup_n": 0
+  },
+  "5043": {
+   "name": "",
+   "league": null,
+   "elo": 1454.0,
+   "elo_raw": 1384.9,
+   "bonus": 69.1,
+   "cup_n": 0
+  },
+  "2339": {
+   "name": "Djurgården",
+   "league": "swe.1",
+   "elo": 1590.4,
+   "elo_raw": 1647.0,
+   "bonus": -56.6,
+   "cup_n": 5
+  },
+  "8138": {
+   "name": "",
+   "league": null,
+   "elo": 1461.2,
+   "elo_raw": 1403.0,
+   "bonus": 58.2,
+   "cup_n": 0
+  },
+  "2556": {
+   "name": "IFK Göteborg",
+   "league": "swe.1",
+   "elo": 1556.3,
+   "elo_raw": 1565.3,
+   "bonus": -9.0,
+   "cup_n": 0
+  },
+  "994": {
+   "name": "AIK",
+   "league": "swe.1",
+   "elo": 1561.7,
+   "elo_raw": 1578.3,
+   "bonus": -16.6,
+   "cup_n": 2
+  },
+  "18919": {
+   "name": "",
+   "league": null,
+   "elo": 1465.1,
+   "elo_raw": 1412.8,
+   "bonus": 52.3,
+   "cup_n": 0
+  },
+  "8544": {
+   "name": "",
+   "league": null,
+   "elo": 1472.0,
+   "elo_raw": 1431.1,
+   "bonus": 40.9,
+   "cup_n": 2
+  },
+  "8221": {
+   "name": "IF Brommapojkarna",
+   "league": "swe.1",
+   "elo": 1511.0,
+   "elo_raw": 1452.1,
+   "bonus": 59.0,
+   "cup_n": 0
+  },
+  "529": {
+   "name": "IF Elfsborg",
+   "league": "swe.1",
+   "elo": 1543.6,
+   "elo_raw": 1533.5,
+   "bonus": 10.0,
+   "cup_n": 1
+  },
+  "2720": {
+   "name": "Malmö FF",
+   "league": "swe.1",
+   "elo": 1554.1,
+   "elo_raw": 1559.1,
+   "bonus": -5.1,
+   "cup_n": 9
+  },
+  "9811": {
+   "name": "",
+   "league": null,
+   "elo": 1455.5,
+   "elo_raw": 1388.7,
+   "bonus": 66.8,
+   "cup_n": 0
+  },
+  "2554": {
+   "name": "",
+   "league": null,
+   "elo": 1469.5,
+   "elo_raw": 1423.7,
+   "bonus": 45.8,
+   "cup_n": 0
+  },
+  "4959": {
+   "name": "",
+   "league": null,
+   "elo": 1473.9,
+   "elo_raw": 1434.7,
+   "bonus": 39.2,
+   "cup_n": 0
+  },
+  "3010": {
+   "name": "",
+   "league": null,
+   "elo": 1460.3,
+   "elo_raw": 1400.8,
+   "bonus": 59.5,
+   "cup_n": 0
+  },
+  "7944": {
+   "name": "",
+   "league": null,
+   "elo": 1464.2,
+   "elo_raw": 1410.5,
+   "bonus": 53.7,
+   "cup_n": 0
+  },
+  "562": {
+   "name": "",
+   "league": null,
+   "elo": 1477.2,
+   "elo_raw": 1443.9,
+   "bonus": 33.3,
+   "cup_n": 2
+  },
+  "490": {
+   "name": "Levski Sofia",
+   "league": null,
+   "elo": 1490.7,
+   "elo_raw": 1477.7,
+   "bonus": 13.0,
+   "cup_n": 6
+  },
+  "622": {
+   "name": "Ferencvaros",
+   "league": null,
+   "elo": 1561.2,
+   "elo_raw": 1618.6,
+   "bonus": -57.4,
+   "cup_n": 48
+  },
+  "524": {
+   "name": "Maccabi Tel-Aviv",
+   "league": "isr.1",
+   "elo": 1579.7,
+   "elo_raw": 1659.7,
+   "bonus": -80.1,
+   "cup_n": 8
+  },
+  "2990": {
+   "name": "Lech Poznan",
+   "league": null,
+   "elo": 1486.2,
+   "elo_raw": 1468.8,
+   "bonus": 17.4,
+   "cup_n": 15
+  },
+  "8127": {
+   "name": "",
+   "league": null,
+   "elo": 1499.7,
+   "elo_raw": 1499.2,
+   "bonus": 0.5,
+   "cup_n": 2
+  },
+  "8118": {
+   "name": "Sønderjyske Fodbold",
+   "league": "den.1",
+   "elo": 1525.9,
+   "elo_raw": 1503.9,
+   "bonus": 22.0,
+   "cup_n": 0
+  },
+  "2986": {
+   "name": "",
+   "league": null,
+   "elo": 1457.9,
+   "elo_raw": 1394.9,
+   "bonus": 63.1,
+   "cup_n": 0
+  },
+  "572": {
+   "name": "FC Midtjylland",
+   "league": "den.1",
+   "elo": 1626.8,
+   "elo_raw": 1738.1,
+   "bonus": -111.2,
+   "cup_n": 13
+  },
+  "7853": {
+   "name": "AGF",
+   "league": "den.1",
+   "elo": 1583.8,
+   "elo_raw": 1648.5,
+   "bonus": -64.7,
+   "cup_n": 0
+  },
+  "3101": {
+   "name": "FC Nordsjælland",
+   "league": "den.1",
+   "elo": 1567.8,
+   "elo_raw": 1605.8,
+   "bonus": -37.9,
+   "cup_n": 6
+  },
+  "12504": {
+   "name": "",
+   "league": null,
+   "elo": 1478.8,
+   "elo_raw": 1446.9,
+   "bonus": 31.9,
+   "cup_n": 0
+  },
+  "18738": {
+   "name": "",
+   "league": null,
+   "elo": 1470.4,
+   "elo_raw": 1426.0,
+   "bonus": 44.4,
+   "cup_n": 0
+  },
+  "11550": {
+   "name": "Odense Boldklub",
+   "league": "den.1",
+   "elo": 1516.7,
+   "elo_raw": 1480.9,
+   "bonus": 35.8,
+   "cup_n": 0
+  },
+  "909": {
+   "name": "F.C. København",
+   "league": "den.1",
+   "elo": 1582.0,
+   "elo_raw": 1624.9,
+   "bonus": -42.8,
+   "cup_n": 36
+  },
+  "3585": {
+   "name": "AC Horsens",
+   "league": "den.1",
+   "elo": 1476.8,
+   "elo_raw": 1381.1,
+   "bonus": 95.7,
+   "cup_n": 0
+  },
+  "3132": {
+   "name": "Randers FC",
+   "league": "den.1",
+   "elo": 1517.1,
+   "elo_raw": 1482.7,
+   "bonus": 34.4,
+   "cup_n": 2
+  },
+  "575": {
+   "name": "Brøndby IF",
+   "league": "den.1",
+   "elo": 1554.7,
+   "elo_raw": 1574.9,
+   "bonus": -20.2,
+   "cup_n": 4
+  },
+  "5260": {
+   "name": "CFR Cluj-Napoca",
+   "league": "rou.1",
+   "elo": 1574.3,
+   "elo_raw": 1631.8,
+   "bonus": -57.4,
+   "cup_n": 8
+  },
+  "9682": {
+   "name": "FC Botosani",
+   "league": "rou.1",
+   "elo": 1533.1,
+   "elo_raw": 1534.5,
+   "bonus": -1.4,
+   "cup_n": 0
+  },
+  "19265": {
+   "name": "Hermannstadt",
+   "league": "rou.1",
+   "elo": 1526.0,
+   "elo_raw": 1516.6,
+   "bonus": 9.4,
+   "cup_n": 0
+  },
+  "18773": {
+   "name": "",
+   "league": null,
+   "elo": 1497.0,
+   "elo_raw": 1492.6,
+   "bonus": 4.5,
+   "cup_n": 0
+  },
+  "989": {
+   "name": "FC Basel",
+   "league": "sui.1",
+   "elo": 1502.9,
+   "elo_raw": 1517.2,
+   "bonus": -14.3,
+   "cup_n": 11
+  },
+  "557": {
+   "name": "St. Gallen",
+   "league": "sui.1",
+   "elo": 1507.0,
+   "elo_raw": 1529.5,
+   "bonus": -22.5,
+   "cup_n": 0
+  },
+  "7640": {
+   "name": "FC Luzern",
+   "league": "sui.1",
+   "elo": 1495.1,
+   "elo_raw": 1499.5,
+   "bonus": -4.5,
+   "cup_n": 2
+  },
+  "7698": {
+   "name": "",
+   "league": null,
+   "elo": 1451.9,
+   "elo_raw": 1379.6,
+   "bonus": 72.2,
+   "cup_n": 0
+  },
+  "17537": {
+   "name": "",
+   "league": null,
+   "elo": 1501.1,
+   "elo_raw": 1502.7,
+   "bonus": -1.6,
+   "cup_n": 0
+  },
+  "484": {
+   "name": "FCSB",
+   "league": "rou.1",
+   "elo": 1545.2,
+   "elo_raw": 1563.6,
+   "bonus": -18.4,
+   "cup_n": 5
+  },
+  "3076": {
+   "name": "FC Sion",
+   "league": "sui.1",
+   "elo": 1472.3,
+   "elo_raw": 1442.7,
+   "bonus": 29.6,
+   "cup_n": 0
+  },
+  "7672": {
+   "name": "FC Lugano",
+   "league": "sui.1",
+   "elo": 1499.2,
+   "elo_raw": 1508.3,
+   "bonus": -9.1,
+   "cup_n": 14
+  },
+  "3019": {
+   "name": "FC Zürich",
+   "league": "sui.1",
+   "elo": 1502.0,
+   "elo_raw": 1516.7,
+   "bonus": -14.7,
+   "cup_n": 2
+  },
+  "3024": {
+   "name": "FC Thun",
+   "league": "sui.1",
+   "elo": 1484.9,
+   "elo_raw": 1474.1,
+   "bonus": 10.7,
+   "cup_n": 0
+  },
+  "2722": {
+   "name": "Young Boys",
+   "league": "sui.1",
+   "elo": 1518.6,
+   "elo_raw": 1551.1,
+   "bonus": -32.5,
+   "cup_n": 18
+  },
+  "492": {
+   "name": "Grasshoppers",
+   "league": "sui.1",
+   "elo": 1467.5,
+   "elo_raw": 1430.8,
+   "bonus": 36.7,
+   "cup_n": 0
+  },
+  "12498": {
+   "name": "",
+   "league": null,
+   "elo": 1455.8,
+   "elo_raw": 1389.6,
+   "bonus": 66.2,
+   "cup_n": 0
+  },
+  "2496": {
+   "name": "Dinamo Bucuresti",
+   "league": "rou.1",
+   "elo": 1541.0,
+   "elo_raw": 1554.3,
+   "bonus": -13.2,
+   "cup_n": 0
+  },
+  "18332": {
+   "name": "",
+   "league": null,
+   "elo": 1494.3,
+   "elo_raw": 1485.7,
+   "bonus": 8.6,
+   "cup_n": 0
+  },
+  "12502": {
+   "name": "",
+   "league": null,
+   "elo": 1461.5,
+   "elo_raw": 1403.7,
+   "bonus": 57.8,
+   "cup_n": 0
+  },
+  "8089": {
+   "name": "CSU Craiova",
+   "league": "rou.1",
+   "elo": 1552.8,
+   "elo_raw": 1581.6,
+   "bonus": -28.8,
+   "cup_n": 6
+  },
+  "18320": {
+   "name": "",
+   "league": null,
+   "elo": 1484.0,
+   "elo_raw": 1459.9,
+   "bonus": 24.1,
+   "cup_n": 0
+  },
+  "2528": {
+   "name": "Kairat Almaty",
+   "league": null,
+   "elo": 1436.3,
+   "elo_raw": 1355.9,
+   "bonus": 80.4,
+   "cup_n": 15
+  },
+  "140": {
+   "name": "AZ Alkmaar",
+   "league": "ned.1",
+   "elo": 1573.4,
+   "elo_raw": 1619.3,
+   "bonus": -45.9,
+   "cup_n": 36
+  },
+  "11505": {
+   "name": "Jagiellonia Bialystok",
+   "league": null,
+   "elo": 1517.1,
+   "elo_raw": 1540.9,
+   "bonus": -23.8,
+   "cup_n": 6
+  },
+  "3822": {
+   "name": "Rio Ave",
+   "league": "por.1",
+   "elo": 1508.5,
+   "elo_raw": 1456.3,
+   "bonus": 52.2,
+   "cup_n": 2
+  },
+  "528": {
+   "name": "",
+   "league": null,
+   "elo": 1483.8,
+   "elo_raw": 1460.1,
+   "bonus": 23.7,
+   "cup_n": 2
+  },
+  "4411": {
+   "name": "LASK Linz",
+   "league": "aut.1",
+   "elo": 1545.9,
+   "elo_raw": 1613.6,
+   "bonus": -67.7,
+   "cup_n": 13
+  },
+  "2510": {
+   "name": "",
+   "league": null,
+   "elo": 1468.1,
+   "elo_raw": 1421.3,
+   "bonus": 46.7,
+   "cup_n": 2
+  },
+  "1895": {
+   "name": "Besiktas",
+   "league": "tur.1",
+   "elo": 1567.5,
+   "elo_raw": 1608.9,
+   "bonus": -41.4,
+   "cup_n": 32
+  },
+  "12579": {
+   "name": "",
+   "league": null,
+   "elo": 1500.3,
+   "elo_raw": 1500.8,
+   "bonus": -0.5,
+   "cup_n": 2
+  },
+  "433": {
+   "name": "Sparta Prague",
+   "league": null,
+   "elo": 1543.1,
+   "elo_raw": 1589.3,
+   "bonus": -46.2,
+   "cup_n": 32
+  },
+  "559": {
+   "name": "Standard Liege",
+   "league": "bel.1",
+   "elo": 1529.8,
+   "elo_raw": 1525.4,
+   "bonus": 4.4,
+   "cup_n": 4
+  },
+  "3611": {
+   "name": "KAA Gent",
+   "league": "bel.1",
+   "elo": 1532.1,
+   "elo_raw": 1531.3,
+   "bonus": 0.8,
+   "cup_n": 40
+  },
+  "1382": {
+   "name": "Austria Vienna",
+   "league": "aut.1",
+   "elo": 1515.7,
+   "elo_raw": 1549.2,
+   "bonus": -33.5,
+   "cup_n": 0
+  },
+  "19244": {
+   "name": "",
+   "league": null,
+   "elo": 1493.5,
+   "elo_raw": 1483.7,
+   "bonus": 9.8,
+   "cup_n": 0
+  },
+  "4405": {
+   "name": "SC Rheindorf Altach",
+   "league": "aut.1",
+   "elo": 1467.5,
+   "elo_raw": 1428.7,
+   "bonus": 38.8,
+   "cup_n": 0
+  },
+  "3745": {
+   "name": "",
+   "league": null,
+   "elo": 1466.8,
+   "elo_raw": 1417.0,
+   "bonus": 49.8,
+   "cup_n": 0
+  },
+  "3746": {
+   "name": "SK Sturm Graz",
+   "league": "aut.1",
+   "elo": 1532.9,
+   "elo_raw": 1574.2,
+   "bonus": -41.2,
+   "cup_n": 35
+  },
+  "6907": {
+   "name": "TSV Hartberg",
+   "league": "aut.1",
+   "elo": 1497.4,
+   "elo_raw": 1503.3,
+   "bonus": -5.9,
+   "cup_n": 0
+  },
+  "19266": {
+   "name": "",
+   "league": null,
+   "elo": 1483.7,
+   "elo_raw": 1459.1,
+   "bonus": 24.5,
+   "cup_n": 0
+  },
+  "5786": {
+   "name": "KV Kortrijk",
+   "league": "bel.1",
+   "elo": 1487.2,
+   "elo_raw": 1418.7,
+   "bonus": 68.5,
+   "cup_n": 0
+  },
+  "441": {
+   "name": "Anderlecht",
+   "league": "bel.1",
+   "elo": 1543.5,
+   "elo_raw": 1556.8,
+   "bonus": -13.3,
+   "cup_n": 16
+  },
+  "936": {
+   "name": "Sint-Truidense",
+   "league": "bel.1",
+   "elo": 1552.6,
+   "elo_raw": 1582.1,
+   "bonus": -29.6,
+   "cup_n": 0
+  },
+  "3610": {
+   "name": "Cercle Brugge KSV",
+   "league": "bel.1",
+   "elo": 1518.3,
+   "elo_raw": 1496.7,
+   "bonus": 21.6,
+   "cup_n": 1
+  },
+  "4691": {
+   "name": "Zulte-Waregem",
+   "league": "bel.1",
+   "elo": 1506.7,
+   "elo_raw": 1467.4,
+   "bonus": 39.3,
+   "cup_n": 0
+  },
+  "13450": {
+   "name": "Waasland-Beveren",
+   "league": "bel.1",
+   "elo": 1467.1,
+   "elo_raw": 1368.6,
+   "bonus": 98.6,
+   "cup_n": 0
+  },
+  "570": {
+   "name": "Club Brugge",
+   "league": "bel.1",
+   "elo": 1653.5,
+   "elo_raw": 1755.4,
+   "bonus": -101.9,
+   "cup_n": 62
+  },
+  "4689": {
+   "name": "",
+   "league": null,
+   "elo": 1433.6,
+   "elo_raw": 1334.1,
+   "bonus": 99.6,
+   "cup_n": 0
+  },
+  "2790": {
+   "name": "RB Salzburg",
+   "league": "aut.1",
+   "elo": 1522.1,
+   "elo_raw": 1550.3,
+   "bonus": -28.2,
+   "cup_n": 42
+  },
+  "11485": {
+   "name": "",
+   "league": null,
+   "elo": 1443.8,
+   "elo_raw": 1359.5,
+   "bonus": 84.3,
+   "cup_n": 0
+  },
+  "519": {
+   "name": "Rapid Vienna",
+   "league": "aut.1",
+   "elo": 1499.4,
+   "elo_raw": 1507.8,
+   "bonus": -8.4,
+   "cup_n": 6
+  },
+  "17519": {
+   "name": "",
+   "league": null,
+   "elo": 1454.1,
+   "elo_raw": 1385.1,
+   "bonus": 68.9,
+   "cup_n": 0
+  },
+  "13294": {
+   "name": "Wolfsberger",
+   "league": "aut.1",
+   "elo": 1494.7,
+   "elo_raw": 1496.6,
+   "bonus": -1.9,
+   "cup_n": 2
+  },
+  "3616": {
+   "name": "Royal Charleroi SC",
+   "league": "bel.1",
+   "elo": 1534.3,
+   "elo_raw": 1536.5,
+   "bonus": -2.2,
+   "cup_n": 0
+  },
+  "17544": {
+   "name": "Antwerp",
+   "league": "bel.1",
+   "elo": 1525.3,
+   "elo_raw": 1515.4,
+   "bonus": 9.9,
+   "cup_n": 12
+  },
+  "1032": {
+   "name": "",
+   "league": null,
+   "elo": 1466.3,
+   "elo_raw": 1415.8,
+   "bonus": 50.5,
+   "cup_n": 0
+  },
+  "938": {
+   "name": "Racing Genk",
+   "league": "bel.1",
+   "elo": 1569.3,
+   "elo_raw": 1616.2,
+   "bonus": -47.0,
+   "cup_n": 13
+  },
+  "338": {
+   "name": "",
+   "league": null,
+   "elo": 1458.1,
+   "elo_raw": 1395.2,
+   "bonus": 62.9,
+   "cup_n": 0
+  },
+  "374": {
+   "name": "Derby County",
+   "league": "eng.2",
+   "elo": 1464.4,
+   "elo_raw": 1465.3,
+   "bonus": -0.9,
+   "cup_n": 0
+  },
+  "256": {
+   "name": "Celtic",
+   "league": "sco.1",
+   "elo": 1587.2,
+   "elo_raw": 1683.7,
+   "bonus": -96.5,
+   "cup_n": 61
+  },
+  "259": {
+   "name": "",
+   "league": null,
+   "elo": 1429.2,
+   "elo_raw": 1323.0,
+   "bonus": 106.2,
+   "cup_n": 0
+  },
+  "250": {
+   "name": "St Mirren",
+   "league": "sco.1",
+   "elo": 1434.5,
+   "elo_raw": 1375.4,
+   "bonus": 59.1,
+   "cup_n": 0
+  },
+  "261": {
+   "name": "Dundee",
+   "league": "sco.1",
+   "elo": 1437.7,
+   "elo_raw": 1383.4,
+   "bonus": 54.3,
+   "cup_n": 0
+  },
+  "409": {
+   "name": "",
+   "league": null,
+   "elo": 1455.4,
+   "elo_raw": 1388.6,
+   "bonus": 66.9,
+   "cup_n": 0
+  },
+  "262": {
+   "name": "Heart of Midlothian",
+   "league": "sco.1",
+   "elo": 1521.0,
+   "elo_raw": 1582.6,
+   "bonus": -61.5,
+   "cup_n": 12
+  },
+  "260": {
+   "name": "Kilmarnock",
+   "league": "sco.1",
+   "elo": 1449.1,
+   "elo_raw": 1412.0,
+   "bonus": 37.1,
+   "cup_n": 0
+  },
+  "267": {
+   "name": "St Johnstone",
+   "league": "sco.1",
+   "elo": 1415.9,
+   "elo_raw": 1329.0,
+   "bonus": 86.9,
+   "cup_n": 0
+  },
+  "392": {
+   "name": "Birmingham City",
+   "league": "eng.2",
+   "elo": 1455.3,
+   "elo_raw": 1442.5,
+   "bonus": 12.8,
+   "cup_n": 0
+  },
+  "381": {
+   "name": "Norwich City",
+   "league": "eng.2",
+   "elo": 1472.2,
+   "elo_raw": 1484.7,
+   "bonus": -12.5,
+   "cup_n": 0
+  },
+  "373": {
+   "name": "Ipswich Town",
+   "league": "eng.1",
+   "elo": 1641.6,
+   "elo_raw": 1533.9,
+   "bonus": 107.7,
+   "cup_n": 0
+  },
+  "365": {
+   "name": "Blackburn Rovers",
+   "league": "eng.2",
+   "elo": 1448.3,
+   "elo_raw": 1425.0,
+   "bonus": 23.3,
+   "cup_n": 0
+  },
+  "383": {
+   "name": "West Bromwich Albion",
+   "league": "eng.2",
+   "elo": 1453.9,
+   "elo_raw": 1439.1,
+   "bonus": 14.8,
+   "cup_n": 0
+  },
+  "358": {
+   "name": "Bolton Wanderers",
+   "league": "eng.2",
+   "elo": 1421.8,
+   "elo_raw": 1358.7,
+   "bonus": 63.1,
+   "cup_n": 0
+  },
+  "333": {
+   "name": "Bristol City",
+   "league": "eng.2",
+   "elo": 1457.5,
+   "elo_raw": 1448.1,
+   "bonus": 9.5,
+   "cup_n": 0
+  },
+  "393": {
+   "name": "Nottingham Forest",
+   "league": "eng.1",
+   "elo": 1713.6,
+   "elo_raw": 1714.0,
+   "bonus": -0.4,
+   "cup_n": 2
+  },
+  "391": {
+   "name": "Millwall",
+   "league": "eng.2",
+   "elo": 1488.8,
+   "elo_raw": 1526.3,
+   "bonus": -37.5,
+   "cup_n": 0
+  },
+  "369": {
+   "name": "Middlesbrough",
+   "league": "eng.2",
+   "elo": 1480.5,
+   "elo_raw": 1505.5,
+   "bonus": -25.0,
+   "cup_n": 0
+  },
+  "394": {
+   "name": "Preston North End",
+   "league": "eng.2",
+   "elo": 1445.4,
+   "elo_raw": 1417.9,
+   "bonus": 27.6,
+   "cup_n": 0
+  },
+  "334": {
+   "name": "Queens Park Rangers",
+   "league": "eng.2",
+   "elo": 1444.6,
+   "elo_raw": 1415.7,
+   "bonus": 28.9,
+   "cup_n": 0
+  },
+  "398": {
+   "name": "Sheffield United",
+   "league": "eng.2",
+   "elo": 1470.8,
+   "elo_raw": 1481.4,
+   "bonus": -10.5,
+   "cup_n": 0
+  },
+  "318": {
+   "name": "Swansea City",
+   "league": "eng.2",
+   "elo": 1466.1,
+   "elo_raw": 1469.4,
+   "bonus": -3.4,
+   "cup_n": 0
+  },
+  "9681": {
+   "name": "",
+   "league": null,
+   "elo": 1484.5,
+   "elo_raw": 1461.3,
+   "bonus": 23.2,
+   "cup_n": 0
+  },
+  "263": {
+   "name": "Aberdeen",
+   "league": "sco.1",
+   "elo": 1444.7,
+   "elo_raw": 1400.9,
+   "bonus": 43.8,
+   "cup_n": 0
+  },
+  "257": {
+   "name": "Rangers",
+   "league": "sco.1",
+   "elo": 1536.2,
+   "elo_raw": 1608.8,
+   "bonus": -72.6,
+   "cup_n": 23
+  },
+  "3612": {
+   "name": "",
+   "league": null,
+   "elo": 1447.0,
+   "elo_raw": 1367.5,
+   "bonus": 79.5,
+   "cup_n": 0
+  },
+  "258": {
+   "name": "Hibernian",
+   "league": "sco.1",
+   "elo": 1494.9,
+   "elo_raw": 1526.5,
+   "bonus": -31.6,
+   "cup_n": 0
+  },
+  "266": {
+   "name": "Motherwell",
+   "league": "sco.1",
+   "elo": 1487.2,
+   "elo_raw": 1507.2,
+   "bonus": -20.0,
+   "cup_n": 0
+  },
+  "357": {
+   "name": "Leeds United",
+   "league": "eng.1",
+   "elo": 1694.8,
+   "elo_raw": 1667.0,
+   "bonus": 27.8,
+   "cup_n": 0
+  },
+  "336": {
+   "name": "Stoke City",
+   "league": "eng.2",
+   "elo": 1434.0,
+   "elo_raw": 1389.2,
+   "bonus": 44.8,
+   "cup_n": 0
+  },
+  "12514": {
+   "name": "",
+   "league": null,
+   "elo": 1472.9,
+   "elo_raw": 1432.3,
+   "bonus": 40.6,
+   "cup_n": 0
+  },
+  "11450": {
+   "name": "",
+   "league": null,
+   "elo": 1459.7,
+   "elo_raw": 1399.2,
+   "bonus": 60.5,
+   "cup_n": 0
+  },
+  "494": {
+   "name": "Slavia Prague",
+   "league": null,
+   "elo": 1477.2,
+   "elo_raw": 1451.1,
+   "bonus": 26.1,
+   "cup_n": 25
+  },
+  "440": {
+   "name": "",
+   "league": null,
+   "elo": 1438.5,
+   "elo_raw": 1364.8,
+   "bonus": 73.7,
+   "cup_n": 20
+  },
+  "1929": {
+   "name": "Benfica",
+   "league": "por.1",
+   "elo": 1677.5,
+   "elo_raw": 1796.9,
+   "bonus": -119.4,
+   "cup_n": 54
+  },
+  "436": {
+   "name": "Fenerbahce",
+   "league": "tur.1",
+   "elo": 1608.2,
+   "elo_raw": 1703.4,
+   "bonus": -95.2,
+   "cup_n": 20
+  },
+  "887": {
+   "name": "AEK Athens",
+   "league": "gre.1",
+   "elo": 1602.5,
+   "elo_raw": 1713.9,
+   "bonus": -111.4,
+   "cup_n": 13
+  },
+  "13083": {
+   "name": "Hapoel Be'er",
+   "league": "isr.1",
+   "elo": 1606.2,
+   "elo_raw": 1712.7,
+   "bonus": -106.5,
+   "cup_n": 16
+  },
+  "2497": {
+   "name": "Apoel Nicosia",
+   "league": "cyp.1",
+   "elo": 1503.9,
+   "elo_raw": 1508.1,
+   "bonus": -4.3,
+   "cup_n": 3
+  },
+  "4039": {
+   "name": "AEK Larnaca",
+   "league": "cyp.1",
+   "elo": 1549.4,
+   "elo_raw": 1615.6,
+   "bonus": -66.2,
+   "cup_n": 8
+  },
+  "435": {
+   "name": "Olympiacos",
+   "league": "gre.1",
+   "elo": 1616.5,
+   "elo_raw": 1702.5,
+   "bonus": -86.0,
+   "cup_n": 60
+  },
+  "2565": {
+   "name": "PEC Zwolle",
+   "league": "ned.1",
+   "elo": 1501.9,
+   "elo_raw": 1461.1,
+   "bonus": 40.8,
+   "cup_n": 0
+  },
+  "146": {
+   "name": "Heerenveen",
+   "league": "ned.1",
+   "elo": 1528.4,
+   "elo_raw": 1527.5,
+   "bonus": 1.0,
+   "cup_n": 0
+  },
+  "176": {
+   "name": "Marseille",
+   "league": "fra.1",
+   "elo": 1602.4,
+   "elo_raw": 1600.9,
+   "bonus": 1.5,
+   "cup_n": 36
+  },
+  "179": {
+   "name": "Toulouse",
+   "league": "fra.1",
+   "elo": 1588.2,
+   "elo_raw": 1565.9,
+   "bonus": 22.3,
+   "cup_n": 4
+  },
+  "2429": {
+   "name": "",
+   "league": null,
+   "elo": 1460.8,
+   "elo_raw": 1402.1,
+   "bonus": 58.7,
+   "cup_n": 0
+  },
+  "432": {
+   "name": "Galatasaray",
+   "league": "tur.1",
+   "elo": 1625.8,
+   "elo_raw": 1723.6,
+   "bonus": -97.7,
+   "cup_n": 39
+  },
+  "360": {
+   "name": "Manchester United",
+   "league": "eng.1",
+   "elo": 1758.5,
+   "elo_raw": 1801.8,
+   "bonus": -43.3,
+   "cup_n": 45
+  },
+  "375": {
+   "name": "",
+   "league": null,
+   "elo": 1475.4,
+   "elo_raw": 1438.6,
+   "bonus": 36.8,
+   "cup_n": 0
+  },
+  "5309": {
+   "name": "Vitória de Guimaraes",
+   "league": "por.1",
+   "elo": 1533.2,
+   "elo_raw": 1516.6,
+   "bonus": 16.5,
+   "cup_n": 0
+  },
+  "361": {
+   "name": "Newcastle United",
+   "league": "eng.1",
+   "elo": 1719.8,
+   "elo_raw": 1728.6,
+   "bonus": -8.8,
+   "cup_n": 9
+  },
+  "367": {
+   "name": "Tottenham Hotspur",
+   "league": "eng.1",
+   "elo": 1717.0,
+   "elo_raw": 1720.9,
+   "bonus": -3.9,
+   "cup_n": 31
+  },
+  "349": {
+   "name": "AFC Bournemouth",
+   "league": "eng.1",
+   "elo": 1722.3,
+   "elo_raw": 1735.7,
+   "bonus": -13.4,
+   "cup_n": 0
+  },
+  "347": {
+   "name": "Cardiff City",
+   "league": "eng.2",
+   "elo": 1430.1,
+   "elo_raw": 1379.5,
+   "bonus": 50.6,
+   "cup_n": 0
+  },
+  "395": {
+   "name": "Watford",
+   "league": "eng.2",
+   "elo": 1438.7,
+   "elo_raw": 1401.0,
+   "bonus": 37.7,
+   "cup_n": 0
+  },
+  "331": {
+   "name": "Brighton & Hove Albion",
+   "league": "eng.1",
+   "elo": 1715.5,
+   "elo_raw": 1718.6,
+   "bonus": -3.1,
+   "cup_n": 2
+  },
+  "335": {
+   "name": "",
+   "league": null,
+   "elo": 1464.6,
+   "elo_raw": 1411.6,
+   "bonus": 53.1,
+   "cup_n": 0
+  },
+  "363": {
+   "name": "Chelsea",
+   "league": "eng.1",
+   "elo": 1717.0,
+   "elo_raw": 1721.0,
+   "bonus": -4.0,
+   "cup_n": 28
+  },
+  "370": {
+   "name": "Fulham",
+   "league": "eng.1",
+   "elo": 1701.3,
+   "elo_raw": 1683.2,
+   "bonus": 18.1,
+   "cup_n": 0
+  },
+  "384": {
+   "name": "Crystal Palace",
+   "league": "eng.1",
+   "elo": 1691.1,
+   "elo_raw": 1658.2,
+   "bonus": 32.9,
+   "cup_n": 1
+  },
+  "337": {
+   "name": "Brentford",
+   "league": "eng.1",
+   "elo": 1708.3,
+   "elo_raw": 1700.7,
+   "bonus": 7.6,
+   "cup_n": 0
+  },
+  "165": {
+   "name": "",
+   "league": null,
+   "elo": 1482.6,
+   "elo_raw": 1457.8,
+   "bonus": 24.8,
+   "cup_n": 4
+  },
+  "174": {
+   "name": "AS Monaco",
+   "league": "fra.1",
+   "elo": 1641.0,
+   "elo_raw": 1683.4,
+   "bonus": -42.4,
+   "cup_n": 25
+  },
+  "380": {
+   "name": "Wolverhampton Wanderers",
+   "league": "eng.2",
+   "elo": 1492.1,
+   "elo_raw": 1532.4,
+   "bonus": -40.4,
+   "cup_n": 4
+  },
+  "368": {
+   "name": "Everton",
+   "league": "eng.1",
+   "elo": 1694.4,
+   "elo_raw": 1666.1,
+   "bonus": 28.4,
+   "cup_n": 0
+  },
+  "139": {
+   "name": "Ajax Amsterdam",
+   "league": "ned.1",
+   "elo": 1588.6,
+   "elo_raw": 1652.9,
+   "bonus": -64.3,
+   "cup_n": 31
+  },
+  "3708": {
+   "name": "",
+   "league": null,
+   "elo": 1452.2,
+   "elo_raw": 1380.6,
+   "bonus": 71.7,
+   "cup_n": 0
+  },
+  "156": {
+   "name": "Willem II",
+   "league": "ned.1",
+   "elo": 1470.7,
+   "elo_raw": 1383.2,
+   "bonus": 87.5,
+   "cup_n": 0
+  },
+  "3731": {
+   "name": "",
+   "league": null,
+   "elo": 1449.5,
+   "elo_raw": 1373.7,
+   "bonus": 75.8,
+   "cup_n": 0
+  },
+  "3691": {
+   "name": "",
+   "league": null,
+   "elo": 1477.1,
+   "elo_raw": 1442.7,
+   "bonus": 34.4,
+   "cup_n": 0
+  },
+  "9078": {
+   "name": "Alanyaspor",
+   "league": "tur.1",
+   "elo": 1510.1,
+   "elo_raw": 1481.8,
+   "bonus": 28.3,
+   "cup_n": 0
+  },
+  "7656": {
+   "name": "Caykur Rizespor",
+   "league": "tur.1",
+   "elo": 1511.3,
+   "elo_raw": 1484.9,
+   "bonus": 26.5,
+   "cup_n": 0
+  },
+  "6870": {
+   "name": "Kasimpasa",
+   "league": "tur.1",
+   "elo": 1506.3,
+   "elo_raw": 1472.5,
+   "bonus": 33.9,
+   "cup_n": 0
+  },
+  "7868": {
+   "name": "Angers",
+   "league": "fra.1",
+   "elo": 1543.6,
+   "elo_raw": 1453.3,
+   "bonus": 90.4,
+   "cup_n": 0
+  },
+  "7730": {
+   "name": "",
+   "league": null,
+   "elo": 1458.1,
+   "elo_raw": 1395.3,
+   "bonus": 62.8,
+   "cup_n": 0
+  },
+  "166": {
+   "name": "Lille",
+   "league": "fra.1",
+   "elo": 1653.5,
+   "elo_raw": 1706.7,
+   "bonus": -53.2,
+   "cup_n": 32
+  },
+  "169": {
+   "name": "Stade Rennais",
+   "league": "fra.1",
+   "elo": 1621.4,
+   "elo_raw": 1640.3,
+   "bonus": -18.8,
+   "cup_n": 32
+  },
+  "2502": {
+   "name": "Nice",
+   "league": "fra.1",
+   "elo": 1567.8,
+   "elo_raw": 1518.7,
+   "bonus": 49.1,
+   "cup_n": 8
+  },
+  "3243": {
+   "name": "",
+   "league": null,
+   "elo": 1507.8,
+   "elo_raw": 1519.4,
+   "bonus": -11.6,
+   "cup_n": 0
+  },
+  "2566": {
+   "name": "Excelsior",
+   "league": "ned.1",
+   "elo": 1494.5,
+   "elo_raw": 1442.7,
+   "bonus": 51.8,
+   "cup_n": 0
+  },
+  "143": {
+   "name": "Fortuna Sittard",
+   "league": "ned.1",
+   "elo": 1500.3,
+   "elo_raw": 1457.1,
+   "bonus": 43.1,
+   "cup_n": 0
+  },
+  "148": {
+   "name": "PSV Eindhoven",
+   "league": "ned.1",
+   "elo": 1655.1,
+   "elo_raw": 1773.2,
+   "bonus": -118.2,
+   "cup_n": 48
+  },
+  "153": {
+   "name": "FC Utrecht",
+   "league": "ned.1",
+   "elo": 1552.0,
+   "elo_raw": 1585.7,
+   "bonus": -33.7,
+   "cup_n": 2
+  },
+  "810": {
+   "name": "",
+   "league": null,
+   "elo": 1479.0,
+   "elo_raw": 1447.5,
+   "bonus": 31.5,
+   "cup_n": 0
+  },
+  "437": {
+   "name": "FC Porto",
+   "league": "por.1",
+   "elo": 1667.4,
+   "elo_raw": 1778.6,
+   "bonus": -111.2,
+   "cup_n": 53
+  },
+  "12705": {
+   "name": "",
+   "league": null,
+   "elo": 1462.2,
+   "elo_raw": 1405.5,
+   "bonus": 56.7,
+   "cup_n": 0
+  },
+  "2726": {
+   "name": "ADO Den Haag",
+   "league": "ned.1",
+   "elo": 1464.5,
+   "elo_raw": 1367.7,
+   "bonus": 96.8,
+   "cup_n": 0
+  },
+  "3707": {
+   "name": "",
+   "league": null,
+   "elo": 1468.4,
+   "elo_raw": 1421.0,
+   "bonus": 47.4,
+   "cup_n": 0
+  },
+  "364": {
+   "name": "Liverpool",
+   "league": "eng.1",
+   "elo": 1766.7,
+   "elo_raw": 1807.2,
+   "bonus": -40.5,
+   "cup_n": 78
+  },
+  "371": {
+   "name": "West Ham United",
+   "league": "eng.2",
+   "elo": 1529.9,
+   "elo_raw": 1618.0,
+   "bonus": -88.1,
+   "cup_n": 10
+  },
+  "154": {
+   "name": "",
+   "league": null,
+   "elo": 1482.2,
+   "elo_raw": 1455.6,
+   "bonus": 26.7,
+   "cup_n": 0
+  },
+  "145": {
+   "name": "FC Groningen",
+   "league": "ned.1",
+   "elo": 1511.8,
+   "elo_raw": 1486.0,
+   "bonus": 25.9,
+   "cup_n": 0
+  },
+  "144": {
+   "name": "",
+   "league": null,
+   "elo": 1477.9,
+   "elo_raw": 1444.7,
+   "bonus": 33.2,
+   "cup_n": 0
+  },
+  "142": {
+   "name": "Feyenoord Rotterdam",
+   "league": "ned.1",
+   "elo": 1601.4,
+   "elo_raw": 1683.3,
+   "bonus": -81.9,
+   "cup_n": 26
+  },
+  "167": {
+   "name": "Lyon",
+   "league": "fra.1",
+   "elo": 1662.2,
+   "elo_raw": 1719.5,
+   "bonus": -57.3,
+   "cup_n": 42
+  },
+  "3335": {
+   "name": "",
+   "league": null,
+   "elo": 1465.6,
+   "elo_raw": 1414.1,
+   "bonus": 51.6,
+   "cup_n": 0
+  },
+  "141": {
+   "name": "",
+   "league": null,
+   "elo": 1455.9,
+   "elo_raw": 1389.7,
+   "bonus": 66.2,
+   "cup_n": 0
+  },
+  "359": {
+   "name": "Arsenal",
+   "league": "eng.1",
+   "elo": 1878.5,
+   "elo_raw": 2034.6,
+   "bonus": -156.1,
+   "cup_n": 47
+  },
+  "382": {
+   "name": "Manchester City",
+   "league": "eng.1",
+   "elo": 1779.1,
+   "elo_raw": 1826.4,
+   "bonus": -47.3,
+   "cup_n": 87
+  },
+  "159": {
+   "name": "",
+   "league": null,
+   "elo": 1469.6,
+   "elo_raw": 1423.9,
+   "bonus": 45.6,
+   "cup_n": 0
+  },
+  "180": {
+   "name": "Strasbourg",
+   "league": "fra.1",
+   "elo": 1612.0,
+   "elo_raw": 1624.1,
+   "bonus": -12.1,
+   "cup_n": 0
+  },
+  "552": {
+   "name": "Maritimo",
+   "league": "por.1",
+   "elo": 1490.2,
+   "elo_raw": 1409.1,
+   "bonus": 81.0,
+   "cup_n": 0
+  },
+  "12215": {
+   "name": "Santa Clara",
+   "league": "por.1",
+   "elo": 1519.0,
+   "elo_raw": 1481.1,
+   "bonus": 37.8,
+   "cup_n": 0
+  },
+  "3717": {
+   "name": "",
+   "league": null,
+   "elo": 1467.0,
+   "elo_raw": 1417.6,
+   "bonus": 49.5,
+   "cup_n": 0
+  },
+  "7648": {
+   "name": "Konyaspor",
+   "league": "tur.1",
+   "elo": 1510.2,
+   "elo_raw": 1482.0,
+   "bonus": 28.2,
+   "cup_n": 0
+  },
+  "19267": {
+   "name": "Erzurum BB",
+   "league": "tur.1",
+   "elo": 1487.2,
+   "elo_raw": 1424.5,
+   "bonus": 62.7,
+   "cup_n": 0
+  },
+  "7914": {
+   "name": "Istanbul Basaksehir",
+   "league": "tur.1",
+   "elo": 1558.9,
+   "elo_raw": 1598.5,
+   "bonus": -39.6,
+   "cup_n": 11
+  },
+  "997": {
+   "name": "Trabzonspor",
+   "league": "tur.1",
+   "elo": 1567.5,
+   "elo_raw": 1621.3,
+   "bonus": -53.8,
+   "cup_n": 6
+  },
+  "3696": {
+   "name": "Moreirense",
+   "league": "por.1",
+   "elo": 1519.2,
+   "elo_raw": 1481.7,
+   "bonus": 37.5,
+   "cup_n": 0
+  },
+  "2250": {
+   "name": "Sporting CP",
+   "league": "por.1",
+   "elo": 1703.0,
+   "elo_raw": 1861.8,
+   "bonus": -158.8,
+   "cup_n": 40
+  },
+  "18330": {
+   "name": "",
+   "league": null,
+   "elo": 1478.3,
+   "elo_raw": 1445.7,
+   "bonus": 32.6,
+   "cup_n": 0
+  },
+  "789": {
+   "name": "Goztepe",
+   "league": "tur.1",
+   "elo": 1528.1,
+   "elo_raw": 1526.8,
+   "bonus": 1.3,
+   "cup_n": 0
+  },
+  "18790": {
+   "name": "",
+   "league": null,
+   "elo": 1447.1,
+   "elo_raw": 1367.6,
+   "bonus": 79.4,
+   "cup_n": 0
+  },
+  "160": {
+   "name": "Paris Saint-Germain",
+   "league": "fra.1",
+   "elo": 1853.6,
+   "elo_raw": 2026.9,
+   "bonus": -173.3,
+   "cup_n": 93
+  },
+  "2927": {
+   "name": "",
+   "league": null,
+   "elo": 1477.1,
+   "elo_raw": 1442.8,
+   "bonus": 34.3,
+   "cup_n": 0
+  },
+  "2994": {
+   "name": "Braga",
+   "league": "por.1",
+   "elo": 1599.9,
+   "elo_raw": 1669.7,
+   "bonus": -69.7,
+   "cup_n": 16
+  },
+  "3472": {
+   "name": "C.D. Nacional",
+   "league": "por.1",
+   "elo": 1493.0,
+   "elo_raw": 1416.2,
+   "bonus": 76.8,
+   "cup_n": 0
+  },
+  "12611": {
+   "name": "",
+   "league": null,
+   "elo": 1492.7,
+   "elo_raw": 1481.8,
+   "bonus": 10.9,
+   "cup_n": 0
+  },
+  "244": {
+   "name": "Real Betis",
+   "league": "esp.1",
+   "elo": 1658.1,
+   "elo_raw": 1705.5,
+   "bonus": -47.4,
+   "cup_n": 19
+  },
+  "1538": {
+   "name": "Levante",
+   "league": "esp.1",
+   "elo": 1578.2,
+   "elo_raw": 1516.9,
+   "bonus": 61.3,
+   "cup_n": 0
+  },
+  "376": {
+   "name": "Southampton",
+   "league": "eng.2",
+   "elo": 1502.9,
+   "elo_raw": 1561.4,
+   "bonus": -58.5,
+   "cup_n": 0
+  },
+  "306": {
+   "name": "Hull City",
+   "league": "eng.1",
+   "elo": 1623.5,
+   "elo_raw": 1488.7,
+   "bonus": 134.8,
+   "cup_n": 0
+  },
+  "171": {
+   "name": "",
+   "league": null,
+   "elo": 1477.7,
+   "elo_raw": 1444.1,
+   "bonus": 33.5,
+   "cup_n": 0
+  },
+  "238": {
+   "name": "",
+   "league": null,
+   "elo": 1454.1,
+   "elo_raw": 1385.3,
+   "bonus": 68.8,
+   "cup_n": 0
+  },
+  "111": {
+   "name": "Juventus",
+   "league": "ita.1",
+   "elo": 1670.1,
+   "elo_raw": 1742.8,
+   "bonus": -72.7,
+   "cup_n": 38
+  },
+  "85": {
+   "name": "Celta Vigo",
+   "league": "esp.1",
+   "elo": 1627.5,
+   "elo_raw": 1638.4,
+   "bonus": -10.8,
+   "cup_n": 14
+  },
+  "88": {
+   "name": "Espanyol",
+   "league": "esp.1",
+   "elo": 1577.4,
+   "elo_raw": 1516.4,
+   "bonus": 61.0,
+   "cup_n": 2
+  },
+  "2256": {
+   "name": "",
+   "league": null,
+   "elo": 1440.9,
+   "elo_raw": 1352.4,
+   "bonus": 88.6,
+   "cup_n": 0
+  },
+  "102": {
+   "name": "Villarreal",
+   "league": "esp.1",
+   "elo": 1608.5,
+   "elo_raw": 1596.9,
+   "bonus": 11.7,
+   "cup_n": 28
+  },
+  "89": {
+   "name": "Real Sociedad",
+   "league": "esp.1",
+   "elo": 1603.1,
+   "elo_raw": 1587.2,
+   "bonus": 15.9,
+   "cup_n": 40
+  },
+  "112": {
+   "name": "Lazio",
+   "league": "ita.1",
+   "elo": 1625.5,
+   "elo_raw": 1656.2,
+   "bonus": -30.7,
+   "cup_n": 25
+  },
+  "114": {
+   "name": "Napoli",
+   "league": "ita.1",
+   "elo": 1645.1,
+   "elo_raw": 1689.5,
+   "bonus": -44.3,
+   "cup_n": 46
+  },
+  "3794": {
+   "name": "",
+   "league": null,
+   "elo": 1470.8,
+   "elo_raw": 1427.1,
+   "bonus": 43.8,
+   "cup_n": 0
+  },
+  "5308": {
+   "name": "",
+   "league": null,
+   "elo": 1467.0,
+   "elo_raw": 1417.6,
+   "bonus": 49.4,
+   "cup_n": 0
+  },
+  "83": {
+   "name": "Barcelona",
+   "league": "esp.1",
+   "elo": 1776.3,
+   "elo_raw": 1896.4,
+   "bonus": -120.2,
+   "cup_n": 77
+  },
+  "96": {
+   "name": "Alavés",
+   "league": "esp.1",
+   "elo": 1582.1,
+   "elo_raw": 1526.7,
+   "bonus": 55.4,
+   "cup_n": 0
+  },
+  "178": {
+   "name": "",
+   "league": null,
+   "elo": 1454.1,
+   "elo_raw": 1385.2,
+   "bonus": 68.9,
+   "cup_n": 0
+  },
+  "239": {
+   "name": "Torino",
+   "league": "ita.1",
+   "elo": 1580.5,
+   "elo_raw": 1553.5,
+   "bonus": 27.1,
+   "cup_n": 0
+  },
+  "104": {
+   "name": "AS Roma",
+   "league": "ita.1",
+   "elo": 1662.5,
+   "elo_raw": 1736.3,
+   "bonus": -73.8,
+   "cup_n": 24
+  },
+  "3519": {
+   "name": "",
+   "league": null,
+   "elo": 1468.7,
+   "elo_raw": 1421.9,
+   "bonus": 46.9,
+   "cup_n": 0
+  },
+  "101": {
+   "name": "Rayo Vallecano",
+   "league": "esp.1",
+   "elo": 1604.8,
+   "elo_raw": 1583.3,
+   "bonus": 21.4,
+   "cup_n": 0
+  },
+  "243": {
+   "name": "Sevilla",
+   "league": "esp.1",
+   "elo": 1574.1,
+   "elo_raw": 1519.0,
+   "bonus": 55.1,
+   "cup_n": 18
+  },
+  "107": {
+   "name": "Bologna",
+   "league": "ita.1",
+   "elo": 1626.4,
+   "elo_raw": 1663.9,
+   "bonus": -37.5,
+   "cup_n": 9
+  },
+  "3958": {
+   "name": "",
+   "league": null,
+   "elo": 1450.7,
+   "elo_raw": 1376.7,
+   "bonus": 74.0,
+   "cup_n": 0
+  },
+  "2574": {
+   "name": "",
+   "league": null,
+   "elo": 1485.9,
+   "elo_raw": 1464.8,
+   "bonus": 21.1,
+   "cup_n": 0
+  },
+  "2925": {
+   "name": "Cagliari",
+   "league": "ita.1",
+   "elo": 1562.5,
+   "elo_raw": 1508.3,
+   "bonus": 54.1,
+   "cup_n": 0
+  },
+  "3997": {
+   "name": "Sassuolo",
+   "league": "ita.1",
+   "elo": 1571.3,
+   "elo_raw": 1530.3,
+   "bonus": 41.0,
+   "cup_n": 0
+  },
+  "110": {
+   "name": "Internazionale",
+   "league": "ita.1",
+   "elo": 1720.8,
+   "elo_raw": 1816.7,
+   "bonus": -95.9,
+   "cup_n": 73
+  },
+  "115": {
+   "name": "Parma",
+   "league": "ita.1",
+   "elo": 1561.6,
+   "elo_raw": 1506.1,
+   "bonus": 55.5,
+   "cup_n": 0
+  },
+  "118": {
+   "name": "Udinese",
+   "league": "ita.1",
+   "elo": 1583.4,
+   "elo_raw": 1560.7,
+   "bonus": 22.7,
+   "cup_n": 0
+  },
+  "86": {
+   "name": "Real Madrid",
+   "league": "esp.1",
+   "elo": 1779.7,
+   "elo_raw": 1890.5,
+   "bonus": -110.8,
+   "cup_n": 94
+  },
+  "2922": {
+   "name": "Getafe",
+   "league": "esp.1",
+   "elo": 1591.7,
+   "elo_raw": 1550.8,
+   "bonus": 41.0,
+   "cup_n": 0
+  },
+  "94": {
+   "name": "Valencia",
+   "league": "esp.1",
+   "elo": 1606.4,
+   "elo_raw": 1588.7,
+   "bonus": 17.7,
+   "cup_n": 6
+  },
+  "1068": {
+   "name": "Atlético Madrid",
+   "league": "esp.1",
+   "elo": 1720.2,
+   "elo_raw": 1797.5,
+   "bonus": -77.3,
+   "cup_n": 77
+  },
+  "105": {
+   "name": "Atalanta",
+   "league": "ita.1",
+   "elo": 1645.7,
+   "elo_raw": 1694.5,
+   "bonus": -48.8,
+   "cup_n": 36
+  },
+  "4057": {
+   "name": "Frosinone",
+   "league": "ita.1",
+   "elo": 1532.5,
+   "elo_raw": 1433.4,
+   "bonus": 99.1,
+   "cup_n": 0
+  },
+  "93": {
+   "name": "Athletic Club",
+   "league": "esp.1",
+   "elo": 1599.9,
+   "elo_raw": 1573.7,
+   "bonus": 26.2,
+   "cup_n": 8
+  },
+  "17534": {
+   "name": "",
+   "league": null,
+   "elo": 1494.3,
+   "elo_raw": 1485.8,
+   "bonus": 8.5,
+   "cup_n": 0
+  },
+  "497": {
+   "name": "",
+   "league": null,
+   "elo": 1474.2,
+   "elo_raw": 1436.5,
+   "bonus": 37.7,
+   "cup_n": 2
+  },
+  "399": {
+   "name": "",
+   "league": null,
+   "elo": 1422.7,
+   "elo_raw": 1306.8,
+   "bonus": 115.9,
+   "cup_n": 0
+  },
+  "350": {
+   "name": "",
+   "league": null,
+   "elo": 1472.1,
+   "elo_raw": 1430.1,
+   "bonus": 41.9,
+   "cup_n": 0
+  },
+  "6740": {
+   "name": "",
+   "league": null,
+   "elo": 1491.8,
+   "elo_raw": 1479.8,
+   "bonus": 12.0,
+   "cup_n": 2
+  },
+  "2552": {
+   "name": "",
+   "league": null,
+   "elo": 1464.6,
+   "elo_raw": 1414.1,
+   "bonus": 50.5,
+   "cup_n": 4
+  },
+  "379": {
+   "name": "Burnley",
+   "league": "eng.2",
+   "elo": 1503.8,
+   "elo_raw": 1562.3,
+   "bonus": -58.5,
+   "cup_n": 2
+  },
+  "541": {
+   "name": "",
+   "league": null,
+   "elo": 1496.9,
+   "elo_raw": 1492.5,
+   "bonus": 4.3,
+   "cup_n": 6
+  },
+  "3752": {
+   "name": "",
+   "league": null,
+   "elo": 1476.1,
+   "elo_raw": 1440.3,
+   "bonus": 35.8,
+   "cup_n": 0
+  },
+  "132": {
+   "name": "Bayern Munich",
+   "league": "ger.1",
+   "elo": 1870.6,
+   "elo_raw": 2046.3,
+   "bonus": -175.7,
+   "cup_n": 89
+  },
+  "7911": {
+   "name": "TSG Hoffenheim",
+   "league": "ger.1",
+   "elo": 1629.0,
+   "elo_raw": 1635.9,
+   "bonus": -6.9,
+   "cup_n": 20
+  },
+  "126": {
+   "name": "SC Freiburg",
+   "league": "ger.1",
+   "elo": 1665.5,
+   "elo_raw": 1721.8,
+   "bonus": -56.3,
+   "cup_n": 10
+  },
+  "125": {
+   "name": "Eintracht Frankfurt",
+   "league": "ger.1",
+   "elo": 1619.7,
+   "elo_raw": 1615.5,
+   "bonus": 4.2,
+   "cup_n": 21
+  },
+  "9707": {
+   "name": "",
+   "league": null,
+   "elo": 1479.0,
+   "elo_raw": 1447.6,
+   "bonus": 31.5,
+   "cup_n": 0
+  },
+  "3841": {
+   "name": "FC Augsburg",
+   "league": "ger.1",
+   "elo": 1599.8,
+   "elo_raw": 1564.6,
+   "bonus": 35.2,
+   "cup_n": 0
+  },
+  "138": {
+   "name": "",
+   "league": null,
+   "elo": 1499.2,
+   "elo_raw": 1497.9,
+   "bonus": 1.2,
+   "cup_n": 2
+  },
+  "133": {
+   "name": "Schalke 04",
+   "league": "ger.1",
+   "elo": 1539.4,
+   "elo_raw": 1422.5,
+   "bonus": 116.9,
+   "cup_n": 6
+  },
+  "137": {
+   "name": "Werder Bremen",
+   "league": "ger.1",
+   "elo": 1586.4,
+   "elo_raw": 1531.1,
+   "bonus": 55.2,
+   "cup_n": 0
+  },
+  "2428": {
+   "name": "",
+   "league": null,
+   "elo": 1460.2,
+   "elo_raw": 1400.6,
+   "bonus": 59.6,
+   "cup_n": 0
+  },
+  "5269": {
+   "name": "Moadon Sport Ashdod",
+   "league": "isr.1",
+   "elo": 1503.1,
+   "elo_raw": 1476.3,
+   "bonus": 26.8,
+   "cup_n": 0
+  },
+  "6764": {
+   "name": "",
+   "league": null,
+   "elo": 1478.9,
+   "elo_raw": 1447.4,
+   "bonus": 31.6,
+   "cup_n": 0
+  },
+  "3719": {
+   "name": "",
+   "league": null,
+   "elo": 1449.1,
+   "elo_raw": 1372.7,
+   "bonus": 76.4,
+   "cup_n": 0
+  },
+  "19255": {
+   "name": "Hapoel Hadera",
+   "league": "isr.1",
+   "elo": 1473.3,
+   "elo_raw": 1401.8,
+   "bonus": 71.5,
+   "cup_n": 0
+  },
+  "1037": {
+   "name": "",
+   "league": null,
+   "elo": 1477.1,
+   "elo_raw": 1442.8,
+   "bonus": 34.3,
+   "cup_n": 0
+  },
+  "605": {
+   "name": "PAOK",
+   "league": "gre.1",
+   "elo": 1549.7,
+   "elo_raw": 1591.3,
+   "bonus": -41.5,
+   "cup_n": 17
+  },
+  "8354": {
+   "name": "Asteras Tripoli",
+   "league": "gre.1",
+   "elo": 1476.7,
+   "elo_raw": 1417.5,
+   "bonus": 59.2,
+   "cup_n": 0
+  },
+  "11431": {
+   "name": "Panetolikos",
+   "league": "gre.1",
+   "elo": 1468.4,
+   "elo_raw": 1396.9,
+   "bonus": 71.6,
+   "cup_n": 0
+  },
+  "6790": {
+   "name": "Atromitos",
+   "league": "gre.1",
+   "elo": 1495.6,
+   "elo_raw": 1464.7,
+   "bonus": 30.9,
+   "cup_n": 0
+  },
+  "268": {
+   "name": "Borussia Mönchengladbach",
+   "league": "ger.1",
+   "elo": 1597.4,
+   "elo_raw": 1562.2,
+   "bonus": 35.2,
+   "cup_n": 8
+  },
+  "131": {
+   "name": "Bayer Leverkusen",
+   "league": "ger.1",
+   "elo": 1708.3,
+   "elo_raw": 1776.4,
+   "bonus": -68.1,
+   "cup_n": 70
+  },
+  "9577": {
+   "name": "Hapoel Haifa",
+   "league": "isr.1",
+   "elo": 1536.4,
+   "elo_raw": 1559.5,
+   "bonus": -23.1,
+   "cup_n": 0
+  },
+  "5945": {
+   "name": "Maccabi Netanya",
+   "league": "isr.1",
+   "elo": 1516.2,
+   "elo_raw": 1509.0,
+   "bonus": 7.2,
+   "cup_n": 0
+  },
+  "8327": {
+   "name": "Hapoel Kiryat Shmona",
+   "league": "isr.1",
+   "elo": 1487.6,
+   "elo_raw": 1437.6,
+   "bonus": 50.0,
+   "cup_n": 0
+  },
+  "3170": {
+   "name": "",
+   "league": null,
+   "elo": 1456.2,
+   "elo_raw": 1390.4,
+   "bonus": 65.8,
+   "cup_n": 0
+  },
+  "103": {
+   "name": "AC Milan",
+   "league": "ita.1",
+   "elo": 1651.4,
+   "elo_raw": 1703.3,
+   "bonus": -51.9,
+   "cup_n": 42
+  },
+  "6848": {
+   "name": "",
+   "league": null,
+   "elo": 1454.8,
+   "elo_raw": 1386.9,
+   "bonus": 67.8,
+   "cup_n": 0
+  },
+  "95": {
+   "name": "",
+   "league": null,
+   "elo": 1454.3,
+   "elo_raw": 1385.6,
+   "bonus": 68.6,
+   "cup_n": 0
+  },
+  "402": {
+   "name": "",
+   "league": null,
+   "elo": 1444.5,
+   "elo_raw": 1361.2,
+   "bonus": 83.3,
+   "cup_n": 0
+  },
+  "2950": {
+   "name": "Mainz",
+   "league": "ger.1",
+   "elo": 1610.4,
+   "elo_raw": 1591.5,
+   "bonus": 19.0,
+   "cup_n": 1
+  },
+  "134": {
+   "name": "VfB Stuttgart",
+   "league": "ger.1",
+   "elo": 1657.1,
+   "elo_raw": 1701.8,
+   "bonus": -44.7,
+   "cup_n": 11
+  },
+  "124": {
+   "name": "Borussia Dortmund",
+   "league": "ger.1",
+   "elo": 1698.5,
+   "elo_raw": 1756.1,
+   "bonus": -57.5,
+   "cup_n": 77
+  },
+  "11420": {
+   "name": "RB Leipzig",
+   "league": "ger.1",
+   "elo": 1658.3,
+   "elo_raw": 1689.8,
+   "bonus": -31.4,
+   "cup_n": 54
+  },
+  "8329": {
+   "name": "Bnei Sakhnin",
+   "league": "isr.1",
+   "elo": 1500.7,
+   "elo_raw": 1470.3,
+   "bonus": 30.4,
+   "cup_n": 0
+  },
+  "18352": {
+   "name": "",
+   "league": null,
+   "elo": 1471.9,
+   "elo_raw": 1429.7,
+   "bonus": 42.2,
+   "cup_n": 0
+  },
+  "2789": {
+   "name": "",
+   "league": null,
+   "elo": 1459.3,
+   "elo_raw": 1398.2,
+   "bonus": 61.1,
+   "cup_n": 0
+  },
+  "1010": {
+   "name": "OFI Crete",
+   "league": "gre.1",
+   "elo": 1484.3,
+   "elo_raw": 1436.6,
+   "bonus": 47.7,
+   "cup_n": 0
+  },
+  "2578": {
+   "name": "",
+   "league": null,
+   "elo": 1480.9,
+   "elo_raw": 1452.4,
+   "bonus": 28.6,
+   "cup_n": 0
+  },
+  "443": {
+   "name": "Panathinaikos",
+   "league": "gre.1",
+   "elo": 1573.4,
+   "elo_raw": 1644.2,
+   "bonus": -70.8,
+   "cup_n": 17
+  },
+  "12706": {
+   "name": "",
+   "league": null,
+   "elo": 1461.7,
+   "elo_raw": 1404.2,
+   "bonus": 57.5,
+   "cup_n": 0
+  },
+  "611": {
+   "name": "Maccabi Haifa",
+   "league": "isr.1",
+   "elo": 1574.3,
+   "elo_raw": 1648.7,
+   "bonus": -74.4,
+   "cup_n": 6
+  },
+  "109": {
+   "name": "Fiorentina",
+   "league": "ita.1",
+   "elo": 1610.1,
+   "elo_raw": 1626.0,
+   "bonus": -15.9,
+   "cup_n": 7
+  },
+  "3263": {
+   "name": "Genoa",
+   "league": "ita.1",
+   "elo": 1573.5,
+   "elo_raw": 1535.9,
+   "bonus": 37.6,
+   "cup_n": 0
+  },
+  "2734": {
+   "name": "",
+   "league": null,
+   "elo": 1453.7,
+   "elo_raw": 1384.2,
+   "bonus": 69.5,
+   "cup_n": 0
+  },
+  "5276": {
+   "name": "Levadiakos",
+   "league": "gre.1",
+   "elo": 1509.8,
+   "elo_raw": 1500.3,
+   "bonus": 9.5,
+   "cup_n": 0
+  },
+  "18764": {
+   "name": "",
+   "league": null,
+   "elo": 1451.6,
+   "elo_raw": 1379.0,
+   "bonus": 72.6,
+   "cup_n": 0
+  },
+  "9812": {
+   "name": "",
+   "league": null,
+   "elo": 1513.8,
+   "elo_raw": 1533.0,
+   "bonus": -19.2,
+   "cup_n": 6
+  },
+  "2983": {
+   "name": "Maccabi Petah-Tikva",
+   "league": "isr.1",
+   "elo": 1486.5,
+   "elo_raw": 1434.8,
+   "bonus": 51.7,
+   "cup_n": 0
+  },
+  "5218": {
+   "name": "Beitar Jerusalem",
+   "league": "isr.1",
+   "elo": 1526.1,
+   "elo_raw": 1533.9,
+   "bonus": -7.7,
+   "cup_n": 0
+  },
+  "18814": {
+   "name": "",
+   "league": null,
+   "elo": 1423.1,
+   "elo_raw": 1307.8,
+   "bonus": 115.3,
+   "cup_n": 0
+  },
+  "11553": {
+   "name": "Aris",
+   "league": "gre.1",
+   "elo": 1528.3,
+   "elo_raw": 1546.4,
+   "bonus": -18.1,
+   "cup_n": 0
+  },
+  "5413": {
+   "name": "",
+   "league": null,
+   "elo": 1467.9,
+   "elo_raw": 1419.8,
+   "bonus": 48.1,
+   "cup_n": 0
+  },
+  "269": {
+   "name": "",
+   "league": null,
+   "elo": 1462.9,
+   "elo_raw": 1407.2,
+   "bonus": 55.7,
+   "cup_n": 0
+  },
+  "362": {
+   "name": "Aston Villa",
+   "league": "eng.1",
+   "elo": 1761.7,
+   "elo_raw": 1822.8,
+   "bonus": -61.1,
+   "cup_n": 15
+  },
+  "3643": {
+   "name": "",
+   "league": null,
+   "elo": 1462.7,
+   "elo_raw": 1406.7,
+   "bonus": 56.0,
+   "cup_n": 0
+  },
+  "129": {
+   "name": "",
+   "league": null,
+   "elo": 1477.9,
+   "elo_raw": 1444.9,
+   "bonus": 33.1,
+   "cup_n": 0
+  },
+  "10418": {
+   "name": "",
+   "league": null,
+   "elo": 1445.2,
+   "elo_raw": 1363.0,
+   "bonus": 82.2,
+   "cup_n": 0
+  },
+  "15722": {
+   "name": "",
+   "league": null,
+   "elo": 1445.2,
+   "elo_raw": 1363.1,
+   "bonus": 82.2,
+   "cup_n": 0
+  },
+  "274": {
+   "name": "",
+   "league": null,
+   "elo": 1471.4,
+   "elo_raw": 1428.5,
+   "bonus": 42.9,
+   "cup_n": 0
+  },
+  "442": {
+   "name": "",
+   "league": null,
+   "elo": 1470.8,
+   "elo_raw": 1432.7,
+   "bonus": 38.1,
+   "cup_n": 12
+  },
+  "2290": {
+   "name": "Red Star Belgrade",
+   "league": null,
+   "elo": 1525.2,
+   "elo_raw": 1553.9,
+   "bonus": -28.8,
+   "cup_n": 25
+  },
+  "493": {
+   "name": "Shakhtar Donetsk",
+   "league": null,
+   "elo": 1549.2,
+   "elo_raw": 1594.5,
+   "bonus": -45.4,
+   "cup_n": 50
+  },
+  "7922": {
+   "name": "Jablonec",
+   "league": null,
+   "elo": 1489.2,
+   "elo_raw": 1474.4,
+   "bonus": 14.8,
+   "cup_n": 8
+  },
+  "2512": {
+   "name": "",
+   "league": null,
+   "elo": 1464.8,
+   "elo_raw": 1415.6,
+   "bonus": 49.2,
+   "cup_n": 6
+  },
+  "3929": {
+   "name": "",
+   "league": null,
+   "elo": 1484.4,
+   "elo_raw": 1462.7,
+   "bonus": 21.7,
+   "cup_n": 6
+  },
+  "13018": {
+   "name": "",
+   "league": null,
+   "elo": 1517.8,
+   "elo_raw": 1540.6,
+   "bonus": -22.8,
+   "cup_n": 14
+  },
+  "597": {
+   "name": "Dinamo Zagreb",
+   "league": null,
+   "elo": 1534.6,
+   "elo_raw": 1567.1,
+   "bonus": -32.5,
+   "cup_n": 48
+  },
+  "11706": {
+   "name": "Viktoria Plzen",
+   "league": null,
+   "elo": 1586.3,
+   "elo_raw": 1675.6,
+   "bonus": -89.3,
+   "cup_n": 36
+  },
+  "1963": {
+   "name": "",
+   "league": null,
+   "elo": 1488.6,
+   "elo_raw": 1472.9,
+   "bonus": 15.6,
+   "cup_n": 8
+  },
+  "12124": {
+   "name": "",
+   "league": null,
+   "elo": 1465.0,
+   "elo_raw": 1415.7,
+   "bonus": 49.3,
+   "cup_n": 5
+  },
+  "525": {
+   "name": "Apollon Limassol",
+   "league": "cyp.1",
+   "elo": 1534.3,
+   "elo_raw": 1583.2,
+   "bonus": -48.9,
+   "cup_n": 2
+  },
+  "18407": {
+   "name": "",
+   "league": null,
+   "elo": 1473.9,
+   "elo_raw": 1434.7,
+   "bonus": 39.2,
+   "cup_n": 0
+  },
+  "3278": {
+   "name": "Aalesund",
+   "league": "nor.1",
+   "elo": 1451.3,
+   "elo_raw": 1339.3,
+   "bonus": 112.0,
+   "cup_n": 0
+  },
+  "11336": {
+   "name": "",
+   "league": null,
+   "elo": 1503.5,
+   "elo_raw": 1508.3,
+   "bonus": -4.8,
+   "cup_n": 6
+  },
+  "5807": {
+   "name": "Union St.-Gilloise",
+   "league": "bel.1",
+   "elo": 1641.1,
+   "elo_raw": 1758.2,
+   "bonus": -117.1,
+   "cup_n": 31
+  },
+  "606": {
+   "name": "KVC Westerlo",
+   "league": "bel.1",
+   "elo": 1523.5,
+   "elo_raw": 1509.6,
+   "bonus": 14.0,
+   "cup_n": 0
+  },
+  "991": {
+   "name": "",
+   "league": null,
+   "elo": 1448.5,
+   "elo_raw": 1371.2,
+   "bonus": 77.3,
+   "cup_n": 0
+  },
+  "253": {
+   "name": "",
+   "league": null,
+   "elo": 1492.8,
+   "elo_raw": 1481.9,
+   "bonus": 10.9,
+   "cup_n": 0
+  },
+  "264": {
+   "name": "Dundee United",
+   "league": "sco.1",
+   "elo": 1451.1,
+   "elo_raw": 1416.9,
+   "bonus": 34.2,
+   "cup_n": 0
+  },
+  "12769": {
+   "name": "",
+   "league": null,
+   "elo": 1496.4,
+   "elo_raw": 1491.1,
+   "bonus": 5.3,
+   "cup_n": 0
+  },
+  "6851": {
+   "name": "Paris FC",
+   "league": "fra.1",
+   "elo": 1584.5,
+   "elo_raw": 1555.4,
+   "bonus": 29.1,
+   "cup_n": 0
+  },
+  "175": {
+   "name": "Lens",
+   "league": "fra.1",
+   "elo": 1639.8,
+   "elo_raw": 1689.9,
+   "bonus": -50.1,
+   "cup_n": 6
+  },
+  "170": {
+   "name": "Troyes",
+   "league": "fra.1",
+   "elo": 1519.4,
+   "elo_raw": 1392.7,
+   "bonus": 126.7,
+   "cup_n": 0
+  },
+  "7860": {
+   "name": "Lyngby Boldklub",
+   "league": "den.1",
+   "elo": 1489.1,
+   "elo_raw": 1411.9,
+   "bonus": 77.2,
+   "cup_n": 0
+  },
+  "3153": {
+   "name": "Viborg FF",
+   "league": "den.1",
+   "elo": 1542.7,
+   "elo_raw": 1545.7,
+   "bonus": -3.1,
+   "cup_n": 0
+  },
+  "8091": {
+   "name": "Universitatea Cluj",
+   "league": "rou.1",
+   "elo": 1549.0,
+   "elo_raw": 1574.2,
+   "bonus": -25.2,
+   "cup_n": 0
+  },
+  "12098": {
+   "name": "",
+   "league": null,
+   "elo": 1451.6,
+   "elo_raw": 1378.9,
+   "bonus": 72.6,
+   "cup_n": 0
+  },
+  "510": {
+   "name": "Viking FK",
+   "league": "nor.1",
+   "elo": 1595.0,
+   "elo_raw": 1698.6,
+   "bonus": -103.6,
+   "cup_n": 0
+  },
+  "535": {
+   "name": "",
+   "league": null,
+   "elo": 1450.2,
+   "elo_raw": 1375.4,
+   "bonus": 74.8,
+   "cup_n": 0
+  },
+  "3630": {
+   "name": "",
+   "league": null,
+   "elo": 1457.4,
+   "elo_raw": 1393.4,
+   "bonus": 64.0,
+   "cup_n": 0
+  },
+  "521": {
+   "name": "Slovan Bratislava",
+   "league": null,
+   "elo": 1442.5,
+   "elo_raw": 1371.3,
+   "bonus": 71.2,
+   "cup_n": 17
+  },
+  "8281": {
+   "name": "",
+   "league": null,
+   "elo": 1500.0,
+   "elo_raw": 1500.0,
+   "bonus": 0.0,
+   "cup_n": 2
+  },
+  "11022": {
+   "name": "",
+   "league": null,
+   "elo": 1487.7,
+   "elo_raw": 1469.7,
+   "bonus": 18.0,
+   "cup_n": 2
+  },
+  "12207": {
+   "name": "",
+   "league": null,
+   "elo": 1471.7,
+   "elo_raw": 1430.2,
+   "bonus": 41.5,
+   "cup_n": 2
+  },
+  "20042": {
+   "name": "",
+   "league": null,
+   "elo": 1445.3,
+   "elo_raw": 1363.1,
+   "bonus": 82.1,
+   "cup_n": 0
+  },
+  "607": {
+   "name": "Silkeborg IF",
+   "league": "den.1",
+   "elo": 1520.0,
+   "elo_raw": 1489.0,
+   "bonus": 31.0,
+   "cup_n": 0
+  },
+  "20032": {
+   "name": "Servette",
+   "league": "sui.1",
+   "elo": 1516.5,
+   "elo_raw": 1553.3,
+   "bonus": -36.8,
+   "cup_n": 0
+  },
+  "20024": {
+   "name": "Ararat-Armenia",
+   "league": null,
+   "elo": 1514.5,
+   "elo_raw": 1534.6,
+   "bonus": -20.2,
+   "cup_n": 6
+  },
+  "17856": {
+   "name": "Lincoln Red Imps",
+   "league": null,
+   "elo": 1432.1,
+   "elo_raw": 1345.4,
+   "bonus": 86.7,
+   "cup_n": 14
+  },
+  "18794": {
+   "name": "WSG Swarovski Tirol",
+   "league": "aut.1",
+   "elo": 1461.3,
+   "elo_raw": 1413.1,
+   "bonus": 48.2,
+   "cup_n": 0
+  },
+  "7879": {
+   "name": "KV Mechelen",
+   "league": "bel.1",
+   "elo": 1525.8,
+   "elo_raw": 1515.1,
+   "bonus": 10.6,
+   "cup_n": 0
+  },
+  "19230": {
+   "name": "",
+   "league": null,
+   "elo": 1471.4,
+   "elo_raw": 1428.5,
+   "bonus": 42.9,
+   "cup_n": 0
+  },
+  "301": {
+   "name": "",
+   "league": null,
+   "elo": 1472.5,
+   "elo_raw": 1431.2,
+   "bonus": 41.3,
+   "cup_n": 0
+  },
+  "372": {
+   "name": "Charlton Athletic",
+   "league": "eng.2",
+   "elo": 1439.2,
+   "elo_raw": 1402.2,
+   "bonus": 37.0,
+   "cup_n": 0
+  },
+  "152": {
+   "name": "FC Twente",
+   "league": "ned.1",
+   "elo": 1575.3,
+   "elo_raw": 1642.1,
+   "bonus": -66.8,
+   "cup_n": 3
+  },
+  "151": {
+   "name": "Sparta Rotterdam",
+   "league": "ned.1",
+   "elo": 1514.2,
+   "elo_raw": 1491.9,
+   "bonus": 22.3,
+   "cup_n": 0
+  },
+  "20025": {
+   "name": "Iberia 1999",
+   "league": null,
+   "elo": 1498.6,
+   "elo_raw": 1496.6,
+   "bonus": 2.0,
+   "cup_n": 2
+  },
+  "2947": {
+   "name": "",
+   "league": null,
+   "elo": 1490.1,
+   "elo_raw": 1475.7,
+   "bonus": 14.5,
+   "cup_n": 2
+  },
+  "251": {
+   "name": "",
+   "league": null,
+   "elo": 1440.9,
+   "elo_raw": 1352.3,
+   "bonus": 88.6,
+   "cup_n": 0
+  },
+  "12698": {
+   "name": "FC Famalicao",
+   "league": "por.1",
+   "elo": 1557.4,
+   "elo_raw": 1577.2,
+   "bonus": -19.8,
+   "cup_n": 0
+  },
+  "6997": {
+   "name": "Brest",
+   "league": "fra.1",
+   "elo": 1575.1,
+   "elo_raw": 1535.0,
+   "bonus": 40.1,
+   "cup_n": 6
+  },
+  "3699": {
+   "name": "Gil Vicente",
+   "league": "por.1",
+   "elo": 1525.7,
+   "elo_raw": 1497.9,
+   "bonus": 27.8,
+   "cup_n": 0
+  },
+  "3713": {
+   "name": "",
+   "league": null,
+   "elo": 1467.9,
+   "elo_raw": 1419.7,
+   "bonus": 48.2,
+   "cup_n": 0
+  },
+  "155": {
+   "name": "",
+   "league": null,
+   "elo": 1448.3,
+   "elo_raw": 1370.8,
+   "bonus": 77.5,
+   "cup_n": 0
+  },
+  "177": {
+   "name": "",
+   "league": null,
+   "elo": 1442.4,
+   "elo_raw": 1356.0,
+   "bonus": 86.4,
+   "cup_n": 0
+  },
+  "2576": {
+   "name": "",
+   "league": null,
+   "elo": 1462.9,
+   "elo_raw": 1407.2,
+   "bonus": 55.7,
+   "cup_n": 0
+  },
+  "3307": {
+   "name": "SC Paderborn 07",
+   "league": "ger.1",
+   "elo": 1533.9,
+   "elo_raw": 1400.0,
+   "bonus": 133.9,
+   "cup_n": 0
+  },
+  "122": {
+   "name": "FC Cologne",
+   "league": "ger.1",
+   "elo": 1574.4,
+   "elo_raw": 1501.3,
+   "bonus": 73.2,
+   "cup_n": 0
+  },
+  "397": {
+   "name": "",
+   "league": null,
+   "elo": 1462.9,
+   "elo_raw": 1407.2,
+   "bonus": 55.7,
+   "cup_n": 0
+  },
+  "996": {
+   "name": "Genclerbirligi",
+   "league": "tur.1",
+   "elo": 1484.7,
+   "elo_raw": 1418.3,
+   "bonus": 66.4,
+   "cup_n": 0
+  },
+  "97": {
+   "name": "Osasuna",
+   "league": "esp.1",
+   "elo": 1589.1,
+   "elo_raw": 1544.3,
+   "bonus": 44.9,
+   "cup_n": 0
+  },
+  "3747": {
+   "name": "",
+   "league": null,
+   "elo": 1466.7,
+   "elo_raw": 1417.8,
+   "bonus": 48.8,
+   "cup_n": 2
+  },
+  "598": {
+   "name": "1. FC Union Berlin",
+   "league": "ger.1",
+   "elo": 1590.0,
+   "elo_raw": 1544.7,
+   "bonus": 45.3,
+   "cup_n": 8
+  },
+  "20070": {
+   "name": "Gaziantep FK",
+   "league": "tur.1",
+   "elo": 1492.8,
+   "elo_raw": 1438.6,
+   "bonus": 54.2,
+   "cup_n": 0
+  },
+  "13072": {
+   "name": "",
+   "league": null,
+   "elo": 1454.6,
+   "elo_raw": 1386.6,
+   "bonus": 68.0,
+   "cup_n": 0
+  },
+  "84": {
+   "name": "",
+   "league": null,
+   "elo": 1505.0,
+   "elo_raw": 1512.6,
+   "bonus": -7.5,
+   "cup_n": 0
+  },
+  "8330": {
+   "name": "",
+   "league": null,
+   "elo": 1446.7,
+   "elo_raw": 1366.8,
+   "bonus": 79.9,
+   "cup_n": 0
+  },
+  "20043": {
+   "name": "Volos NFC",
+   "league": "gre.1",
+   "elo": 1456.1,
+   "elo_raw": 1365.9,
+   "bonus": 90.1,
+   "cup_n": 0
+  },
+  "119": {
+   "name": "",
+   "league": null,
+   "elo": 1468.8,
+   "elo_raw": 1422.1,
+   "bonus": 46.8,
+   "cup_n": 0
+  },
+  "108": {
+   "name": "",
+   "league": null,
+   "elo": 1451.1,
+   "elo_raw": 1377.9,
+   "bonus": 73.3,
+   "cup_n": 0
+  },
+  "113": {
+   "name": "Lecce",
+   "league": "ita.1",
+   "elo": 1553.8,
+   "elo_raw": 1486.7,
+   "bonus": 67.1,
+   "cup_n": 0
+  },
+  "2533": {
+   "name": "",
+   "league": null,
+   "elo": 1451.2,
+   "elo_raw": 1383.1,
+   "bonus": 68.1,
+   "cup_n": 6
+  },
+  "3627": {
+   "name": "",
+   "league": null,
+   "elo": 1494.2,
+   "elo_raw": 1485.6,
+   "bonus": 8.6,
+   "cup_n": 0
+  },
+  "20301": {
+   "name": "Mjällby AIF",
+   "league": "swe.1",
+   "elo": 1612.6,
+   "elo_raw": 1706.1,
+   "bonus": -93.5,
+   "cup_n": 0
+  },
+  "6545": {
+   "name": "",
+   "league": null,
+   "elo": 1456.7,
+   "elo_raw": 1391.7,
+   "bonus": 65.0,
+   "cup_n": 0
+  },
+  "5579": {
+   "name": "OH Leuven",
+   "league": "bel.1",
+   "elo": 1501.5,
+   "elo_raw": 1454.5,
+   "bonus": 47.0,
+   "cup_n": 0
+  },
+  "20725": {
+   "name": "FC Arges",
+   "league": "rou.1",
+   "elo": 1517.7,
+   "elo_raw": 1496.0,
+   "bonus": 21.7,
+   "cup_n": 0
+  },
+  "6912": {
+   "name": "UTA Arad",
+   "league": "rou.1",
+   "elo": 1528.6,
+   "elo_raw": 1523.2,
+   "bonus": 5.4,
+   "cup_n": 0
+  },
+  "273": {
+   "name": "Lorient",
+   "league": "fra.1",
+   "elo": 1575.9,
+   "elo_raw": 1534.0,
+   "bonus": 41.9,
+   "cup_n": 0
+  },
+  "388": {
+   "name": "Coventry City",
+   "league": "eng.1",
+   "elo": 1669.7,
+   "elo_raw": 1604.2,
+   "bonus": 65.5,
+   "cup_n": 0
+  },
+  "3842": {
+   "name": "",
+   "league": null,
+   "elo": 1491.5,
+   "elo_raw": 1478.6,
+   "bonus": 12.8,
+   "cup_n": 0
+  },
+  "3759": {
+   "name": "SV Josko Ried",
+   "league": "aut.1",
+   "elo": 1466.5,
+   "elo_raw": 1426.1,
+   "bonus": 40.4,
+   "cup_n": 0
+  },
+  "20737": {
+   "name": "",
+   "league": null,
+   "elo": 1464.7,
+   "elo_raw": 1411.9,
+   "bonus": 52.9,
+   "cup_n": 0
+  },
+  "2506": {
+   "name": "",
+   "league": null,
+   "elo": 1489.9,
+   "elo_raw": 1474.7,
+   "bonus": 15.2,
+   "cup_n": 0
+  },
+  "344": {
+   "name": "",
+   "league": null,
+   "elo": 1480.8,
+   "elo_raw": 1452.1,
+   "bonus": 28.7,
+   "cup_n": 0
+  },
+  "3173": {
+   "name": "",
+   "league": null,
+   "elo": 1457.2,
+   "elo_raw": 1393.1,
+   "bonus": 64.1,
+   "cup_n": 0
+  },
+  "11551": {
+   "name": "Lausanne Sports",
+   "league": "sui.1",
+   "elo": 1484.6,
+   "elo_raw": 1473.5,
+   "bonus": 11.0,
+   "cup_n": 1
+  },
+  "20736": {
+   "name": "",
+   "league": null,
+   "elo": 1470.3,
+   "elo_raw": 1425.8,
+   "bonus": 44.5,
+   "cup_n": 0
+  },
+  "20740": {
+   "name": "",
+   "league": null,
+   "elo": 1470.5,
+   "elo_raw": 1426.3,
+   "bonus": 44.2,
+   "cup_n": 0
+  },
+  "3751": {
+   "name": "Elche",
+   "league": "esp.1",
+   "elo": 1568.1,
+   "elo_raw": 1491.8,
+   "bonus": 76.4,
+   "cup_n": 0
+  },
+  "4056": {
+   "name": "",
+   "league": null,
+   "elo": 1471.5,
+   "elo_raw": 1428.8,
+   "bonus": 42.7,
+   "cup_n": 0
+  },
+  "4059": {
+   "name": "",
+   "league": null,
+   "elo": 1481.7,
+   "elo_raw": 1454.4,
+   "bonus": 27.4,
+   "cup_n": 0
+  },
+  "617": {
+   "name": "Omonia Nicosia",
+   "league": "cyp.1",
+   "elo": 1556.5,
+   "elo_raw": 1624.0,
+   "bonus": -67.5,
+   "cup_n": 19
+  },
+  "2988": {
+   "name": "",
+   "league": null,
+   "elo": 1498.2,
+   "elo_raw": 1495.7,
+   "bonus": 2.5,
+   "cup_n": 5
+  },
+  "594": {
+   "name": "",
+   "league": null,
+   "elo": 1476.7,
+   "elo_raw": 1442.5,
+   "bonus": 34.1,
+   "cup_n": 2
+  },
+  "3017": {
+   "name": "Halmstads BK",
+   "league": "swe.1",
+   "elo": 1521.1,
+   "elo_raw": 1477.3,
+   "bonus": 43.8,
+   "cup_n": 0
+  },
+  "20856": {
+   "name": "Degerfors IF",
+   "league": "swe.1",
+   "elo": 1508.3,
+   "elo_raw": 1445.2,
+   "bonus": 63.1,
+   "cup_n": 0
+  },
+  "20985": {
+   "name": "",
+   "league": null,
+   "elo": 1474.5,
+   "elo_raw": 1436.3,
+   "bonus": 38.2,
+   "cup_n": 0
+  },
+  "6731": {
+   "name": "FC Farul Constanta",
+   "league": "rou.1",
+   "elo": 1537.9,
+   "elo_raw": 1546.4,
+   "bonus": -8.5,
+   "cup_n": 0
+  },
+  "545": {
+   "name": "Rapid Bucuresti",
+   "league": "rou.1",
+   "elo": 1562.1,
+   "elo_raw": 1607.0,
+   "bonus": -44.9,
+   "cup_n": 0
+  },
+  "20706": {
+   "name": "",
+   "league": null,
+   "elo": 1452.7,
+   "elo_raw": 1381.6,
+   "bonus": 71.0,
+   "cup_n": 0
+  },
+  "20946": {
+   "name": "",
+   "league": null,
+   "elo": 1432.7,
+   "elo_raw": 1331.9,
+   "bonus": 100.9,
+   "cup_n": 0
+  },
+  "20966": {
+   "name": "",
+   "league": null,
+   "elo": 1454.8,
+   "elo_raw": 1387.0,
+   "bonus": 67.8,
+   "cup_n": 0
+  },
+  "20995": {
+   "name": "",
+   "league": null,
+   "elo": 1469.6,
+   "elo_raw": 1424.1,
+   "bonus": 45.5,
+   "cup_n": 0
+  },
+  "15784": {
+   "name": "Arouca",
+   "league": "por.1",
+   "elo": 1525.0,
+   "elo_raw": 1496.3,
+   "bonus": 28.7,
+   "cup_n": 0
+  },
+  "12216": {
+   "name": "Estoril",
+   "league": "por.1",
+   "elo": 1519.6,
+   "elo_raw": 1482.7,
+   "bonus": 36.9,
+   "cup_n": 0
+  },
+  "346": {
+   "name": "",
+   "league": null,
+   "elo": 1466.5,
+   "elo_raw": 1416.2,
+   "bonus": 50.3,
+   "cup_n": 0
+  },
+  "3706": {
+   "name": "Go Ahead Eagles",
+   "league": "ned.1",
+   "elo": 1510.2,
+   "elo_raw": 1482.6,
+   "bonus": 27.6,
+   "cup_n": 2
+  },
+  "342": {
+   "name": "",
+   "league": null,
+   "elo": 1464.3,
+   "elo_raw": 1410.7,
+   "bonus": 53.6,
+   "cup_n": 0
+  },
+  "3070": {
+   "name": "",
+   "league": null,
+   "elo": 1474.9,
+   "elo_raw": 1437.1,
+   "bonus": 37.7,
+   "cup_n": 0
+  },
+  "147": {
+   "name": "NEC Nijmegen",
+   "league": "ned.1",
+   "elo": 1554.5,
+   "elo_raw": 1592.8,
+   "bonus": -38.2,
+   "cup_n": 0
+  },
+  "3736": {
+   "name": "SC Cambuur",
+   "league": "ned.1",
+   "elo": 1468.1,
+   "elo_raw": 1376.6,
+   "bonus": 91.5,
+   "cup_n": 0
+  },
+  "3171": {
+   "name": "",
+   "league": null,
+   "elo": 1484.9,
+   "elo_raw": 1462.3,
+   "bonus": 22.6,
+   "cup_n": 0
+  },
+  "20765": {
+   "name": "",
+   "league": null,
+   "elo": 1449.2,
+   "elo_raw": 1373.0,
+   "bonus": 76.2,
+   "cup_n": 0
+  },
+  "21031": {
+   "name": "",
+   "league": null,
+   "elo": 1489.0,
+   "elo_raw": 1472.6,
+   "bonus": 16.5,
+   "cup_n": 0
+  },
+  "121": {
+   "name": "",
+   "league": null,
+   "elo": 1474.7,
+   "elo_raw": 1436.8,
+   "bonus": 37.9,
+   "cup_n": 0
+  },
+  "3789": {
+   "name": "",
+   "league": null,
+   "elo": 1484.1,
+   "elo_raw": 1460.1,
+   "bonus": 23.9,
+   "cup_n": 0
+  },
+  "3240": {
+   "name": "",
+   "league": null,
+   "elo": 1464.7,
+   "elo_raw": 1411.9,
+   "bonus": 52.9,
+   "cup_n": 0
+  },
+  "17530": {
+   "name": "Venezia",
+   "league": "ita.1",
+   "elo": 1532.0,
+   "elo_raw": 1432.2,
+   "bonus": 99.8,
+   "cup_n": 0
+  },
+  "20969": {
+   "name": "",
+   "league": null,
+   "elo": 1467.2,
+   "elo_raw": 1418.1,
+   "bonus": 49.2,
+   "cup_n": 0
+  },
+  "20970": {
+   "name": "Hapoel Jerusalem",
+   "league": "isr.1",
+   "elo": 1519.8,
+   "elo_raw": 1518.1,
+   "bonus": 1.7,
+   "cup_n": 0
+  },
+  "614": {
+   "name": "",
+   "league": null,
+   "elo": 1514.3,
+   "elo_raw": 1533.4,
+   "bonus": -19.1,
+   "cup_n": 10
+  },
+  "12146": {
+   "name": "",
+   "league": null,
+   "elo": 1479.4,
+   "elo_raw": 1449.3,
+   "bonus": 30.1,
+   "cup_n": 2
+  },
+  "10834": {
+   "name": "CSKA Sofia",
+   "league": null,
+   "elo": 1456.1,
+   "elo_raw": 1394.8,
+   "bonus": 61.3,
+   "cup_n": 6
+  },
+  "2550": {
+   "name": "Anorthosis",
+   "league": "cyp.1",
+   "elo": 1504.7,
+   "elo_raw": 1510.2,
+   "bonus": -5.5,
+   "cup_n": 2
+  },
+  "10414": {
+   "name": "",
+   "league": null,
+   "elo": 1492.6,
+   "elo_raw": 1483.1,
+   "bonus": 9.5,
+   "cup_n": 14
+  },
+  "17520": {
+   "name": "",
+   "league": null,
+   "elo": 1517.9,
+   "elo_raw": 1543.5,
+   "bonus": -25.6,
+   "cup_n": 4
+  },
+  "21093": {
+   "name": "",
+   "league": null,
+   "elo": 1472.2,
+   "elo_raw": 1430.4,
+   "bonus": 41.8,
+   "cup_n": 0
+  },
+  "21380": {
+   "name": "Hamarkameratene",
+   "league": "nor.1",
+   "elo": 1505.5,
+   "elo_raw": 1474.8,
+   "bonus": 30.7,
+   "cup_n": 0
+  },
+  "21382": {
+   "name": "",
+   "league": null,
+   "elo": 1474.6,
+   "elo_raw": 1436.4,
+   "bonus": 38.1,
+   "cup_n": 0
+  },
+  "18125": {
+   "name": "",
+   "league": null,
+   "elo": 1467.0,
+   "elo_raw": 1417.5,
+   "bonus": 49.5,
+   "cup_n": 0
+  },
+  "20996": {
+   "name": "Winterthur",
+   "league": "sui.1",
+   "elo": 1458.1,
+   "elo_raw": 1407.2,
+   "bonus": 50.9,
+   "cup_n": 0
+  },
+  "12603": {
+   "name": "Petrolul Ploiesti",
+   "league": "rou.1",
+   "elo": 1504.1,
+   "elo_raw": 1462.0,
+   "bonus": 42.1,
+   "cup_n": 0
+  },
+  "21540": {
+   "name": "Austria Lustenau",
+   "league": "aut.1",
+   "elo": 1458.7,
+   "elo_raw": 1406.7,
+   "bonus": 52.0,
+   "cup_n": 0
+  },
+  "8841": {
+   "name": "",
+   "league": null,
+   "elo": 1446.9,
+   "elo_raw": 1367.2,
+   "bonus": 79.7,
+   "cup_n": 0
+  },
+  "2503": {
+   "name": "",
+   "league": null,
+   "elo": 1473.9,
+   "elo_raw": 1434.7,
+   "bonus": 39.2,
+   "cup_n": 0
+  },
+  "366": {
+   "name": "Sunderland",
+   "league": "eng.1",
+   "elo": 1681.3,
+   "elo_raw": 1633.3,
+   "bonus": 48.0,
+   "cup_n": 0
+  },
+  "2727": {
+   "name": "",
+   "league": null,
+   "elo": 1449.4,
+   "elo_raw": 1373.4,
+   "bonus": 76.0,
+   "cup_n": 0
+  },
+  "172": {
+   "name": "AJ Auxerre",
+   "league": "fra.1",
+   "elo": 1571.3,
+   "elo_raw": 1522.5,
+   "bonus": 48.8,
+   "cup_n": 0
+  },
+  "21581": {
+   "name": "Casa Pia",
+   "league": "por.1",
+   "elo": 1500.9,
+   "elo_raw": 1436.0,
+   "bonus": 64.9,
+   "cup_n": 0
+  },
+  "20041": {
+   "name": "",
+   "league": null,
+   "elo": 1490.1,
+   "elo_raw": 1475.2,
+   "bonus": 14.9,
+   "cup_n": 0
+  },
+  "4007": {
+   "name": "Monza",
+   "league": "ita.1",
+   "elo": 1526.2,
+   "elo_raw": 1417.6,
+   "bonus": 108.6,
+   "cup_n": 0
+  },
+  "4050": {
+   "name": "",
+   "league": null,
+   "elo": 1478.7,
+   "elo_raw": 1446.7,
+   "bonus": 32.0,
+   "cup_n": 0
+  },
+  "6832": {
+   "name": "",
+   "league": null,
+   "elo": 1465.6,
+   "elo_raw": 1414.0,
+   "bonus": 51.6,
+   "cup_n": 0
+  },
+  "21517": {
+   "name": "Maccabi Raina",
+   "league": "isr.1",
+   "elo": 1498.0,
+   "elo_raw": 1463.6,
+   "bonus": 34.4,
+   "cup_n": 0
+  },
+  "2564": {
+   "name": "",
+   "league": null,
+   "elo": 1512.2,
+   "elo_raw": 1529.9,
+   "bonus": -17.7,
+   "cup_n": 3
+  },
+  "12030": {
+   "name": "",
+   "league": null,
+   "elo": 1476.7,
+   "elo_raw": 1443.0,
+   "bonus": 33.7,
+   "cup_n": 3
+  },
+  "2942": {
+   "name": "Otelul Galati",
+   "league": "rou.1",
+   "elo": 1526.8,
+   "elo_raw": 1518.6,
+   "bonus": 8.2,
+   "cup_n": 0
+  },
+  "21933": {
+   "name": "",
+   "league": null,
+   "elo": 1465.9,
+   "elo_raw": 1414.7,
+   "bonus": 51.2,
+   "cup_n": 0
+  },
+  "21538": {
+   "name": "",
+   "league": null,
+   "elo": 1472.0,
+   "elo_raw": 1429.9,
+   "bonus": 42.1,
+   "cup_n": 0
+  },
+  "21926": {
+   "name": "",
+   "league": null,
+   "elo": 1460.6,
+   "elo_raw": 1401.5,
+   "bonus": 59.1,
+   "cup_n": 0
+  },
+  "21950": {
+   "name": "",
+   "league": null,
+   "elo": 1465.1,
+   "elo_raw": 1412.7,
+   "bonus": 52.4,
+   "cup_n": 0
+  },
+  "20981": {
+   "name": "",
+   "league": null,
+   "elo": 1467.3,
+   "elo_raw": 1418.4,
+   "bonus": 49.0,
+   "cup_n": 0
+  },
+  "307": {
+   "name": "",
+   "league": null,
+   "elo": 1463.2,
+   "elo_raw": 1408.0,
+   "bonus": 55.2,
+   "cup_n": 0
+  },
+  "3236": {
+   "name": "Le Havre AC",
+   "league": "fra.1",
+   "elo": 1561.0,
+   "elo_raw": 1496.6,
+   "bonus": 64.3,
+   "cup_n": 0
+  },
+  "5291": {
+   "name": "",
+   "league": null,
+   "elo": 1473.0,
+   "elo_raw": 1432.6,
+   "bonus": 40.4,
+   "cup_n": 0
+  },
+  "11429": {
+   "name": "Samsunspor",
+   "league": "tur.1",
+   "elo": 1537.2,
+   "elo_raw": 1549.6,
+   "bonus": -12.4,
+   "cup_n": 0
+  },
+  "21610": {
+   "name": "Estrela",
+   "league": "por.1",
+   "elo": 1489.9,
+   "elo_raw": 1408.5,
+   "bonus": 81.4,
+   "cup_n": 0
+  },
+  "98": {
+   "name": "",
+   "league": null,
+   "elo": 1493.8,
+   "elo_raw": 1484.5,
+   "bonus": 9.3,
+   "cup_n": 0
+  },
+  "3812": {
+   "name": "",
+   "league": null,
+   "elo": 1478.0,
+   "elo_raw": 1445.1,
+   "bonus": 33.0,
+   "cup_n": 0
+  },
+  "21969": {
+   "name": "Kifisia",
+   "league": "gre.1",
+   "elo": 1475.2,
+   "elo_raw": 1413.7,
+   "bonus": 61.5,
+   "cup_n": 0
+  },
+  "9104": {
+   "name": "",
+   "league": null,
+   "elo": 1486.0,
+   "elo_raw": 1464.9,
+   "bonus": 21.1,
+   "cup_n": 0
+  },
+  "21970": {
+   "name": "",
+   "league": null,
+   "elo": 1436.0,
+   "elo_raw": 1340.1,
+   "bonus": 95.9,
+   "cup_n": 0
+  },
+  "6418": {
+   "name": "",
+   "league": null,
+   "elo": 1500.2,
+   "elo_raw": 1500.4,
+   "bonus": -0.2,
+   "cup_n": 4
+  },
+  "21941": {
+   "name": "",
+   "league": null,
+   "elo": 1465.7,
+   "elo_raw": 1414.3,
+   "bonus": 51.4,
+   "cup_n": 0
+  },
+  "21530": {
+   "name": "Aris Limassol",
+   "league": "cyp.1",
+   "elo": 1495.7,
+   "elo_raw": 1488.1,
+   "bonus": 7.6,
+   "cup_n": 2
+  },
+  "20713": {
+   "name": "",
+   "league": null,
+   "elo": 1498.5,
+   "elo_raw": 1496.3,
+   "bonus": 2.2,
+   "cup_n": 4
+  },
+  "21005": {
+   "name": "",
+   "league": null,
+   "elo": 1531.9,
+   "elo_raw": 1578.0,
+   "bonus": -46.1,
+   "cup_n": 3
+  },
+  "8250": {
+   "name": "",
+   "league": null,
+   "elo": 1485.6,
+   "elo_raw": 1464.7,
+   "bonus": 20.8,
+   "cup_n": 3
+  },
+  "8222": {
+   "name": "GAIS",
+   "league": "swe.1",
+   "elo": 1568.5,
+   "elo_raw": 1595.8,
+   "bonus": -27.3,
+   "cup_n": 0
+  },
+  "3039": {
+   "name": "Fredrikstad",
+   "league": "nor.1",
+   "elo": 1532.0,
+   "elo_raw": 1541.1,
+   "bonus": -9.1,
+   "cup_n": 0
+  },
+  "22163": {
+   "name": "Västerås SK",
+   "league": "swe.1",
+   "elo": 1504.3,
+   "elo_raw": 1435.4,
+   "bonus": 68.9,
+   "cup_n": 0
+  },
+  "22165": {
+   "name": "KFUM Oslo",
+   "league": "nor.1",
+   "elo": 1509.9,
+   "elo_raw": 1485.8,
+   "bonus": 24.1,
+   "cup_n": 0
+  },
+  "22314": {
+   "name": "Unirea Slobozia",
+   "league": "rou.1",
+   "elo": 1520.0,
+   "elo_raw": 1501.7,
+   "bonus": 18.3,
+   "cup_n": 0
+  },
+  "21925": {
+   "name": "",
+   "league": null,
+   "elo": 1458.2,
+   "elo_raw": 1395.5,
+   "bonus": 62.7,
+   "cup_n": 0
+  },
+  "7878": {
+   "name": "",
+   "league": null,
+   "elo": 1461.5,
+   "elo_raw": 1403.8,
+   "bonus": 57.7,
+   "cup_n": 0
+  },
+  "21846": {
+   "name": "Grazer AK",
+   "league": "aut.1",
+   "elo": 1476.6,
+   "elo_raw": 1451.3,
+   "bonus": 25.3,
+   "cup_n": 0
+  },
+  "311": {
+   "name": "",
+   "league": null,
+   "elo": 1454.0,
+   "elo_raw": 1385.0,
+   "bonus": 69.0,
+   "cup_n": 0
+  },
+  "385": {
+   "name": "Portsmouth",
+   "league": "eng.2",
+   "elo": 1454.6,
+   "elo_raw": 1440.8,
+   "bonus": 13.8,
+   "cup_n": 0
+  },
+  "22064": {
+   "name": "",
+   "league": null,
+   "elo": 1457.8,
+   "elo_raw": 1394.4,
+   "bonus": 63.3,
+   "cup_n": 0
+  },
+  "20729": {
+   "name": "Eyupspor",
+   "league": "tur.1",
+   "elo": 1503.3,
+   "elo_raw": 1464.8,
+   "bonus": 38.5,
+   "cup_n": 0
+  },
+  "22321": {
+   "name": "",
+   "league": null,
+   "elo": 1478.6,
+   "elo_raw": 1446.5,
+   "bonus": 32.1,
+   "cup_n": 0
+  },
+  "22325": {
+   "name": "",
+   "league": null,
+   "elo": 1474.5,
+   "elo_raw": 1436.2,
+   "bonus": 38.3,
+   "cup_n": 0
+  },
+  "2572": {
+   "name": "Como",
+   "league": "ita.1",
+   "elo": 1630.2,
+   "elo_raw": 1677.7,
+   "bonus": -47.5,
+   "cup_n": 0
+  },
+  "7884": {
+   "name": "",
+   "league": null,
+   "elo": 1494.5,
+   "elo_raw": 1486.3,
+   "bonus": 8.2,
+   "cup_n": 0
+  },
+  "22311": {
+   "name": "Ironi Tiberias",
+   "league": "isr.1",
+   "elo": 1499.5,
+   "elo_raw": 1467.4,
+   "bonus": 32.1,
+   "cup_n": 0
+  },
+  "270": {
+   "name": "",
+   "league": null,
+   "elo": 1491.3,
+   "elo_raw": 1478.3,
+   "bonus": 13.0,
+   "cup_n": 0
+  },
+  "2539": {
+   "name": "",
+   "league": null,
+   "elo": 1468.3,
+   "elo_raw": 1422.5,
+   "bonus": 45.8,
+   "cup_n": 3
+  },
+  "20710": {
+   "name": "Borac Banja Luka",
+   "league": null,
+   "elo": 1494.1,
+   "elo_raw": 1486.2,
+   "bonus": 7.9,
+   "cup_n": 10
+  },
+  "502": {
+   "name": "",
+   "league": null,
+   "elo": 1476.0,
+   "elo_raw": 1441.0,
+   "bonus": 35.1,
+   "cup_n": 2
+  },
+  "19250": {
+   "name": "",
+   "league": null,
+   "elo": 1480.8,
+   "elo_raw": 1452.8,
+   "bonus": 28.0,
+   "cup_n": 2
+  },
+  "22281": {
+   "name": "Pafos",
+   "league": "cyp.1",
+   "elo": 1549.1,
+   "elo_raw": 1611.3,
+   "bonus": -62.2,
+   "cup_n": 13
+  },
+  "6758": {
+   "name": "",
+   "league": null,
+   "elo": 1490.2,
+   "elo_raw": 1475.7,
+   "bonus": 14.5,
+   "cup_n": 1
+  },
+  "8249": {
+   "name": "",
+   "league": null,
+   "elo": 1520.7,
+   "elo_raw": 1550.5,
+   "bonus": -29.9,
+   "cup_n": 3
+  },
+  "555": {
+   "name": "",
+   "league": null,
+   "elo": 1503.7,
+   "elo_raw": 1509.1,
+   "bonus": -5.4,
+   "cup_n": 2
+  },
+  "3362": {
+   "name": "NK Celje",
+   "league": null,
+   "elo": 1489.9,
+   "elo_raw": 1475.3,
+   "bonus": 14.6,
+   "cup_n": 3
+  },
+  "576": {
+   "name": "",
+   "league": null,
+   "elo": 1488.0,
+   "elo_raw": 1470.2,
+   "bonus": 17.8,
+   "cup_n": 1
+  },
+  "20039": {
+   "name": "",
+   "league": null,
+   "elo": 1517.5,
+   "elo_raw": 1543.5,
+   "bonus": -26.0,
+   "cup_n": 1
+  },
+  "500": {
+   "name": "",
+   "league": null,
+   "elo": 1487.6,
+   "elo_raw": 1469.4,
+   "bonus": 18.2,
+   "cup_n": 2
+  },
+  "22530": {
+   "name": "",
+   "league": null,
+   "elo": 1478.4,
+   "elo_raw": 1446.1,
+   "bonus": 32.3,
+   "cup_n": 0
+  },
+  "2936": {
+   "name": "",
+   "league": null,
+   "elo": 1486.1,
+   "elo_raw": 1465.2,
+   "bonus": 20.9,
+   "cup_n": 0
+  },
+  "130880": {
+   "name": "Metaloglobus",
+   "league": "rou.1",
+   "elo": 1496.4,
+   "elo_raw": 1442.8,
+   "bonus": 53.6,
+   "cup_n": 0
+  },
+  "21032": {
+   "name": "Csíkszereda",
+   "league": "rou.1",
+   "elo": 1503.7,
+   "elo_raw": 1461.0,
+   "bonus": 42.7,
+   "cup_n": 0
+  },
+  "130912": {
+   "name": "",
+   "league": null,
+   "elo": 1488.3,
+   "elo_raw": 1470.7,
+   "bonus": 17.6,
+   "cup_n": 0
+  },
+  "131235": {
+   "name": "RAAL La Louvière",
+   "league": "bel.1",
+   "elo": 1500.0,
+   "elo_raw": 1450.7,
+   "bonus": 49.3,
+   "cup_n": 0
+  },
+  "254": {
+   "name": "Falkirk",
+   "league": "sco.1",
+   "elo": 1468.3,
+   "elo_raw": 1460.0,
+   "bonus": 8.3,
+   "cup_n": 0
+  },
+  "352": {
+   "name": "Wrexham",
+   "league": "eng.2",
+   "elo": 1478.8,
+   "elo_raw": 1501.4,
+   "bonus": -22.5,
+   "cup_n": 0
+  },
+  "3735": {
+   "name": "Telstar",
+   "league": "ned.1",
+   "elo": 1516.3,
+   "elo_raw": 1497.2,
+   "bonus": 19.1,
+   "cup_n": 0
+  },
+  "21613": {
+   "name": "Alverca",
+   "league": "por.1",
+   "elo": 1520.3,
+   "elo_raw": 1484.4,
+   "bonus": 35.9,
+   "cup_n": 0
+  },
+  "995": {
+   "name": "Kocaelispor",
+   "league": "tur.1",
+   "elo": 1502.8,
+   "elo_raw": 1463.5,
+   "bonus": 39.3,
+   "cup_n": 0
+  },
+  "92": {
+   "name": "",
+   "league": null,
+   "elo": 1485.6,
+   "elo_raw": 1464.0,
+   "bonus": 21.6,
+   "cup_n": 0
+  },
+  "8357": {
+   "name": "AEL",
+   "league": "cyp.1",
+   "elo": 1490.8,
+   "elo_raw": 1475.7,
+   "bonus": 15.1,
+   "cup_n": 0
+  },
+  "550": {
+   "name": "Olympiakos Nicosia",
+   "league": "cyp.1",
+   "elo": 1490.9,
+   "elo_raw": 1475.9,
+   "bonus": 15.0,
+   "cup_n": 0
+  },
+  "131459": {
+   "name": "Omonia Aradippou",
+   "league": "cyp.1",
+   "elo": 1490.5,
+   "elo_raw": 1475.0,
+   "bonus": 15.5,
+   "cup_n": 0
+  },
+  "127": {
+   "name": "Hamburg SV",
+   "league": "ger.1",
+   "elo": 1587.3,
+   "elo_raw": 1533.3,
+   "bonus": 53.9,
+   "cup_n": 0
+  },
+  "4045": {
+   "name": "Ethnikos Achnas",
+   "league": "cyp.1",
+   "elo": 1472.3,
+   "elo_raw": 1429.5,
+   "bonus": 42.8,
+   "cup_n": 0
+  },
+  "131460": {
+   "name": "Akritas Chlorakas",
+   "league": "cyp.1",
+   "elo": 1473.6,
+   "elo_raw": 1432.6,
+   "bonus": 41.0,
+   "cup_n": 0
+  },
+  "131456": {
+   "name": "Krasava",
+   "league": "cyp.1",
+   "elo": 1491.7,
+   "elo_raw": 1477.9,
+   "bonus": 13.8,
+   "cup_n": 0
+  },
+  "3956": {
+   "name": "",
+   "league": null,
+   "elo": 1467.2,
+   "elo_raw": 1418.0,
+   "bonus": 49.2,
+   "cup_n": 0
+  },
+  "131461": {
+   "name": "Enosis Neon Paralimni",
+   "league": "cyp.1",
+   "elo": 1422.6,
+   "elo_raw": 1305.1,
+   "bonus": 117.4,
+   "cup_n": 0
+  },
+  "8169": {
+   "name": "KuPS Kuopio",
+   "league": null,
+   "elo": 1466.5,
+   "elo_raw": 1420.8,
+   "bonus": 45.7,
+   "cup_n": 8
+  },
+  "19243": {
+   "name": "",
+   "league": null,
+   "elo": 1500.0,
+   "elo_raw": 1500.0,
+   "bonus": 0.0,
+   "cup_n": 1
+  },
+  "5239": {
+   "name": "",
+   "league": null,
+   "elo": 1510.2,
+   "elo_raw": 1525.4,
+   "bonus": -15.2,
+   "cup_n": 1
+  },
+  "20712": {
+   "name": "",
+   "league": null,
+   "elo": 1503.6,
+   "elo_raw": 1509.0,
+   "bonus": -5.4,
+   "cup_n": 1
+  },
+  "7858": {
+   "name": "",
+   "league": null,
+   "elo": 1509.7,
+   "elo_raw": 1524.2,
+   "bonus": -14.4,
+   "cup_n": 1
+  },
+  "609": {
+   "name": "",
+   "league": null,
+   "elo": 1481.3,
+   "elo_raw": 1453.5,
+   "bonus": 27.7,
+   "cup_n": 1
+  }
+ }
+}

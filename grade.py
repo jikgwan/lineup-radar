@@ -805,9 +805,10 @@ def bullpen_fatigue(pitches_3d):
     return max(0.0, min(0.15, (pitches_3d - 420) / 1000.0))
 
 
-def baseball_power(home, away, home_name, away_name, rpg=None):
+def baseball_power(home, away, home_name, away_name, rpg=None, league=None, model=None):
     """야구 오늘 전력: 예상 득점과 비율. home/away = {"off_rpg", "sp", "pen_era", "pen_3d", "core_in", "size"}
-    rpg: 리그 평균 경기당 득점 (MLB 약 4.4, KBO 약 5)"""
+    rpg: 리그 평균 경기당 득점 (MLB 약 4.4, KBO 약 5)
+    league: "KBO"·"MLB" — 피타고리안 과대분산을 리그별로 줄여 '실제 승률'을 따로 담는다"""
     rpg = rpg or MLB_RPG
 
     def allowed(t):
@@ -833,7 +834,94 @@ def baseball_power(home, away, home_name, away_name, rpg=None):
                 "exp_home": round(exp_h, 1), "exp_away": round(exp_a, 1), "exp_total": round(exp_h + exp_a, 1),
                 "allowed_home": round(allowed(home), 2), "allowed_away": round(allowed(away), 2)})
     out["note"] = ""       # 축구식 '2군이지만…' 문구는 야구에 맞지 않아 뺀다
+    out["win_home"] = baseball_win_prob(exp_h, exp_a, league, model)
     return out
+
+
+def _sigmoid(z):
+    return 1.0 / (1.0 + math.exp(-max(-30.0, min(30.0, z))))
+
+
+def baseball_win_prob(exp_h, exp_a, league=None, model=None):
+    """피타고리안 기대승률은 실제보다 분산이 2배쯤 과장된다(실측 계수 MLB 0.49·KBO 0.44).
+    로짓을 그 계수만큼 줄이고 리그별 홈 이점을 더해 '그대로 믿어도 되는 승률'로 바꾼다."""
+    if not (exp_h and exp_a) or exp_h <= 0 or exp_a <= 0:
+        return None
+    c = ((model or {}).get("win_calib") or {}).get("야구") or {}
+    lams, bias = c.get("lam") or {}, c.get("bias") or {}
+    lam = lams.get(league, lams.get("_default", 0.47))
+    b = bias.get(league, bias.get("_default", 0.09))
+    p = exp_h ** PYTH_EXP / (exp_h ** PYTH_EXP + exp_a ** PYTH_EXP)
+    p = min(1 - 1e-6, max(1e-6, p))
+    return round(_sigmoid(lam * math.log(p / (1 - p)) + b), 4)
+
+
+# ---------------------------------------------------------------- 농구 전력
+
+def basketball_power(model, h, a, home_name, away_name, teams=None):
+    """농구 전력: 경기당 득실차 + Elo → 승률. (농구는 무승부가 없어 비율이 곧 승률이다)
+    h, a = {"gd": 경기당 득실차, "elo": Elo}. 최근 2시즌 2,152경기로 적합, 홀드아웃 13.9% 개선."""
+    c = ((model or {}).get("win_calib") or {}).get("농구") or {}
+    if h is None or a is None:
+        return None
+    z = (c.get("pd", 0.0666) * ((h.get("gd") or 0.0) - (a.get("gd") or 0.0))
+         + c.get("elo100", 0.2365) * (((h.get("elo") or 1500.0) - (a.get("elo") or 1500.0)) / 100.0)
+         + c.get("bias", 0.2117))
+    p = _sigmoid(z)
+    share = max(1, min(99, round(100 * p)))
+    gap = share - 50
+    fav = "home" if gap > 0 else "away"
+    fname = home_name if fav == "home" else away_name
+    verdict = "비슷한 전력" if abs(gap) < 5 else f"{fname} {'근소 ' if abs(gap) < 10 else ''}우위"
+    return {"home": share, "away": 100 - share, "verdict": verdict, "fav": fav if abs(gap) >= 5 else None,
+            "note": "", "mode": "nba", "league_adjusted": False, "win_home": round(p, 4),
+            "basis": {"gd": [round(h.get("gd") or 0.0, 2), round(a.get("gd") or 0.0, 2)],
+                      "elo": [round(h.get("elo") or 1500.0), round(a.get("elo") or 1500.0)]}}
+
+
+# ---------------------------------------------------------------- 승률 · 뒤집힐 확률
+
+FLIP_GRADES = [[0.55, "초접전"], [0.62, "약우세"], [0.72, "우세"], [1.01, "강력우세"]]
+
+
+def win_probs(power):
+    """전력 → [홈 승, 무, 원정 승] 실제 확률. 못 내면 None.
+    축구 모델은 이미 순서형 로지스틱 확률을 갖고 있고, 농구·야구는 win_home을 담아 둔다."""
+    if not power:
+        return None
+    pr = power.get("probs")
+    if pr and len(pr) == 3:
+        return [round(pr[2], 4), round(pr[1], 4), round(pr[0], 4)]     # probs = [원정, 무, 홈]
+    p = power.get("win_home")
+    if p is None:
+        return None
+    return [round(p, 4), 0.0, round(1 - p, 4)]
+
+
+def win_grade(wp, model=None):
+    """[홈, 무, 원정] → 등급과 '뒤집힐 확률'(가장 유력한 쪽이 안 될 확률, 무승부 포함)."""
+    if not wp:
+        return None
+    top = max(wp[0], wp[2])
+    for cut, name in ((model or {}).get("flip_grades") or FLIP_GRADES):
+        if top < cut:
+            label = name
+            break
+    else:
+        label = FLIP_GRADES[-1][1]
+    return {"label": label, "flip": round(1 - top, 4), "top": round(top, 4),
+            "fav": "home" if wp[0] >= wp[2] else "away", "draw": round(wp[1], 4)}
+
+
+def attach_win(power, model=None):
+    """power에 win(확률 3칸)과 grade(등급·뒤집힐 확률)를 붙인다. 못 내면 그대로 둔다."""
+    if not power:
+        return power
+    wp = win_probs(power)
+    if wp:
+        power["win"] = wp
+        power["grade_win"] = win_grade(wp, model)
+    return power
 
 
 # ---------------------------------------------------------------- 경기 맥락: 로테이션 성적 · 비슷한 라인업 · 득실 흐름
@@ -1037,6 +1125,20 @@ def model_probs(model, league, h, a):
     return [s1, s2 - s1, 1 - s2]
 
 
+def cup_probs(model, h, a):
+    """챔스·유로파 전용 확률 [원정 승, 무, 홈 승]. 대항전 601경기로 직접 학습했다.
+    리그 경기로 배운 model_probs를 대항전에 그대로 쓰면 결과가 50:50 쪽으로 눌려
+    지나치게 소심해진다 (검증에서 67%라던 경기가 실제 82% 적중 · 적중률 56.2% → 62.1%)."""
+    c = (model or {}).get("cup_model")
+    if not c or not c.get("beta"):
+        return None
+    x = [((h.get("elo") or 1500.0) - (a.get("elo") or 1500.0)) / 100.0,
+         (h.get("gd") or 0.0) - (a.get("gd") or 0.0)]
+    eta = sum(b * v for b, v in zip(c["beta"], x))
+    s1, s2 = _sg(c["cut1"] - eta), _sg(c["cut2"] - eta)
+    return [s1, s2 - s1, 1 - s2]
+
+
 def model_goals(model, league, h, a):
     """예상 골 (양 팀 득점·실점 기록 × 리그 평균)"""
     gp = (model.get("goals") or {})
@@ -1047,9 +1149,11 @@ def model_goals(model, league, h, a):
     return g["mh"] * att(h) * dfn(a), g["ma"] * att(a) * dfn(h)
 
 
-def model_power(model, league, h, a, home_name, away_name, teams=None):
-    """전력 비교(A안): 기대 승점 비율 64 vs 36. 확률은 계산에만 쓰고 화면엔 비율로."""
-    p = model_probs(model, league, h, a)
+def model_power(model, league, h, a, home_name, away_name, teams=None, cup=False):
+    """전력 비교(A안): 기대 승점 비율 64 vs 36. 확률은 계산에만 쓰고 화면엔 비율로.
+    cup=True면 챔스·유로파 전용 모델을 쓴다 (리그 모델은 대항전에서 소심해진다)."""
+    p = (cup_probs(model, h, a) if cup else None) or model_probs(model, league, h, a)
+    which = "cup" if (cup and cup_probs(model, h, a)) else "league"
     share = max(1, min(99, round(100 * (p[2] + 0.5 * p[1]))))
     gap = share - 50
     fav = "home" if gap > 0 else "away"
@@ -1066,7 +1170,7 @@ def model_power(model, league, h, a, home_name, away_name, teams=None):
     offs = model.get("league_home") or {}
     edge = offs.get(league)
     return {"home": share, "away": 100 - share, "verdict": verdict, "fav": fav if abs(gap) >= 5 else None, "note": note,
-            "mode": "model", "probs": [round(x, 4) for x in p], "confident": max(p) >= 0.65,
+            "mode": "model", "probs": [round(x, 4) for x in p], "confident": max(p) >= 0.65, "model_used": which,
             "pick": ("away", "draw", "home")[max(range(3), key=lambda i: p[i])],
             "exp_goals": round(lh + la, 2), "exp_home": round(lh, 2), "exp_away": round(la, 2),
             "basis": {"gd": [round(h["gd"], 2), round(a["gd"], 2)], "elo": [round(h["elo"]), round(a["elo"])],
@@ -1074,9 +1178,20 @@ def model_power(model, league, h, a, home_name, away_name, teams=None):
             "league_over": LEAGUE_OVER.get(league)}
 
 
-def elo_table(matches, k=20, home=60, regress=1 / 3):
-    """matches: [(날짜, 시즌, 홈 id, 원정 id, 홈 골, 원정 골)] → {팀: Elo}. 시즌이 바뀌면 평균 쪽으로 당김."""
-    elo, season = {}, None
+def goal_mult(hg, ag, goal):
+    """골 차이 배수 (월드 풋볼 Elo 방식). goal=0이면 1 고정 = 승·무·패만 본다."""
+    if goal <= 0:
+        return 1.0
+    d = abs(hg - ag)
+    g = 1.0 if d <= 1 else 1.5 if d == 2 else 1.75 + (d - 3) / 8.0
+    return 1.0 + goal * (g - 1.0)
+
+
+def elo_table(matches, k=20, home=60, regress=1 / 3, start=None, goal=0.0):
+    """matches: [(날짜, 시즌, 홈 id, 원정 id, 홈 골, 원정 골)] → {팀: Elo}. 시즌이 바뀌면 평균 쪽으로 당김.
+    start를 주면 그 점수에서 이어서 계산한다 (백테스트가 만들어 둔 유럽 통합 Elo를 바탕으로 쓸 때).
+    goal은 골 차이를 얼마나 반영할지 — 백테스트가 고른 값을 쓴다."""
+    elo, season = dict(start or {}), None
     for d, s, hid, aid, hg, ag in sorted(matches, key=lambda x: str(x[0])):
         if s != season and season is not None:
             elo = {t: 1500 + (e - 1500) * (1 - regress) for t, e in elo.items()}
@@ -1084,7 +1199,8 @@ def elo_table(matches, k=20, home=60, regress=1 / 3):
         eh, ea = elo.get(hid, 1500.0), elo.get(aid, 1500.0)
         exp = 1 / (1 + 10 ** (-(eh + home - ea) / 400))
         sc = 1.0 if hg > ag else 0.5 if hg == ag else 0.0
-        elo[hid], elo[aid] = eh + k * (sc - exp), ea - k * (sc - exp)
+        step = k * goal_mult(hg, ag, goal) * (sc - exp)
+        elo[hid], elo[aid] = eh + step, ea - step
     return elo
 
 

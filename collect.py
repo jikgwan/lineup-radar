@@ -26,8 +26,9 @@ import requests
 
 from names_ko import _key as team_key
 from names_ko import ko_player, ko_team
-from grade import (ELO_HOME, add_bench, add_context, core_from_history, elo_table, mark_returning, model_power, rotation_risk, add_periods, analyze_lineup, baseball_power, build_signals, compare_elo, compare_power,
-                   enrich, lineup_power, pick_ace, recent_era, strength, summarize, team_leaders)
+from grade import (ELO_HOME, add_bench, add_context, attach_win, basketball_power, core_from_history, elo_table, mark_returning,
+                   model_power, rotation_risk, add_periods, analyze_lineup, baseball_power, build_signals, compare_elo, compare_power,
+                   enrich, lineup_power, pick_ace, recent_era, strength, summarize, team_leaders, win_grade, win_probs)
 from parse import (
     KST,
     elo_for,
@@ -507,20 +508,29 @@ def get_model():
 _ELO_MEMO = {}
 
 
-def _elo_params():
+def _elo_params(sport_root="soccer"):
+    """Elo 눈금은 쓰임새마다 다르다.
+    - soccer     : 리그별 Elo. 예측 모델(beta·zstats)이 이 눈금에 맞춰져 있어 함부로 못 바꾼다.
+    - basketball : 농구 전용 (득실차 모델과 같이 적합)
+    - euro       : 유럽 통합 Elo 전용 (대항전 596경기로 따로 찾은 값)"""
     m = get_model() or {}
     e = m.get("elo") or {}
-    return {"k": e.get("k", 20), "home": e.get("home", 60), "regress": e.get("season_regress", 1 / 3)}
+    if sport_root == "basketball":
+        e = ((m.get("win_calib") or {}).get("농구") or {}).get("elo") or {"k": 32, "home": 100, "season_regress": 0.33}
+    elif sport_root == "euro":
+        e = m.get("euro_elo_rule") or e
+    return {"k": e.get("k", 20), "home": e.get("home", 60), "regress": e.get("season_regress", 1 / 3),
+            "goal": e.get("goal", 0.0)}
 
 
-def _league_events(client, slug, start, must=()):
+def _league_events(client, slug, start, must=(), sport_root="soccer"):
     """한 대회의 이번 시즌 + 지난 시즌 결과 {경기id: (날짜, 시즌, 홈, 원정, 홈골, 원정골)}.
     ESPN 팀 일정은 '그 대회 경기만' 주므로, 대항전 결과는 대항전 슬러그로 따로 받아야 한다."""
     key = ("ev", slug, start.date())
     if key in _ELO_MEMO:
         evs = dict(_ELO_MEMO[key])
     else:
-        teams = client.get_json(f"{ESPN_SITE}/soccer/{slug}/teams", cache_key=f"teams_{slug}", ttl=7 * 86400)
+        teams = client.get_json(f"{ESPN_SITE}/{sport_root}/{slug}/teams", cache_key=f"teams_{slug}", ttl=7 * 86400)
         ids = parse_espn_team_ids(teams or {})
         prev = start.year - 1 if (slug in CALENDAR_LEAGUES or start.month >= 7) else start.year - 2
         evs, done = {}, True
@@ -528,7 +538,7 @@ def _league_events(client, slug, start, must=()):
             if getattr(client, "out_of_time", False):
                 done = False
                 break
-            url = f"{ESPN_SITE}/soccer/{slug}/teams/{tid}/schedule"
+            url = f"{ESPN_SITE}/{sport_root}/{slug}/teams/{tid}/schedule"
             for label, params, ck, ttl in (("c", None, f"sched_{slug}_{tid}", 6 * 3600),
                                            ("p", {"season": prev}, f"schedp_{slug}_{tid}_{prev}", -1)):
                 data = client.get_json(url, params=params, cache_key=ck, ttl=ttl)
@@ -540,25 +550,25 @@ def _league_events(client, slug, start, must=()):
     for tid in must:                              # 목록에 없는 팀(승격팀 등)은 따로 채운다
         if not tid or getattr(client, "out_of_time", False):
             continue
-        data = client.get_json(f"{ESPN_SITE}/soccer/{slug}/teams/{tid}/schedule", cache_key=f"sched_{slug}_{tid}", ttl=6 * 3600)
+        data = client.get_json(f"{ESPN_SITE}/{sport_root}/{slug}/teams/{tid}/schedule", cache_key=f"sched_{slug}_{tid}", ttl=6 * 3600)
         for e in parse_espn_schedule_events(data or {}):
             if e["completed"] and e["hg"] is not None and to_kst(e["date"]) < start:
                 evs.setdefault(e["id"], (e["date"], "c", e["home_id"], e["away_id"], e["hg"], e["ag"]))
     return evs
 
 
-def _elo_from(evs):
+def _elo_from(evs, start_ratings=None, sport_root="soccer"):
     # 지난 시즌 경기가 먼저 오도록 시즌 표시를 날짜 순서와 맞춤
     rows = [(d, "0" if s == "p" else "1", h, a, hg, ag) for d, s, h, a, hg, ag in evs.values()]
-    return elo_table(rows, **_elo_params())
+    return elo_table(rows, start=start_ratings, **_elo_params(sport_root))
 
 
-def espn_league_elo(client, slug, start, must=()):
+def espn_league_elo(client, slug, start, must=(), sport_root="soccer"):
     """리그 전체 팀의 이번 시즌 + 지난 시즌 결과로 Elo (팀 일정은 캐시, 지난 시즌은 영구 저장)."""
-    key = ("espn", slug, start.date(), tuple(sorted(t for t in must if t)))
+    key = ("espn", sport_root, slug, start.date(), tuple(sorted(t for t in must if t)))
     if key in _ELO_MEMO:
         return _ELO_MEMO[key]
-    table = _elo_from(_league_events(client, slug, start, must))
+    table = _elo_from(_league_events(client, slug, start, must, sport_root), sport_root=sport_root)
     _ELO_MEMO[key] = table
     return table
 
@@ -568,18 +578,88 @@ EURO_ELO_LEAGUES = ("eng.1", "esp.1", "ita.1", "ger.1", "fra.1", "por.1", "ned.1
 EURO_ELO_MIN_TEAMS = 80        # 이보다 적으면 아직 덜 받아온 것 → 예전 방식으로
 
 
-def euro_elo(client, cfg, start, must=()):
-    """유럽 리그 + 챔스·유로파·컨퍼런스 결과를 한 Elo 표로. 리그가 다른 팀끼리 비교할 때 쓴다."""
+_EURO_BASE = {}
+
+
+def _euro_file():
+    """백테스트(`backtest.py eurocups`)가 만들어 둔 유럽 통합 Elo 파일. 없으면 None."""
+    if "d" not in _EURO_BASE:
+        try:
+            with open(os.path.join(ROOT, "euro_elo.json"), encoding="utf-8") as f:
+                d = json.load(f)
+            _EURO_BASE["d"] = d if (d.get("teams")) else None
+        except (OSError, ValueError, AttributeError, TypeError):
+            _EURO_BASE["d"] = None
+    return _EURO_BASE["d"]
+
+
+def euro_base():
+    """바탕값은 '독주 보정을 걸기 전' 점수다. 보정은 이번 시즌 경기까지 얹은 뒤에 건다
+    (보정된 값 위에 리그 경기를 얹으면 시즌이 갈수록 보정이 풀려 버린다)."""
+    d = _euro_file()
+    if not d:
+        return None
+    t = {k: (v.get("elo_raw") if v.get("elo_raw") is not None else v.get("elo"))
+         for k, v in (d.get("teams") or {}).items()}
+    return {k: v for k, v in t.items() if v} or None
+
+
+def euro_shrink(table):
+    """독주 보정: 리그 평균 쪽으로 당긴다. 대항전 경험이 적을수록 세게.
+    (약한 리그에서 독주해 부푼 점수를 눌러 준다 — 대항전 검증 로그손실 0.9399 → 0.9251)"""
+    d = _euro_file()
+    if not table:
+        return table
+    rule = ((get_model() or {}).get("euro_elo_rule") or {}).get("dominance_shrink") or {}
+    lam, mm = rule.get("lam"), rule.get("M")
+    if lam is None or mm is None or lam >= 1:
+        return table
+    teams = d.get("teams") or {} if d else {}
+    means, counts = {}, {}
+    for tid, e in table.items():                       # 리그 평균은 지금 표로 다시 낸다
+        lg = (teams.get(tid) or {}).get("league")
+        if not lg:
+            continue
+        means.setdefault(lg, []).append(e)
+    means = {lg: sum(v) / len(v) for lg, v in means.items() if len(v) >= 6}
+    out = {}
+    for tid, e in table.items():
+        info = teams.get(tid) or {}
+        mu = means.get(info.get("league"))
+        if mu is None:
+            out[tid] = e                               # 리그를 모르는 팀은 그대로
+            continue
+        n = info.get("cup_n") or 0
+        out[tid] = mu + (e - mu) * (lam + (1 - lam) * n / (n + mm))
+    return out
+
+
+def euro_elo(client, cfg, start, must=(), slugs=()):
+    """유럽 팀을 한 잣대로 비교하는 Elo.
+    ① 백테스트가 만든 표가 있으면 그걸 바탕값으로 삼고, 두 팀 리그의 이번 시즌 결과만 얹는다 (요청이 거의 안 는다).
+    ② 표가 없으면 유럽 리그 + 대항전을 직접 다 받아서 만든다 (첫 경기에 요청이 많이 나간다)."""
+    base = euro_base()
+    have = {lg["slug"] for lg in cfg.get("espn_leagues", [])}
+    if base:
+        key = ("eurob", start.date(), tuple(sorted(set(slugs))))
+        if key in _ELO_MEMO:
+            return _ELO_MEMO[key]
+        evs = {}
+        for slug in set(slugs):
+            if slug in have:
+                evs.update(_league_events(client, slug, start))
+        table = euro_shrink(_elo_from(evs, start_ratings=base, sport_root="euro"))
+        _ELO_MEMO[key] = table
+        return table
     key = ("euro", start.date())
     if key in _ELO_MEMO:
         return _ELO_MEMO[key]
-    have = {lg["slug"] for lg in cfg.get("espn_leagues", [])}
     evs = {}
     for slug in EURO_ELO_LEAGUES + EURO_COMPS:
         if slug not in have:
             continue
         evs.update(_league_events(client, slug, start, must if slug in EURO_COMPS else ()))
-    table = _elo_from(evs)
+    table = _elo_from(evs, sport_root="euro")
     if len(table) >= EURO_ELO_MIN_TEAMS:          # 다 받아왔을 때만 기억한다
         _ELO_MEMO[key] = table
     return table
@@ -785,16 +865,20 @@ def cross_power(client, cfg, model, game, teams, slugs, start, ins=None):
             way = "리그 수준 보정을 더한 Elo로 비교했어요"
     # ② 아니면 대항전 결과까지 합친 통합 Elo
     if eh is None:
-        elo = euro_elo(client, cfg, start, must=ids)
-        if len(elo) < EURO_ELO_MIN_TEAMS or ids[0] not in elo or ids[1] not in elo:
+        elo = euro_elo(client, cfg, start, must=ids, slugs=(sh, sa))
+        enough = euro_base() is not None or len(elo) >= EURO_ELO_MIN_TEAMS
+        if not enough or ids[0] not in elo or ids[1] not in elo:
             return None                           # 아직 덜 모였으면 숫자를 내지 않는다
         eh, ea = elo[ids[0]], elo[ids[1]]
         way = "리그가 달라 대항전 결과로 만든 통합 Elo로 비교했어요"
-    kh = league_gd_factor(model, cfg, sh)
-    ka = league_gd_factor(model, cfg, sa)
+    # 대항전 전용 모델은 '있는 그대로의 득실차'로 배웠으므로 리그 계수를 곱하지 않는다
+    use_cup = bool((model or {}).get("cup_model")) and game.get("league_slug") in EURO_COMPS
+    kh = 1.0 if use_cup else league_gd_factor(model, cfg, sh)
+    ka = 1.0 if use_cup else league_gd_factor(model, cfg, sa)
     h = dict(hs, gd=(hs.get("gd") or 0.0) * kh, elo=eh)
     a = dict(as_, gd=(as_.get("gd") or 0.0) * ka, elo=ea)
-    power = model_power(model, game.get("league_slug"), h, a, game["home"]["name"], game["away"]["name"], teams)
+    power = model_power(model, game.get("league_slug"), h, a, game["home"]["name"], game["away"]["name"], teams,
+                        cup=use_cup)
     power["cross"] = {"gd_factor": [round(kh, 3), round(ka, 3)], "league": [sh, sa],
                       "elo_offset": [offs.get(sh), offs.get(sa)] if way.startswith("리그 수준") else None}
     power["note"] = power.get("note") or way
@@ -805,6 +889,8 @@ def pre_power(client, game, hist, slugs, start, cfg):
     """라인업 발표 전 전력 비교.
     백테스트에서 '오늘 라인업'은 결과 예측을 거의 못 바꿨고(개선 0.1% 수준) 팀 체급(득실차)과
     Elo가 대부분을 설명했다. 그래서 라인업이 나오기 전에도 같은 숫자를 미리 낼 수 있다."""
+    if game.get("sport") == "농구":
+        return basketball_power_for(client, game, start)
     if game.get("sport") != "축구":
         return None
     if not (hist.get("home") and hist.get("away")):
@@ -830,6 +916,66 @@ def pre_power(client, game, hist, slugs, start, cfg):
     h = dict(model_side(hist["home"]), elo=elo.get(game["home"]["id"], 1500.0))
     a = dict(model_side(hist["away"]), elo=elo.get(game["away"]["id"], 1500.0))
     return model_power(model, sh, h, a, hn, an)
+
+
+BASKET_GD_SHRINK = 5.0         # 이번 시즌 경기가 적으면 득실차를 0 쪽으로 눌러 둔다
+BASKET_MIN_GAMES = 5           # 이보다 적으면 '지난 시즌 Elo 위주'라고 알려준다
+
+
+def win_row(pw):
+    """목록·상세에 실을 승률 세 칸(%)과 등급·뒤집힐 확률. 못 내면 빈 dict."""
+    w = (pw or {}).get("win")
+    if not w:
+        return {}
+    out = {"win": [round(x * 100) for x in w]}
+    g = (pw or {}).get("grade_win") or {}
+    if g:
+        out["wgrade"] = g.get("label")
+        out["flip"] = round((g.get("flip") or 0) * 100)
+    return out
+
+
+def basketball_power_for(client, game, start):
+    """농구 전력. 리그 전체 일정 한 번이면 Elo와 경기당 득실차가 둘 다 나오므로
+    라인업 발표 전에도 같은 숫자를 낸다 (박스스코어를 받지 않아 요청이 거의 안 는다).
+    시즌 초에는 이번 시즌 득실차가 거의 눌리고 지난 시즌까지 본 Elo가 대신 끌어준다
+    — 지난 시즌 득실차를 섞는 쪽은 검증에서 오히려 나빠져서 쓰지 않는다."""
+    ids = (game["home"].get("id"), game["away"].get("id"))
+    if not all(ids):
+        return None
+    slug = game.get("league_slug") or "nba"
+    evs = _league_events(client, slug, start, must=tuple(ids), sport_root="basketball")
+    if not evs:
+        return None
+    model = get_model()
+    cal = ((model or {}).get("win_calib") or {}).get("농구") or {}
+    shrink = cal.get("gd_shrink", BASKET_GD_SHRINK)
+    need = cal.get("min_games", BASKET_MIN_GAMES)
+    elo = _elo_from(evs, sport_root="basketball")
+    if not any(t in elo for t in ids):
+        return None                            # 두 팀 다 Elo에 없으면 낼 숫자가 없다
+    agg = {}
+    for _d, label, h, a, hg, ag in evs.values():
+        if label != "c":                       # 득실차는 이번 시즌만 (Elo는 지난 시즌까지 본다)
+            continue
+        for t, gf, ga in ((h, hg, ag), (a, ag, hg)):
+            x = agg.setdefault(t, [0.0, 0])
+            x[0] += gf - ga
+            x[1] += 1
+
+    def side(tid):
+        tot, n = agg.get(tid) or [0.0, 0]
+        gd = (tot / n) if n else 0.0
+        return {"gd": gd * n / (n + shrink), "elo": elo.get(tid, 1500.0), "n": n}
+
+    h, a = side(ids[0]), side(ids[1])
+    power = basketball_power(model, h, a, game["home"]["name"], game["away"]["name"])
+    if power:
+        power["basis"]["games"] = [h["n"], a["n"]]
+        if min(h["n"], a["n"]) < need:
+            power["note"] = "시즌 초라 지난 시즌까지 본 Elo 위주로 계산했어요"
+            power["confident"] = False
+    return power
 
 
 def espn_pre_lineup(client, game, now, extractor):
@@ -893,7 +1039,7 @@ def espn_pre_lineup(client, game, now, extractor):
         power = pre_power(client, game, hist, slug_of, start, cfg)
     except Exception as exc:                  # 전력 숫자가 안 나와도 나머지는 그대로
         print(f"  ! 발표 전 전력 계산 실패: {exc}", file=sys.stderr)
-    return {"risk": risk, "power": power,
+    return {"risk": risk, "power": attach_win(power, get_model()),
             "signals": (sig + model_signals(power, names) + _risk_signals(names, risk))[:4]}
 
 
@@ -996,6 +1142,11 @@ def build_espn_detail(client, game, now):
                 out.update(espn_pre_lineup(client, game, now, extractor))
             except Exception as exc:                   # 발표 전 분석이 실패해도 '라인업 대기'는 그대로 보여준다
                 print(f"  ! 발표 전 분석 실패: {exc}", file=sys.stderr)
+        elif game["sport"] == "농구":
+            try:                                       # 농구는 라인업 없이도 득실차·Elo로 전력이 나온다
+                out["power"] = attach_win(basketball_power_for(client, game, to_kst(game["start_kst"]) or now), get_model())
+            except Exception as exc:
+                print(f"  ! 농구 발표 전 전력 실패: {exc}", file=sys.stderr)
         return out
 
     start = to_kst(game["start_kst"]) or now
@@ -1075,6 +1226,11 @@ def build_espn_detail(client, game, now):
             power = cross_power(client, cfg, model, game, teams, slugs, start)
             if power is None:                     # 통합 Elo가 아직 덜 모였을 때: 예전 방식
                 power = compare_power(teams["home"], teams["away"], game["home"]["name"], game["away"]["name"], fh, fa)
+    elif game["sport"] == "농구":
+        try:
+            power = basketball_power_for(client, game, start)
+        except Exception as exc:                  # 전력이 안 나와도 라인업 판정은 그대로
+            print(f"  ! 농구 전력 계산 실패: {exc}", file=sys.stderr)
     names = {s: game[s]["name"] for s in ("home", "away")}
     extra = []
     if game["sport"] == "축구":
@@ -1082,7 +1238,7 @@ def build_espn_detail(client, game, now):
             extra = attach_absences(teams, fotmob_absences(client, game), names, is_jp_league(league_slug))
         except Exception as exc:                 # 풋몹이 막혀도 판정은 그대로
             print(f"  ! 풋몹 결장자 실패: {exc}", file=sys.stderr)
-    return {"lineup_ready": True, "teams": teams, "power": power, "national": bool(game.get("national")),
+    return {"lineup_ready": True, "teams": teams, "power": attach_win(power, get_model()), "national": bool(game.get("national")),
             "signals": (extra + model_signals(power, names) + build_signals(names, teams, game["sport"]))[:4],
             "summary": summarize(game["home"]["name"], game["away"]["name"], teams, game["sport"])}
 
@@ -1225,7 +1381,7 @@ def naver_pre_lineup(client, game, now):
             power = model_power(model, game.get("category"), h, a, names["home"], names["away"])
         except Exception as exc:
             print(f"  ! 발표 전 전력 계산 실패: {exc}", file=sys.stderr)
-    return {"risk": risk, "power": power,
+    return {"risk": risk, "power": attach_win(power, get_model()),
             "signals": (model_signals(power, names) + _risk_signals(names, risk))[:4]}
 
 
@@ -1274,7 +1430,7 @@ def build_naver_detail(client, game, now):
     else:
         power = compare_power(teams["home"], teams["away"], game["home"]["name"], game["away"]["name"])
     names = {s: game[s]["name"] for s in ("home", "away")}
-    return {"lineup_ready": True, "teams": teams, "power": power, "national": False,
+    return {"lineup_ready": True, "teams": teams, "power": attach_win(power, get_model()), "national": False,
             "signals": (model_signals(power, names) + build_signals(names, teams, "축구"))[:4],
             "summary": summarize(game["home"]["name"], game["away"]["name"], teams, "축구")}
 
@@ -1620,14 +1776,15 @@ def build_kbo_detail(client, game, now):
         pit = t["pitching"]
         return {"sp": pit.get("sp") or {}, "off_rpg": pit.get("off_rpg"), "pen_era": (pit.get("pen") or {}).get("era"),
                 "pen_3d": (pit.get("pen") or {}).get("pitches_3d") or 0, "core_in": t.get("core_in"), "size": 9, "grade": t.get("grade")}
-    power = baseball_power(inputs("home"), inputs("away"), game["home"]["name"], game["away"]["name"], rpg=rpg)
+    power = baseball_power(inputs("home"), inputs("away"), game["home"]["name"], game["away"]["name"],
+                           rpg=rpg, league="KBO", model=get_model())
     summary = summarize(game["home"]["name"], game["away"]["name"], teams, "야구")
     summary["points"] = (mlb_points(game, teams, power) + (summary.get("points") or []))[:3]
     sps = [((teams[s].get("pitching") or {}).get("sp") or {}).get("name") for s in ("home", "away")]
     if all(sps):
         summary["headline"] = f"{power.get('verdict', '')} · 선발 {sps[0]} vs {sps[1]}".strip(" ·")
     names = {s: game[s]["name"] for s in ("home", "away")}
-    return {"lineup_ready": True, "teams": teams, "power": power, "summary": summary,
+    return {"lineup_ready": True, "teams": teams, "power": attach_win(power, get_model()), "summary": summary,
             "signals": build_signals(names, teams, "야구")}
 
 
@@ -1805,7 +1962,7 @@ def build_fotmob_detail(client, game, now):
         except Exception as exc:                 # 전력 숫자가 안 나와도 라인업 판정은 그대로
             print(f"  ! 풋몹 전력 계산 실패: {exc}", file=sys.stderr)
     summary = summarize(game["home"]["name"], game["away"]["name"], teams, "축구")
-    return {"lineup_ready": True, "teams": teams, "power": power, "national": False, "summary": summary, "record_recent": True,
+    return {"lineup_ready": True, "teams": teams, "power": attach_win(power, get_model()), "national": False, "summary": summary, "record_recent": True,
             "lineup_source": why, "signals": (extra + model_signals(power, names) + build_signals(names, teams, "축구"))[:4]}
 
 
@@ -1880,7 +2037,8 @@ def build_mlb_detail(client, game, now):
         return {"sp": pit.get("sp") or {}, "off_rpg": pit.get("off_rpg"), "pen_era": (pit.get("pen") or {}).get("era"),
                 "pen_3d": (pit.get("pen") or {}).get("pitches_3d") or 0, "core_in": t.get("core_in"), "size": 9,
                 "grade": t.get("grade")}
-    power = baseball_power(inputs("home"), inputs("away"), game["home"]["name"], game["away"]["name"])
+    power = baseball_power(inputs("home"), inputs("away"), game["home"]["name"], game["away"]["name"],
+                           league="MLB", model=get_model())
     summary = summarize(game["home"]["name"], game["away"]["name"], teams, "야구")
     summary["points"] = (mlb_points(game, teams, power) + (summary.get("points") or []))[:3]
     # 야구는 투수가 핵심이라 한 줄 요약도 선발 맞대결 중심으로
@@ -1889,7 +2047,7 @@ def build_mlb_detail(client, game, now):
         last = lambda n: n.split(" ")[-1]
         summary["headline"] = f"{power.get('verdict', '')} · 선발 {last(sps[0])} vs {last(sps[1])}".strip(" ·")
     names = {s: game[s]["name"] for s in ("home", "away")}
-    return {"lineup_ready": True, "teams": teams, "power": power, "summary": summary,
+    return {"lineup_ready": True, "teams": teams, "power": attach_win(power, get_model()), "summary": summary,
             "signals": build_signals(names, teams, "야구")}
 
 
@@ -1978,7 +2136,7 @@ def snapshot(game, detail):
         "key": game["key"], "sport": game["sport"], "league": game["league"], "national": bool(game.get("national")),
         "start_kst": game["start_kst"], "home": side["home"], "away": side["away"],
         "power": [pw.get("home"), pw.get("away")] if pw else None, "power_mode": pw.get("mode", "club") if pw else None,
-        "snap_state": game.get("state"), "result": None,
+        "snap_state": game.get("state"), "result": None, **win_row(pw),
     }
 
 
@@ -2012,6 +2170,7 @@ def detail_row(detail):
     pw = detail.get("power") or {}
     if pw:
         out["power"] = [pw.get("home"), pw.get("away")]
+        out.update(win_row(pw))
     if detail.get("signals"):
         out["signals"] = detail["signals"]
     return out
@@ -2179,6 +2338,7 @@ def run(verbose=False):
                 row["insight"] = (detail.get("summary") or {}).get("insight", "")
                 pw = detail.get("power") or {}
                 row["power"] = [pw["home"], pw["away"]] if pw else None
+                row.update(win_row(pw))
                 row["signals"] = (detail.get("signals") or [])[:3]
                 for side in ("home", "away"):
                     ace = detail["teams"][side].get("ace") or {}
@@ -2187,6 +2347,7 @@ def run(verbose=False):
                 pw = detail.get("power") or {}
                 if pw:
                     row["power"] = [pw["home"], pw["away"]]
+                    row.update(win_row(pw))
                 if detail.get("signals"):        # 로테이션 가능성·부상 신호
                     row["signals"] = detail["signals"][:3]
             row["note"] = detail.get("note", "")
