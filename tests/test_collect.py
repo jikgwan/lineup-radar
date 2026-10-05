@@ -516,8 +516,8 @@ def test_archive_keeps_prediction_then_fills_result():
         collect.kst_now = lambda: NOW
         collect.load_config = lambda: {"mlb_enabled": False, "espn_leagues": [{"sport": "축구", "slug": "eng.1", "path": "soccer/eng.1", "name": "EPL"}]}
         def rows():
-            files = sorted(os.listdir(collect.ARCHIVE_DIR))
-            assert files == ["2026-09.jsonl"], files
+            files = sorted(f for f in os.listdir(collect.ARCHIVE_DIR) if f.endswith(".jsonl"))
+            assert files == ["2026-09.jsonl"], files        # details/ 폴더는 상세 보관용이라 센지 않는다
             with open(os.path.join(collect.ARCHIVE_DIR, files[0]), encoding="utf-8") as f:
                 return [json.loads(l) for l in f if l.strip()]
 
