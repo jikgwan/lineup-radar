@@ -362,6 +362,32 @@ def test_euro_elo_links_leagues():
     assert t2["a1"] > t2["b1"] and t2["a2"] > t2["b2"]           # 대항전 결과가 잣대를 이어준다
 
 
+def test_euro_base_table_used_as_starting_point():
+    """백테스트가 만든 유럽 Elo 표가 있으면 그 점수에서 이어서 계산한다 (요청도 거의 안 는다)."""
+    import tempfile
+    from grade import elo_table
+    tmp = tempfile.mkdtemp()
+    old_root = collect.ROOT
+    try:
+        collect.ROOT = tmp
+        collect._EURO_BASE.clear()
+        assert collect.euro_base() is None                     # 파일이 없으면 None
+        with open(os.path.join(tmp, "euro_elo.json"), "w", encoding="utf-8") as f:
+            json.dump({"teams": {"1": {"elo": 1750, "league": "eng.1", "name": "H"},
+                                 "2": {"elo": 1450, "league": "bel.1", "name": "A"}}}, f)
+        collect._EURO_BASE.clear()
+        base = collect.euro_base()
+        assert base == {"1": 1750.0, "2": 1450.0}
+        # 바탕값에서 이어서: 새 경기가 없으면 그대로, 있으면 그 점수에서 움직인다
+        assert elo_table([], start=base) == base
+        moved = elo_table([("2026-09-01", "1", "2", "1", 3, 0)], start=base)
+        assert moved["2"] > 1450 and moved["1"] < 1750
+    finally:
+        collect.ROOT = old_root
+        collect._EURO_BASE.clear()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_league_gd_factor():
     """리그 계수: 백테스트 값이 있으면 그걸, 없으면 설정값."""
     cfg = {"league_strength": {"eng.1": 1.0, "ned.1": 0.83, "default": 0.8}}

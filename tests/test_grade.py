@@ -60,7 +60,8 @@ def test_role_thresholds():
 def test_grade_labels():
     assert grade_label(11, 11) == "1군"
     assert grade_label(9, 11) == "1군"
-    assert grade_label(8, 11) == "1.5군"
+    assert grade_label(8, 11) == "1군"          # 백테스트로 바꾼 기준: 3명까지 빠져도 1군
+    assert grade_label(7, 11) == "1.5군"
     assert grade_label(6, 11) == "1.5군"
     assert grade_label(5, 11) == "2군"
     assert grade_label(0, 0) == "판단불가"
@@ -135,6 +136,39 @@ def test_new_player_in_lineup_is_reported():
     out = analyze_lineup([{"id": 99, "name": "새선수"}], hist, 5)
     assert out["players"][0]["role"] == "신규·복귀"
     assert out["players"][0]["starts"] == 0
+
+
+
+def test_ace_is_the_scorer_not_the_ironman():
+    """득점·도움이 에이스 기준. 출전시간만 많은 선수가 9골 공격수를 이기면 안 된다.
+    (실제로 9골 3도움 공격수 대신 1골 3도움 미드필더가 에이스로 뽑히는 문제가 있었다)"""
+    from grade import ace_score, pick_ace
+
+    def P(pid, name, pos, g, a, mins, rg=0, ra=0, rmins=450):
+        return {"id": pid, "name": name, "pos": pos,
+                "season": {"matches": 30, "goals": g, "assists": a, "minutes": mins, "apps": 28},
+                "recent": {"matches": 5, "goals": rg, "assists": ra, "minutes": rmins, "apps": 5}}
+
+    striker = P("1", "솔란스", "F", 9, 3, 1500)                  # 교체로 자주 나감
+    midfield = P("2", "칼리스칸", "CM", 1, 3, 2600, 1, 2)        # 매 경기 풀타임
+    keeper = P("3", "골키퍼", "G", 0, 0, 2700)
+    assert ace_score(striker) > ace_score(midfield) > ace_score(keeper)
+    team = {"players": [striker, midfield, keeper], "bench": [], "missing": []}
+    assert pick_ace(team)["name"] == "솔란스"
+    # 기록이 아예 없으면 에이스 없음
+    assert pick_ace({"players": [{"id": "9", "name": "x", "season": {"apps": 0}}], "bench": [], "missing": []}) is None
+
+
+def test_elo_goal_difference():
+    """골 차이 반영: goal=0이면 승·무·패만, 크면 크게 이길수록 많이 움직인다."""
+    from grade import elo_table, goal_mult
+    assert goal_mult(1, 0, 0.0) == 1.0 and goal_mult(5, 0, 0.0) == 1.0     # 끄면 항상 1
+    assert goal_mult(1, 0, 1.0) == 1.0 < goal_mult(3, 1, 1.0) < goal_mult(5, 0, 1.0)
+    narrow = elo_table([("2026-01-01", "1", "h", "a", 1, 0)], goal=1.0)
+    wide = elo_table([("2026-01-01", "1", "h", "a", 5, 0)], goal=1.0)
+    assert wide["h"] > narrow["h"]                                          # 크게 이기면 더 오른다
+    off = elo_table([("2026-01-01", "1", "h", "a", 5, 0)], goal=0.0)
+    assert abs(off["h"] - narrow["h"]) < 1e-9                               # 끄면 점수차와 무관
 
 
 if __name__ == "__main__":

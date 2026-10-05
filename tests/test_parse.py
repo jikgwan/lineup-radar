@@ -259,6 +259,63 @@ def test_mlb_season_stat_handles_missing():
     assert parse.mlb_season_stat({"stats": [{"splits": []}]}) == {}
 
 
+def test_mlb_boxscore_side():
+    box = {"teams": {"home": {
+        "battingOrder": [101, 102, 103, 104, 105, 106, 107, 108, 109],
+        "batters": [101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 900],
+        "players": {"ID101": {"person": {"id": 101, "fullName": "A One"}, "position": {"abbreviation": "CF"}},
+                    "ID110": {"person": {"id": 110, "fullName": "Pinch Hitter"}, "position": {"abbreviation": "RF"}},
+                    "ID900": {"person": {"id": 900, "fullName": "Relief Guy"}, "position": {"abbreviation": "P"}}}}}}
+    r = parse.parse_mlb_boxscore_side(box, "home")
+    assert r["starters"] == [str(i) for i in range(101, 110)]
+    assert "110" in r["played"] and "900" not in r["played"]      # 대타는 출전, 타석 없는 투수는 제외
+    assert r["names"]["101"] == "A One"
+    assert parse.parse_mlb_boxscore_side({}, "home") == {"starters": [], "played": [], "names": {}}
+
+
+def test_pitcher_parsers():
+    person = {"id": 7, "fullName": "Ace", "pitchHand": {"code": "L"}, "stats": [{"splits": [{"stat": {
+        "inningsPitched": "150.2", "strikeOuts": 170, "baseOnBalls": 40, "homeRuns": 15, "era": "2.91", "whip": "1.05",
+        "gamesStarted": 25}}]}]}
+    sp = parse.pitcher_season(person)
+    assert sp["hand"] == "L" and sp["era"] == 2.91 and sp["gs"] == 25 and abs(sp["ip"] - 150.7) < 0.05
+    assert sp["fip"] == round((13 * 15 + 3 * 40 - 2 * 170) / (150 + 2 / 3) + 3.1, 2)
+    assert parse.pitcher_season({"stats": [{"splits": [{"stat": {"inningsPitched": "3.0"}}]}]})["fip"] is None   # 표본 부족
+    log = {"stats": [{"splits": [
+        {"date": "2026-09-10", "opponent": {"name": "A"}, "stat": {"gamesStarted": 1, "inningsPitched": "6.0", "earnedRuns": 2, "numberOfPitches": 95}},
+        {"date": "2026-09-16", "opponent": {"name": "B"}, "stat": {"gamesStarted": 1, "inningsPitched": "5.1", "earnedRuns": 4, "numberOfPitches": 101}},
+        {"date": "2026-09-13", "opponent": {"name": "C"}, "stat": {"gamesStarted": 0, "inningsPitched": "1.0", "earnedRuns": 0}}]}]}
+    starts = parse.pitcher_starts(log)
+    assert [s["date"] for s in starts] == ["2026-09-16", "2026-09-10"]      # 구원 등판 제외, 최신순
+    assert starts[0]["ip"] == 5.3 and starts[0]["pitches"] == 101
+    box = {"teams": {"home": {"pitchers": [1, 2, 3], "players": {
+        "ID1": {"stats": {"pitching": {"numberOfPitches": 98}}},
+        "ID2": {"stats": {"pitching": {"numberOfPitches": 22}}},
+        "ID3": {"stats": {"pitching": {"pitchesThrown": 15}}}}}}}
+    assert parse.bullpen_usage(box, "home") == {"2": 22, "3": 15}          # 선발(첫 투수) 제외
+    assert parse.bullpen_usage({}, "home") == {}
+
+
+def test_fotmob_parsers():
+    ms = parse.parse_fotmob_matches({"leagues": [{"name": "Premier League", "matches": [
+        {"id": 99, "home": {"name": "Leeds United"}, "away": {"name": "Crystal Palace"}, "status": {"utcTime": "2026-09-20T14:00:00Z"}}]}]})
+    assert ms == [{"id": "99", "home": "Leeds United", "away": "Crystal Palace", "utc": "2026-09-20T14:00:00Z", "league": "Premier League"}]
+    det = {"content": {"lineup": {"homeTeam": {"unavailable": [
+        {"id": 1, "name": "Joe Rodon", "unavailability": {"type": "injury", "expectedReturn": "Late September 2026"}},
+        {"id": 2, "name": "Phil Foden", "unavailability": {"type": "suspension", "expectedReturn": "Mid October 2026"}, "performance": {"seasonRating": 6.78}}]},
+        "awayTeam": {}}}}
+    u = parse.parse_fotmob_unavailable(det)
+    assert u["home"][0]["type"] == "부상" and u["home"][0]["return"] == "9월 말"
+    assert u["home"][1]["type"] == "징계" and u["home"][1]["return"] == "10월 중순" and u["away"] == []
+    assert parse.fotmob_return_text("Unknown") == "미정" and parse.fotmob_return_text("Early January 2027") == "1월 초"
+    assert parse.fotmob_return_text("About 1-2 weeks") == "1~2주 뒤"        # 풋몹이 이런 표기도 준다
+    assert parse.fotmob_return_text("Back in training") == "훈련 복귀 중"
+    assert parse.fotmob_return_text("3 weeks") == "3주 뒤" and parse.fotmob_return_text("Out for season") == "시즌 아웃"
+    assert parse.fotmob_return_text("") == "미정"
+    assert parse.same_person("Phil Foden", "P. Foden") and parse.same_person("Kylian Mbappé", "Kylian Mbappe")
+    assert not parse.same_person("Joe Rodon", "Joe Hart") and not parse.same_person("", "x")
+
+
 if __name__ == "__main__":
     count = 0
     for name, fn in sorted(list(globals().items())):
