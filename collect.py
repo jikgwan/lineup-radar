@@ -1119,6 +1119,48 @@ def naver_schedule_context(client, game, side, history, start):
     return _ctx(last, nxt, start)
 
 
+# ESPN이 라인업을 킥오프 직전·직후에야 주는 리그 → 풋몹 라인업으로 먼저 판정 (값: 풋몹 리그 ID)
+# 실측(2026-10-18): J1 ESPN 라인업은 킥오프 5분 전~4분 뒤, 같은 날 풋몹(J2)은 56분 전
+FOTMOB_LINEUP_FALLBACK = {"jpn.1": 223, "usa.1": 130, "aus.1": 113}
+FALLBACK_WINDOW = 90            # 킥오프 몇 분 전부터 풋몹 라인업을 찾아볼지 (그 전엔 요청 낭비)
+
+
+def fotmob_fallback_detail(client, game, now, pre=None):
+    """ESPN에 선발이 아직 없을 때 풋몹 라인업으로 몇 군을 판정한다.
+    전력·승률은 ESPN 기준(발표 전 계산, pre)을 그대로 쓴다. 풋몹에도 없거나 경기를 못 찾으면 None."""
+    lid = FOTMOB_LINEUP_FALLBACK.get(game.get("league_slug"))
+    start = to_kst(game.get("start_kst") or "")
+    if not lid or not start or game.get("national"):
+        return None
+    if (start - now).total_seconds() / 60 > FALLBACK_WINDOW:
+        return None
+    names = {s: (game[s].get("name_en") or game[s]["name"]) for s in ("home", "away")}
+    cands = []
+    for d in sorted({start.strftime("%Y%m%d"), start.astimezone(timezone.utc).strftime("%Y%m%d")}):
+        data = client.get_json(f"{FOTMOB}/matches", params={"date": d}, cache_key=f"fm_{d}", ttl=1800)
+        cands += parse_fotmob_league_matches(data or {}, {lid})
+    both = [m for m in cands if _team_match(m["home"]["name"], names["home"]) and _team_match(m["away"]["name"], names["away"])]
+    # 팀 표기가 다를 때(예: JEF United Ichihara-Chiba ↔ JEF United Chiba): 같은 리그·같은 시각에 한 팀만 맞아도 같은 경기
+    one = [m for m in cands if abs((to_kst(m["start_kst"]) - start).total_seconds()) <= 600
+           and (_team_match(m["home"]["name"], names["home"]) or _team_match(m["away"]["name"], names["away"]))]
+    found = both[0] if both else (one[0] if len(one) == 1 else None)
+    if not found or not found["home"]["id"] or not found["away"]["id"]:
+        return None
+    fg = dict(game, event_id=found["id"], fm_league=lid, power=False,
+              home=dict(game["home"], id=found["home"]["id"]), away=dict(game["away"], id=found["away"]["id"]))
+    det = build_fotmob_detail(client, fg, now, strict=True)
+    if not det.get("lineup_ready"):
+        return None
+    pw = (pre or {}).get("power")
+    if pw:                                        # 전력·승률은 ESPN 기준 그대로
+        det["power"] = pw
+        det["signals"] = (det.get("signals") or []) + [x for x in model_signals(pw, {s: game[s]["name"] for s in ("home", "away")})
+                                                       if x not in (det.get("signals") or [])]
+        det["signals"] = det["signals"][:4]
+    det["lineup_source"] = f"풋몹 라인업 ({det.get('lineup_source', '')}) — ESPN보다 먼저 받음"
+    return det
+
+
 def build_espn_detail(client, game, now):
     sport_root = "soccer" if game["sport"] == "축구" else "basketball"
     league_slug = game["league_slug"]
@@ -1149,6 +1191,12 @@ def build_espn_detail(client, game, now):
                 out.update(espn_pre_lineup(client, game, now, extractor))
             except Exception as exc:                   # 발표 전 분석이 실패해도 '라인업 대기'는 그대로 보여준다
                 print(f"  ! 발표 전 분석 실패: {exc}", file=sys.stderr)
+            try:                                       # ESPN이 늦는 리그는 풋몹 라인업으로 먼저 판정
+                fm = fotmob_fallback_detail(client, game, now, out)
+                if fm:
+                    return fm
+            except Exception as exc:
+                print(f"  ! 풋몹 라인업 대체 실패: {exc}", file=sys.stderr)
         elif game["sport"] == "농구":
             try:                                       # 농구는 라인업 없이도 득실차·Elo로 전력이 나온다
                 out["power"] = attach_win(basketball_power_for(client, game, to_kst(game["start_kst"]) or now), get_model())
@@ -1159,6 +1207,13 @@ def build_espn_detail(client, game, now):
     start = to_kst(game["start_kst"]) or now
     cfg = load_config()
     if min(counts) < size_need:                                  # 한쪽이라도 선수가 모자라면 판정하지 않는다
+        if game["sport"] == "축구":
+            try:                                                 # ESPN이 덜 채웠으면 풋몹 라인업으로
+                fm = fotmob_fallback_detail(client, game, now)
+                if fm:
+                    return fm
+            except Exception as exc:
+                print(f"  ! 풋몹 라인업 대체 실패: {exc}", file=sys.stderr)
         return {"lineup_ready": False,
                 "note": f"라인업 정보가 부족해요 (확인된 선발 {counts[0]}명 · {counts[1]}명). 발표되면 판정해요."}
     teams, slugs = {}, {}
@@ -1893,7 +1948,7 @@ def fotmob_power(client, game, teams, start):
     return power
 
 
-def build_fotmob_detail(client, game, now):
+def build_fotmob_detail(client, game, now, strict=False):
     det = client.get_json(f"{FOTMOB}/matchDetails", params={"matchId": game["event_id"]}, cache_key=f"fm_live_{game['event_id']}", ttl=120)
     lu = parse_fotmob_lineups(det or {})
     start = to_kst(game["start_kst"]) or now
@@ -1912,7 +1967,7 @@ def build_fotmob_detail(client, game, now):
             changed = max(changed, len(set(today_ids) - set(last)))
     near = (now - start).total_seconds() >= -30 * 60
     why = ("발표 (풋몹)" if lu.get("confirmed") else
-           "지난 경기와 선발이 달라짐" if changed >= 3 else
+           "지난 경기와 선발이 달라짐" if changed >= 3 and not strict else
            "경기 임박 (30분 전 지남)" if near else "")
     if not have or not why:
         out = {"lineup_ready": False,
